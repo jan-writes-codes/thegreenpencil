@@ -273,9 +273,15 @@ setTimeout(() => {
   if (!doBook) return finish();
 
   // Click the first open, clickable calendar slot, then confirm.
-  const openSlot = [...document.querySelectorAll(".slot")].find(
+  const findSlot = () => [...document.querySelectorAll(".slot")].find(
     (b) => b.onclick && /\d\d:\d\d/.test(b.textContent)
   );
+  let openSlot = findSlot();
+  // Late in the week the open slots may all fall in next week's view.
+  if (!openSlot && document.querySelector("#nextWeek")) {
+    document.querySelector("#nextWeek").click();
+    openSlot = findSlot();
+  }
   if (!openSlot) return finish({ booking: { error: "no open slot found" } });
   openSlot.click();
 

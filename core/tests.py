@@ -29,7 +29,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from unittest import mock
 
@@ -78,6 +78,20 @@ def extract_payload(html):
 def extract_data_role(html):
     m = DATA_ROLE_RE.search(html)
     return m.group(1) if m else None
+
+
+class FrozenTodayMixin:
+    """Pins "now" to Mon 1 Jun 2026 — the demo week these tests' hard-coded
+    dates live in — so date rules (e.g. the 30-day back-dating limit) don't
+    start rejecting them as the real calendar moves on."""
+
+    FROZEN_NOW = datetime(2026, 6, 1, 8, 0, tzinfo=dt_timezone.utc)
+
+    def setUp(self):
+        patcher = mock.patch("django.utils.timezone.now", return_value=self.FROZEN_NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
 
 
 class FluentDataMixin:
@@ -330,7 +344,8 @@ class ProfilePhotoPersistenceTests(FluentDataMixin, TestCase):
 # --------------------------------------------------------------------------- #
 # Booking persistence + cross-user visibility  (Bug A, backend half)
 # --------------------------------------------------------------------------- #
-class BookingPersistenceTests(FluentDataMixin, TestCase):
+@override_settings(EMAIL_ASYNC=False)  # no mail threads racing the test DB
+class BookingPersistenceTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, student_slug, tutor_slug, d, t):
         self.client.force_login(getattr(self, student_slug))
         return self.client.post(
@@ -1164,14 +1179,15 @@ class DomQuickAddTests(_DomProbeBase):
 class DomBookingTests(_DomProbeBase):
     def setUp(self):
         super().setUp()
-        # Availability is opt-in now (no seeded defaults). The app pins its
-        # calendar "today" to Mon 1 Jun 2026, so open a few of Davit's slots in
-        # that demo week for the booking flow to have something to click.
+        # Availability is opt-in now (no seeded defaults). The calendar runs on
+        # the real current date, so open a few of Davit's slots over the coming
+        # days (2+ days out, clear of the 24h window) for the flow to click.
         from core.models import AvailabilityOverride
-        for day in range(1, 6):  # Mon–Fri, 1–5 Jun 2026
+        for offset in range(2, 10):
             for time in ("09:00", "10:00", "11:00", "14:00"):
                 AvailabilityOverride.objects.create(
-                    tutor=self.davit, date=date(2026, 6, day), time=time, is_open=True
+                    tutor=self.davit, date=date.today() + timedelta(days=offset),
+                    time=time, is_open=True,
                 )
 
     def test_booking_persists_with_local_date(self):
@@ -1659,7 +1675,8 @@ class PurchaseAndCancellationEmailTests(FluentDataMixin, TestCase):
 # --------------------------------------------------------------------------- #
 # Negative credits: tutor books on tab, student/tutor settle the balance
 # --------------------------------------------------------------------------- #
-class NegativeCreditBookingTests(FluentDataMixin, TestCase):
+@override_settings(EMAIL_ASYNC=False)  # no mail threads racing the test DB
+class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, actor, student_slug, d="2026-07-01", t="09:30"):
         self.client.force_login(actor)
         return self.client.post(
@@ -1735,7 +1752,7 @@ class NegativeCreditBookingTests(FluentDataMixin, TestCase):
         # A booking later *today* is inside the 24h window -> no refund.
         self.maya.credits = 5
         self.maya.save()
-        today = date.today().isoformat()
+        today = self.FROZEN_NOW.date().isoformat()
         self._book(self.maya, "maya", d=today, t="23:59")
         self.maya.refresh_from_db()
         after_book = self.maya.credits                    # 4
