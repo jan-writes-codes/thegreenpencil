@@ -1,16 +1,9 @@
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 from datetime import date, timedelta
 from core.models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings
 )
-
-
-def start_of_week(d):
-    """Return Monday of the week containing date d."""
-    day = (d.weekday())  # 0=Monday
-    return d - timedelta(days=day)
 
 
 class Command(BaseCommand):
@@ -95,23 +88,16 @@ class Command(BaseCommand):
         )
 
         # Admin
-        admin_user = User.objects.create_user(
+        User.objects.create_user(
             username="admin", email="admin@fluent.at", password="password",
             role="admin", slug="admin", initials="AD",
             color1="#3aa55c", color2="#277a42",
             first_name="Studio", last_name="Admin",
             receipt_seq=1000,
         )
-        # Make superuser for Django admin
-        admin_user.is_staff = True
-        admin_user.is_superuser = True
-        admin_user.save()
-
         self.stdout.write("Creating bookings...")
 
-        # Reference date: Mon Jun 1, 2026
-        today = date(2026, 6, 1)
-        week_start = start_of_week(today)  # Mon Jun 1
+        week_start = date(2026, 6, 1)  # a Monday
 
         def wd(offset):
             """Return date offset days from week_start."""
@@ -160,24 +146,16 @@ class Command(BaseCommand):
         self.stdout.write("Creating transactions and receipts...")
 
         # Helper to create a receipt
-        def make_receipt(student, credits, date_str, seq_override=None):
-            from django.utils import timezone as tz
-            year = 2026
-            if seq_override:
-                no = f"RE-{year}-{str(seq_override).zfill(4)}"
-            else:
-                student.receipt_seq += 1
-                student.save()
-                no = f"RE-{year}-{str(student.receipt_seq).zfill(4)}"
-            settings_obj = SiteSettings.objects.first()
-            r = Receipt.objects.create(
-                number=no,
+        def make_receipt(student, credits, date_str):
+            student.receipt_seq += 1
+            student.save()
+            return Receipt.objects.create(
+                number=f"RE-2026-{student.receipt_seq:04d}",
                 student=student,
                 date_str=date_str,
                 credits=credits,
-                unit_price_cents=settings_obj.credit_price,
+                unit_price_cents=site_settings.credit_price,
             )
-            return r
 
         # SiteSettings must exist first
         site_settings = SiteSettings.objects.create(credit_price=30)

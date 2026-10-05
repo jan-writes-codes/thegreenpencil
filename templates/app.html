@@ -1251,7 +1251,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
     teacherManage: null,
     teacherStudent: null,
     receipts: [],
-    receiptSeq: (DJ.settings && DJ.settings.receiptSeq) || 1042,
     // Both keyed by tutor slug: availability = {tid: {date|time: bool}},
     // customTimes = {tid: {date_key: [times]}}.
     availability: (() => {
@@ -1367,7 +1366,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
   // Initials from a display name (mirrors the server's compute_initials).
   function initialsOf(name){ const p=(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "NS"; if(p.length===1) return p[0].slice(0,2).toUpperCase(); return (p[0][0]+p[1][0]).toUpperCase(); }
   function allAccounts(){ return [...tutorAccounts, ...state.students]; }
-  function accountByEmail(email){ return [ADMIN, ...tutorAccounts, ...state.students].find(u=>u.email.toLowerCase()===email); }
   function accountById(id){ const t=tutorAccounts.find(x=>x.id===id); if(t) return t; if(ADMIN && id===ADMIN.id) return ADMIN; return studentById(id); }
   function meLog(){ const s=studentById(state.currentUser); return s ? s.log : []; }
 
@@ -1380,14 +1378,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
   function fmtAT(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
   // Numeric euros from a price string like "€270" / "270,50" (null if none).
   function parsePrice(s){ const m=String(s==null?"":s).replace(",",".").match(/\d+(?:\.\d+)?/); return m?parseFloat(m[0]):null; }
-  // Per-credit price for a purchase of n credits: if n matches a pack, use that
-  // pack's total ÷ n so the receipt reflects the package price (e.g. 10 → €270),
-  // not n × the per-credit rate. Falls back to the per-credit receipts rate.
-  function unitForCredits(n){
-    const p = PACKS.find(p => +p.n === +n);
-    if(p){ const amt = parsePrice(p.price); if(amt && n>0) return Math.round(amt/n); }
-    return state.creditPrice;
-  }
   // Per-credit settlement price for n outstanding credits: the per-credit rate of
   // the largest pack tier whose size ≤ n (the volume tier "already reached").
   // Mirrors settle_unit_euros server-side — display only; the charge is authoritative.
@@ -1402,13 +1392,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const ns = (PACKS||[]).map(p=>parseInt(p.n,10)).filter(n=>Number.isFinite(n)&&n>0);
     const uniq = [...new Set(ns)].sort((a,b)=>a-b);
     return uniq.length ? uniq : [1,5,10];
-  }
-  function issueReceipt(s, n, dateStr){
-    const no = "RE-"+NOW.getFullYear()+"-"+String(state.receiptSeq++).padStart(4,"0");
-    const unit = unitForCredits(n);
-    const r = { no, dateStr: dateStr || fmtAT(NOW), studentName: s.name, studentId: s.id, billing: (s.billing?{...s.billing}:null), credits: n, unit, net: n*unit, total: n*unit };
-    state.receipts.push(r);
-    return r;
   }
   function findReceipt(no){ return state.receipts.find(r=>r.no===no); }
   function openReceiptNo(no){ const r=findReceipt(no); if(r) openReceipt(r); }
@@ -2529,26 +2512,18 @@ window.DJANGO_DATA = {{ django_data|safe }};
   function closeSettle(){ const m=$("#settleModal"); if(m){ m.hidden=true; m.innerHTML=""; } }
 
   function topUp(s, n, fromModal){
-    // Optimistic receipt for instant display; the server mints the authoritative
-    // number (sequenced per student) which we adopt below — the client counter is
-    // only a placeholder until the response lands.
-    const r = issueReceipt(s, n);
-    s.log.unshift({ type:"buy", label:"Einheiten vom Tutor", sub:"Heute · bar bezahlt", amt:"+"+n, receiptNo: r.no });
-    addStudentCredits(s.id, n);
-    api('POST', '/api/credits/' + s.id + '/', { n, method: 'cash' }).then(res => {
-      if (res && res.receiptNo) {
-        // Adopt the server's number everywhere the placeholder went, so in-session
-        // lookups and the rendered document match the persisted record.
-        if (s.log[0]) s.log[0].receiptNo = res.receiptNo;
-        r.no = res.receiptNo;
-        if ($("#receiptShell")) openReceipt(r);   // refresh an open modal
-        renderAccount(); if(fromModal) renderStudentModal();
-      }
+    // The server mints the receipt (and its number); show it once it exists.
+    api('POST', '/api/credits/' + s.id + '/', { n }).then(res => {
+      if (!res || !res.receipt) { toast("Einheiten konnten nicht gebucht werden"); return; }
+      const r = res.receipt;
+      state.receipts.push(r);
+      s.log.unshift({ type:"buy", label:"Einheiten vom Tutor", sub:"Heute · bar bezahlt", amt:"+"+n, receiptNo: r.no });
+      addStudentCredits(s.id, n);
+      renderRoster(); renderAccount();
+      if(fromModal) renderStudentModal();
+      openReceipt(r);
+      toast(`+${n} Einheiten → ${s.name.split(" ")[0]}`);
     });
-    renderRoster(); renderAccount();
-    if(fromModal) renderStudentModal();
-    openReceipt(r);
-    toast(`+${n} Einheiten → ${s.name.split(" ")[0]}`);
   }
 
   // ---------- Student history modal ----------

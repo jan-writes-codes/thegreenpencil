@@ -612,67 +612,6 @@ def parse_body(request):
         return {}
 
 
-def receipt_html(r_data, settings):
-    """Generate receipt HTML string (mirrors JS receiptDocHtml)."""
-    # Must match the legal details published in the Impressum (templates/impressum.html).
-    SUPPLIER = {
-        "name": "Davit Hovakimyan",
-        "line2": "Englisch-Privatunterricht",
-        "addr": "Kraygasse 94/2/6",
-        "city": "1220 Wien, Österreich",
-        "email": "davit@thegreenpencil.at",
-    }
-    VAT_DE = "Steuerfreigemäß § 6 Abs. 1 Z 11 UStG (Unterrichtsleistung eines Privatlehrers)."
-    VAT_EN = "VAT-exempt educational service under Austrian law — no value-added tax is charged."
-
-    def money(x):
-        return f"{x:.2f}".replace(".", ",")
-
-    b = r_data["billing"]
-    billing_lines = ""
-    if b:
-        billing_lines = (
-            f"{r_data['studentName']}"
-            f"{'<br/>' + b['line1'] if b.get('line1') else ''}"
-            f"{'<br/>' + b['postcode'] + ' ' + b['city'] if b.get('postcode') else ''}"
-            f"{'<br/>' + b['country'] if b.get('country') else ''}"
-        )
-    else:
-        billing_lines = r_data["studentName"]
-
-    is_storno = r_data.get("isStorno")
-    reverses_no = r_data.get("reversesNo") or ""
-    head_label = "Storno · Cancellation" if is_storno else "Beleg · Receipt"
-    storno_note = (
-        f'<div class="r-storno">Storno-Beleg (Gutschrift) zu Beleg Nr. {reverses_no}. '
-        f'Der ursprüngliche Kauf wurde storniert und der Betrag erstattet.</div>'
-        if is_storno else ""
-    )
-
-    return f"""<div class="receipt-doc">
-      <div class="r-top">
-        <div class="r-brand"><div class="mark"></div><div><b>the green pencil</b><span>Englisch-Nachhilfe</span></div></div>
-        <div class="r-meta"><div class="r-h">{head_label}</div><div>Nr. {r_data['no']}</div><div>{r_data['dateStr']}</div></div>
-      </div>
-      {storno_note}
-      <div class="r-parties">
-        <div><div class="r-lbl">Leistungserbringer · From</div>{SUPPLIER['name']}<br/>{SUPPLIER['line2']}<br/>{SUPPLIER['addr']}<br/>{SUPPLIER['city']}<br/>{SUPPLIER['email']}</div>
-        <div><div class="r-lbl">Empfänger · Billed to</div>{billing_lines}</div>
-      </div>
-      <table class="r-table">
-        <thead><tr><th>Menge</th><th>Beschreibung</th><th>Einzel</th><th>Betrag</th></tr></thead>
-        <tbody><tr><td>{r_data['credits']}</td><td>Einheiten für Englisch-Einzelunterricht<br/><span class="r-sub">1 Einheit = 45 Minuten Unterricht</span></td><td>€ {money(r_data['unit'])}</td><td>€ {money(r_data['net'])}</td></tr></tbody>
-      </table>
-      <div class="r-totals">
-        <div class="r-row"><span>Nettobetrag · Net</span><span>€ {money(r_data['net'])}</span></div>
-        <div class="r-row"><span>USt · VAT (0%)</span><span>€ 0,00</span></div>
-        <div class="r-row r-grand"><span>Gesamt · Total</span><span>€ {money(r_data['total'])}</span></div>
-      </div>
-      <div class="r-vat"><b>{VAT_DE}</b><br/>{VAT_EN}</div>
-      <div class="r-foot"><div>Zahlung · Payment: {"Storniert — Betrag erstattet" if is_storno else "Externe Überweisung — bezahlt"}</div><div>Automatisch ausgestellter Beleg</div></div>
-    </div>"""
-
-
 # ---------------------------------------------------------------------------
 # Main app view
 # ---------------------------------------------------------------------------
@@ -1133,17 +1072,6 @@ def app_view(request):
             is_popular = False
         p["feat"] = is_popular
         p["tag"] = "Beliebt" if is_popular else ""
-    # receiptSeq: compute from max receipt number
-    try:
-        import re
-        max_seq = 1000
-        for r in all_receipts:
-            m = re.search(r"-(\d+)$", r.number)
-            if m:
-                max_seq = max(max_seq, int(m.group(1)) + 1)
-    except Exception:
-        max_seq = 1042
-
     django_data = {
         "isAuthenticated": True,
         "role": user.role,
@@ -1164,7 +1092,6 @@ def app_view(request):
             "creditPrice": settings.credit_price,
             "packs": packs,
             "popularN": settings.popular_n,
-            "receiptSeq": max_seq,
         },
         "stripe": {
             "enabled": stripe_enabled(),
@@ -1575,28 +1502,14 @@ def api_credits(request, slug):
     except (User.DoesNotExist, ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    # The tutor must declare how the credits were settled. A Stripe top-up can't be
-    # charged from here — it needs the student's own authenticated card flow — so we
-    # never grant credits for "stripe"; we only tell the UI to point the student to
-    # their account. Cash is settled in person, so we grant and issue the receipt.
-    # ``method`` defaults to "cash" to keep older clients working.
-    method = (data.get("method") or "cash").strip().lower()
-    if method == "stripe":
-        return JsonResponse({"stripe": True, "granted": False})
-    if method != "cash":
-        return JsonResponse({"error": "invalid method"}, status=400)
-
-    settings = get_settings()
+    # Tutor top-ups are cash settled in person; card payments go through the
+    # student's own Stripe checkout.
     receipt = grant_credits(
-        student, n, settings,
+        student, n, get_settings(),
         label="Einheiten vom Tutor",
         sub="Heute · bar bezahlt",
     )
-    receipt_no = receipt.number
-
-    r_data = serialize_receipt(receipt)
-    html = receipt_html(r_data, settings)
-    return JsonResponse({"receiptNo": receipt_no, "receiptHtml": html, "granted": True})
+    return JsonResponse({"receipt": serialize_receipt(receipt)})
 
 
 def reverse_opening_credit(txn):
@@ -1684,8 +1597,6 @@ def api_cancel_transaction(request, txn_id):
         lambda: emails.queue_email(emails.send_storno_notifications, storno_receipt.pk)
     )
 
-    settings = get_settings()
-    r_data = serialize_receipt(storno_receipt)
     student = storno_txn.student
     return JsonResponse({
         "ok": True,
@@ -1694,8 +1605,7 @@ def api_cancel_transaction(request, txn_id):
         "stornoTxn": serialize_transaction(storno_txn),
         "cancelledTxnId": txn.pk,
         "receiptNo": storno_receipt.number,
-        "receipt": r_data,
-        "receiptHtml": receipt_html(r_data, settings),
+        "receipt": serialize_receipt(storno_receipt),
     })
 
 
@@ -2115,12 +2025,7 @@ def api_lessons(request, slug):
     try:
         student = User.objects.get(slug=slug, role="student")
         lesson_id = data.get("lessonId", "")
-        on = data.get("on")
-        if on is None:
-            # Toggle
-            exists = ActiveLesson.objects.filter(student=student, lesson_id=lesson_id).exists()
-            on = not exists
-        if on:
+        if data.get("on"):
             ActiveLesson.objects.get_or_create(student=student, lesson_id=lesson_id)
         else:
             ActiveLesson.objects.filter(student=student, lesson_id=lesson_id).delete()

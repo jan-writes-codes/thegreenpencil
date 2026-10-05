@@ -3,7 +3,7 @@
 Kept separate from views so it can be reused by the download endpoint and the
 transactional e-mails. reportlab is a pure-Python dependency (no system libs),
 so this imports and runs anywhere the app does. The layout mirrors the on-screen
-receipt (``views.receipt_html``): brand mark, receipt meta, supplier/recipient
+receipt (``receiptDocHtml`` in app.html): brand mark, receipt meta, supplier/recipient
 blocks, a single line item, totals, the VAT-exemption note and a footer.
 """
 import io
