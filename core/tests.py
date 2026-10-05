@@ -705,21 +705,21 @@ class MultiTutorTests(FluentDataMixin, TestCase):
         for slug, is_open in ((self.davit.slug, True), (other.slug, False)):
             r = self.client.post(
                 "/api/availability/",
-                data=json.dumps({"date": "2026-5-2", "time": "11:00", "isOpen": is_open, "tutorSlug": slug}),
+                data=json.dumps({"date": "2026-06-02", "time": "11:00", "isOpen": is_open, "tutorSlug": slug}),
                 content_type="application/json",
             )
             self.assertEqual(r.status_code, 200)
         # the payload keys each tutor's overrides separately — no collision
         html = self.client.get(reverse("app")).content.decode()
         avail = extract_payload(html)["availability"]
-        self.assertEqual(avail[self.davit.slug]["2026-5-2|11:00"], True)
-        self.assertEqual(avail[other.slug]["2026-5-2|11:00"], False)
+        self.assertEqual(avail[self.davit.slug]["2026-06-02|11:00"], True)
+        self.assertEqual(avail[other.slug]["2026-06-02|11:00"], False)
 
     def test_admin_custom_time_requires_known_tutor(self):
         self.client.force_login(self.admin)
         r = self.client.post(
             "/api/custom-times/",
-            data=json.dumps({"date": "2026-5-2", "time": "07:30", "tutorSlug": "nope"}),
+            data=json.dumps({"date": "2026-06-02", "time": "07:30", "tutorSlug": "nope"}),
             content_type="application/json",
         )
         self.assertEqual(r.status_code, 400)
@@ -759,8 +759,8 @@ class AuthorizationTests(FluentDataMixin, TestCase):
         self.assertEqual(self._put("/api/users/ines/", {"name": "Hacked"}).status_code, 403)
         self.assertEqual(self.client.delete("/api/users/ines/").status_code, 403)
         self.assertEqual(self._post("/api/credits/maya/", {"n": 99}).status_code, 403)
-        self.assertEqual(self._post("/api/availability/", {"date": "2026-5-1", "time": "10:00"}).status_code, 403)
-        self.assertEqual(self._post("/api/custom-times/", {"date": "2026-5-1", "time": "10:00"}).status_code, 403)
+        self.assertEqual(self._post("/api/availability/", {"date": "2026-06-01", "time": "10:00"}).status_code, 403)
+        self.assertEqual(self._post("/api/custom-times/", {"date": "2026-06-01", "time": "10:00"}).status_code, 403)
         self.assertEqual(self._post("/api/notes/ines/", {"text": "x"}).status_code, 403)
         self.assertEqual(self._post("/api/lessons/ines/", {"lessonId": "a1-1"}).status_code, 403)
         self.assertEqual(self._put("/api/settings/", {"creditPrice": 1}).status_code, 403)
@@ -805,7 +805,7 @@ class AuthorizationTests(FluentDataMixin, TestCase):
         self.client.force_login(self.davit)
         self.assertEqual(self._post("/api/credits/maya/", {"n": 1}).status_code, 200)
         self.assertEqual(self._post("/api/notes/maya/", {"text": "great progress"}).status_code, 200)
-        self.assertEqual(self._post("/api/availability/", {"date": "2026-5-1", "time": "10:00", "isOpen": False}).status_code, 200)
+        self.assertEqual(self._post("/api/availability/", {"date": "2026-06-01", "time": "10:00", "isOpen": False}).status_code, 200)
         # but not admin-only user management / settings
         self.assertEqual(self.client.get("/api/users/").status_code, 403)
         self.assertEqual(self._put("/api/settings/", {"creditPrice": 40}).status_code, 403)
@@ -1959,17 +1959,13 @@ class DomBuyModalTests(_DomProbeBase):
 # Public intro-session booking (anonymous, free, no account)
 # --------------------------------------------------------------------------- #
 class IntroBookingTests(FluentDataMixin, TestCase):
-    def _jskey(self, d):
-        # Frontend/​server date key: 0-indexed month, "YYYY-M-D".
-        return f"{d.year}-{d.month - 1}-{d.day}"
-
     def _future_date(self, days=3):
         return date.today() + timedelta(days=days)
 
     def _post(self, **over):
         d = over.pop("date", self._future_date())
         body = {
-            "tutorSlug": "davit", "date": self._jskey(d),
+            "tutorSlug": "davit", "date": d.isoformat(),
             "time": "14:00", "name": "Lena Gast", "email": "lena@example.at",
             "phone": "+43 660 1234567",
         }
@@ -2197,7 +2193,7 @@ class IntroEmailTests(FluentDataMixin, TestCase):
         return self.client.post(
             "/api/intro-bookings/",
             data=json.dumps({
-                "tutorSlug": "davit", "date": f"{d.year}-{d.month - 1}-{d.day}",
+                "tutorSlug": "davit", "date": d.isoformat(),
                 "time": "14:00", "name": "Lena Gast", "email": email,
                 "phone": "+43 660 1234567",
             }),
@@ -2450,7 +2446,7 @@ class VideoConnectionTests(FluentDataMixin, TestCase):
         return self.client.post(
             "/api/intro-bookings/",
             data=json.dumps({
-                "tutorSlug": "davit", "date": f"{d.year}-{d.month - 1}-{d.day}",
+                "tutorSlug": "davit", "date": d.isoformat(),
                 "time": "14:00", "name": "Lena Gast", "email": email,
                 "phone": "+43 660 1234567",
             }),

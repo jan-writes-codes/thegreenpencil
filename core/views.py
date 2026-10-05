@@ -65,23 +65,6 @@ def file_kind(name):
 
 
 # ---------------------------------------------------------------------------
-# JS date-key helpers
-#
-# The frontend builds date keys with JS `Date.getMonth()`, which is 0-indexed
-# (January = 0). Python's `date.month` is 1-indexed. These helpers translate
-# between a real Python date and the JS "YYYY-M-D" key so DB dates stay
-# semantically correct while still round-tripping with the client.
-# ---------------------------------------------------------------------------
-def date_to_jskey(d):
-    return f"{d.year}-{d.month - 1}-{d.day}"
-
-
-def jskey_to_date(key):
-    year, month_idx, day = (int(p) for p in key.split("-"))
-    return date(year, month_idx + 1, day)
-
-
-# ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
 
@@ -658,9 +641,9 @@ def _tutor_calendars():
     two calendars never collide: ({tid: {date|time: is_open}}, {tid: {date: [times]}})."""
     availability, custom_times = {}, {}
     for ao in AvailabilityOverride.objects.select_related("tutor"):
-        availability.setdefault(ao.tutor.slug, {})[f"{date_to_jskey(ao.date)}|{ao.time}"] = ao.is_open
+        availability.setdefault(ao.tutor.slug, {})[f"{ao.date.isoformat()}|{ao.time}"] = ao.is_open
     for ct in CustomTime.objects.select_related("tutor"):
-        custom_times.setdefault(ct.tutor.slug, {}).setdefault(date_to_jskey(ct.date), []).append(ct.time)
+        custom_times.setdefault(ct.tutor.slug, {}).setdefault(ct.date.isoformat(), []).append(ct.time)
     return availability, custom_times
 
 
@@ -691,7 +674,7 @@ def public_booking_payload():
     for b in Booking.objects.filter(date__gte=today).select_related("tutor"):
         slug = booking_tutor_slug(b)
         if slug:
-            booked.setdefault(slug, []).append(f"{date_to_jskey(b.date)}|{b.time}")
+            booked.setdefault(slug, []).append(f"{b.date.isoformat()}|{b.time}")
 
     return {
         "tutors": tutor_payload,
@@ -754,7 +737,7 @@ def api_intro_booking(request):
     if tutor is None:
         return _intro_error("Tutor nicht gefunden.", 400)
     try:
-        booking_date = jskey_to_date(date_key)
+        booking_date = date.fromisoformat(date_key)
     except (ValueError, AttributeError, TypeError):
         return _intro_error("Ungültiger Termin.", 400)
 
@@ -1717,8 +1700,7 @@ def api_settle_token_checkout(request, token):
 def api_availability(request):
     data = parse_body(request)
     try:
-        # date_key is "YYYY-M-D" (JS keyOf format, 0-indexed month)
-        d = jskey_to_date(data["date"])
+        d = date.fromisoformat(data["date"])
         time_str = data["time"]
         is_open = bool(data.get("isOpen", True))
         tutor = acting_tutor(request, data.get("tutorSlug"))
@@ -1731,7 +1713,7 @@ def api_availability(request):
             defaults={"is_open": is_open},
         )
         return JsonResponse({"ok": True})
-    except (KeyError, ValueError, IndexError) as e:
+    except (KeyError, ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
 
@@ -1744,14 +1726,14 @@ def api_availability(request):
 def api_custom_times(request):
     data = parse_body(request)
     try:
-        d = jskey_to_date(data["date"])
+        d = date.fromisoformat(data["date"])
         time_str = data["time"]
         tutor = acting_tutor(request, data.get("tutorSlug"))
         if tutor is None:
             return JsonResponse({"error": "unknown tutor"}, status=400)
         CustomTime.objects.get_or_create(tutor=tutor, date=d, time=time_str)
         return JsonResponse({"ok": True})
-    except (KeyError, ValueError, IndexError) as e:
+    except (KeyError, ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
 

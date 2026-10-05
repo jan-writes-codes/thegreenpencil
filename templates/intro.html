@@ -13,14 +13,8 @@
 <title>Erste Stunde buchen — kostenlos &amp; unverbindlich | The Green Pencil</title>
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
+{% include "_fonts.html" %}
 <style>
-/* latin */
-@font-face {
-  font-family: 'Bricolage Grotesque';
-  font-style: normal; font-weight: 400 800; font-stretch: 100%; font-display: swap;
-  src: url("{% static 'fonts/font3.woff2' %}") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
   :root {
     --bg: #f5f2ea; --bg-2: #efe8da; --ink: #243528; --muted: #6e7d6e; --faint: #9aa897;
     --line: rgba(36,53,40,0.16); --line-2: rgba(36,53,40,0.09); --glass: rgba(251,248,241,0.60);
@@ -225,35 +219,16 @@ window.INTRO_DATA = {{ intro_data|safe }};
   const $ = (s) => document.querySelector(s);
 
   const TUTORS = DATA.tutors || [];
-  const AVAIL = DATA.availability || {};         // {slug: {"key|time": bool}}
-  const CUSTOM = DATA.customTimes || {};         // {slug: {key: [times]}}
-  const BOOKED = DATA.booked || {};              // {slug: ["key|time", ...]}
-  const TIMES = (()=>{ const out=[]; for(let m=9*60; m<=20*60; m+=15){ out.push(String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")); } return out; })();
-  const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
-  const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-  const MONTHS_S = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
-  const DOW_FULL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
-
+  const AVAIL = DATA.availability || {};         // {slug: {"YYYY-MM-DD|HH:MM": bool}}
+  const CUSTOM = DATA.customTimes || {};         // {slug: {"YYYY-MM-DD": [times]}}
+  const BOOKED = DATA.booked || {};              // {slug: ["YYYY-MM-DD|HH:MM", ...]}
   const NOW = new Date(); NOW.setHours(0,0,0,0);
   const REAL = new Date();
   let state = { tutor: (TUTORS[0]||{}).slug || "", weekOffset: 0, selected: null, booking: false };
 
-  // ---- date / slot helpers (mirrors the app's calendar logic) ----
-  function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
-  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
-  function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
-  function keyOf(d){ return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); }   // 0-indexed month — matches the server
-  function toMin(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
-  function isCustom(date,time,tid){ const dk=keyOf(date); return ((CUSTOM[tid]||{})[dk]||[]).includes(time); }
-  // Availability is opt-in: every slot starts closed (a new tutor has a blank
-  // calendar) and only opens when the tutor explicitly marks it open. A slot the
-  // tutor added by hand (a custom time) is open by default — adding it *is* the
-  // opt-in — but can still be closed again via an override.
-  function defaultAvail(date,time,tid){ return isCustom(date,time,tid); }
-  function slotOpen(date,time,tid){ const m=AVAIL[tid]||{}; const k=keyOf(date)+"|"+time; if(k in m) return m[k]; return defaultAvail(date,time,tid); }
-  function dayTimes(date,tid){ const dk=keyOf(date); const extra=(CUSTOM[tid]||{})[dk]||[]; return [...new Set([...TIMES, ...extra])].sort((a,b)=>toMin(a)-toMin(b)); }
+{% include "_calendar.js" %}
   function bookedConflict(date,time,tid){
-    const taken=(BOOKED[tid]||[]); const dk=keyOf(date); const s=toMin(time), e=s+15;
+    const taken=(BOOKED[tid]||[]); const dk=ymd(date); const s=toMin(time), e=s+15;
     return taken.some(k => { const [kk,tt]=k.split("|"); if(kk!==dk) return false; const bs=toMin(tt), be=bs+45; return s<be && bs<e; });
   }
   function isPastSlot(date,time){
@@ -282,7 +257,6 @@ window.INTRO_DATA = {{ intro_data|safe }};
     for(let o=0;o<=8;o++){ if(weekHasSlot(o)) return o; }
     return 0;
   }
-  function fmtLong(d){ return DOW_FULL[(d.getDay()+6)%7] + ", " + MONTHS_S[d.getMonth()] + " " + d.getDate(); }
   function endTime(t){ const [h,m]=t.split(":").map(Number); let tm=h*60+m+15; return String(Math.floor(tm/60)).padStart(2,"0")+":"+String(tm%60).padStart(2,"0"); }
   function tutorBySlug(s){ return TUTORS.find(t=>t.slug===s) || TUTORS[0] || {}; }
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -377,7 +351,7 @@ window.INTRO_DATA = {{ intro_data|safe }};
   // ---- booking modal ----
   function openBook(date,time){
     const t=tutorBySlug(state.tutor);
-    state.selected={ date, time, key:keyOf(date), tutorSlug:state.tutor };
+    state.selected={ date, time, key:ymd(date), tutorSlug:state.tutor };
     const m=$("#bookModal");
     m.innerHTML=`<div class="modal-card" id="bookCard">
       <button class="modal-x" id="bookX" aria-label="Schließen">×</button>
