@@ -19,18 +19,16 @@ Design constraints, in order:
 import base64
 import json
 import logging
-from datetime import datetime, time as dt_time, timedelta
+from datetime import timedelta
 from urllib import error as urlerror, parse as urlparse, request as urlrequest
-from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.utils import timezone
 
-from .emails import INTRO_MINUTES, LESSON_MINUTES
+from .models import Booking, VideoConnection
 
 logger = logging.getLogger(__name__)
 
-VIENNA = ZoneInfo("Europe/Vienna")
 HTTP_TIMEOUT = 15  # seconds; these calls run off-request or best-effort
 
 ZOOM_AUTHORIZE_URL = "https://zoom.us/oauth/authorize"
@@ -196,22 +194,12 @@ def fetch_account_label(provider, access_token):
 # --------------------------------------------------------------------------- #
 # Meetings
 # --------------------------------------------------------------------------- #
-def _booking_start(booking):
-    return datetime.combine(
-        booking.date, dt_time.fromisoformat(booking.time)
-    ).replace(tzinfo=VIENNA)
-
-
-def _booking_minutes(booking):
-    return INTRO_MINUTES if booking.is_intro else LESSON_MINUTES
-
-
 def create_meeting(conn, booking, *, topic):
     """Create a scheduled meeting on the tutor's connected account for the
     booking's slot. Returns (join_url, meeting_id); raises VideoError."""
     token = ensure_access_token(conn)
-    start = _booking_start(booking)
-    minutes = _booking_minutes(booking)
+    start = booking.start
+    minutes = booking.minutes
     if conn.provider == "zoom":
         meeting = _http("POST", f"{ZOOM_API}/users/me/meetings", headers=_bearer(token), json_body={
             "topic": topic,
@@ -242,7 +230,6 @@ def attach_call_link(booking_id):
     no longer configured, or a link is already set (never overwrite a link a
     tutor pasted by hand). Any provider failure is logged and swallowed — the
     booking itself must never fail because a video provider is down."""
-    from .models import Booking, VideoConnection
     booking = Booking.objects.filter(pk=booking_id).select_related("tutor").first()
     if not booking or booking.call_link or not booking.tutor_id:
         return
@@ -275,7 +262,6 @@ def cleanup_meeting(tutor_id, provider, meeting_id):
     """Best-effort: remove an auto-created meeting after its booking was
     cancelled, so the tutor's Zoom/Teams account doesn't collect ghosts. Takes
     plain values (not the booking) because the row is already deleted."""
-    from .models import VideoConnection
     if not meeting_id:
         return
     conn = VideoConnection.objects.filter(tutor_id=tutor_id, provider=provider).first()
@@ -292,7 +278,6 @@ def cleanup_meeting(tutor_id, provider, meeting_id):
 def move_meeting(booking_id):
     """Best-effort: after a reschedule, move the auto-created meeting to the
     booking's new slot so the call link stays valid at the right time."""
-    from .models import Booking, VideoConnection
     booking = Booking.objects.filter(pk=booking_id).first()
     if not booking or not booking.video_meeting_id:
         return
@@ -301,17 +286,17 @@ def move_meeting(booking_id):
     ).first()
     if not conn or not provider_enabled(booking.video_provider):
         return
-    start = _booking_start(booking)
+    start = booking.start
     try:
         token = ensure_access_token(conn)
         if conn.provider == "zoom":
             body = {
                 "start_time": start.strftime("%Y-%m-%dT%H:%M:%S"),
                 "timezone": "Europe/Vienna",
-                "duration": _booking_minutes(booking),
+                "duration": booking.minutes,
             }
         else:
-            end = start + timedelta(minutes=_booking_minutes(booking))
+            end = start + timedelta(minutes=booking.minutes)
             body = {"startDateTime": start.isoformat(), "endDateTime": end.isoformat()}
         _http("PATCH", _meeting_url(conn.provider, booking.video_meeting_id),
               headers=_bearer(token), json_body=body)

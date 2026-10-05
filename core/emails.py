@@ -10,20 +10,19 @@ run on a background thread or, later, a durable queue (see ``queue_email``).
 """
 import logging
 import threading
-from datetime import datetime, time as dt_time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta, timezone as dt_timezone
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from .models import Booking, User
+from . import video
+from .ical import ics_escape
+from .models import Booking, Receipt, User
 
 logger = logging.getLogger(__name__)
 
-VIENNA = ZoneInfo("Europe/Vienna")
-UTC = ZoneInfo("UTC")
 _DOW = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 _MON = ["", "Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
         "September", "Oktober", "November", "Dezember"]
@@ -32,48 +31,34 @@ _MON = ["", "Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "Augu
 # --------------------------------------------------------------------------- #
 # Formatting helpers
 # --------------------------------------------------------------------------- #
-# An intro/Schnupperstunde runs 15 minutes; a paid credit lesson is one
-# 45-minute unit (1 Einheit = 45 Minuten Unterricht).
-INTRO_MINUTES = 15
-LESSON_MINUTES = 45
-
-
-def _end_time(hhmm, minutes=INTRO_MINUTES):
-    h, m = (int(x) for x in hhmm.split(":"))
-    total = h * 60 + m + minutes
-    return f"{total // 60:02d}:{total % 60:02d}"
-
-
 def _date_long(d):
     return f"{_DOW[d.weekday()]}, {d.day}. {_MON[d.month]} {d.year}"
 
 
-def booking_when(booking):
+def _time_range(booking):
+    """'14:00–14:15' for an intro, '09:00–09:45' for a 45-minute lesson."""
+    end = booking.start + timedelta(minutes=booking.minutes)
+    return f"{booking.time}–{end:%H:%M}"
+
+
+def when(booking):
     """Human German date/time line, e.g. 'Montag, 1. Juli 2026 · 14:00–14:15'."""
-    return f"{_date_long(booking.date)} · {booking.time}–{_end_time(booking.time)}"
+    return f"{_date_long(booking.date)} · {_time_range(booking)}"
 
 
-def lesson_when(booking):
-    """Date/time line for a 45-minute credit lesson, e.g. '… · 09:00–09:45'."""
-    return f"{_date_long(booking.date)} · {booking.time}–{_end_time(booking.time, LESSON_MINUTES)}"
+def _first(name, fallback):
+    return (name or "").split(" ")[0] or fallback
 
 
 def build_ics(booking):
     """A minimal, valid VCALENDAR for the lesson so the guest can add it to their
     calendar in one tap. Times are emitted in UTC to avoid shipping a VTIMEZONE."""
-    start_local = datetime.combine(
-        booking.date, dt_time.fromisoformat(booking.time)
-    ).replace(tzinfo=VIENNA)
-    start = start_local.astimezone(UTC)
-    end = start + timedelta(minutes=15)
-    stamp = timezone.now().astimezone(UTC)
+    start = booking.start.astimezone(dt_timezone.utc)
+    end = start + timedelta(minutes=booking.minutes)
+    stamp = timezone.now().astimezone(dt_timezone.utc)
     fmt = "%Y%m%dT%H%M%SZ"
     tutor = booking.tutor_name or (booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else "The Green Pencil")
     organizer = settings.EMAIL_REPLY_TO or "hallo@thegreenpencil.at"
-
-    def esc(s):
-        return (str(s or "").replace("\\", "\\\\").replace(";", "\\;")
-                .replace(",", "\\,").replace("\n", "\\n"))
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -86,14 +71,14 @@ def build_ics(booking):
         f"DTSTAMP:{stamp.strftime(fmt)}",
         f"DTSTART:{start.strftime(fmt)}",
         f"DTEND:{end.strftime(fmt)}",
-        f"SUMMARY:{esc('Englisch Schnupperstunde · ' + tutor)}",
-        f"DESCRIPTION:{esc('Deine kostenlose Englisch-Schnupperstunde mit ' + tutor + ' bei The Green Pencil.')}",
-        f"ORGANIZER;CN={esc('The Green Pencil')}:mailto:{organizer}",
+        f"SUMMARY:{ics_escape('Englisch Schnupperstunde · ' + tutor)}",
+        f"DESCRIPTION:{ics_escape('Deine kostenlose Englisch-Schnupperstunde mit ' + tutor + ' bei The Green Pencil.')}",
+        f"ORGANIZER;CN={ics_escape('The Green Pencil')}:mailto:{organizer}",
     ]
     # The video-call link (auto-created via the tutor's Zoom/Teams account, or
     # hand-pasted) belongs where calendars actually show it: LOCATION + URL.
     if booking.call_link:
-        lines += [f"LOCATION:{esc(booking.call_link)}", f"URL:{esc(booking.call_link)}"]
+        lines += [f"LOCATION:{ics_escape(booking.call_link)}", f"URL:{ics_escape(booking.call_link)}"]
     lines += [
         "STATUS:CONFIRMED",
         "END:VEVENT",
@@ -106,31 +91,50 @@ def build_ics(booking):
 # --------------------------------------------------------------------------- #
 # Senders (take an id so they're safe to run off-thread)
 # --------------------------------------------------------------------------- #
-def _ctx(booking):
-    tutor = booking.tutor_name or (
-        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else "deinem Tutor"
-    )
+def _tutor_name(booking, fallback):
+    return booking.tutor_name or (
+        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else ""
+    ) or fallback
+
+
+def _student_contact(booking):
+    """(name, email) of a lesson's student: the live account, else the snapshot."""
+    student = booking.student if booking.student_id else None
+    if student:
+        return student.get_full_name() or student.username, student.email or ""
+    return booking.student_name, ""
+
+
+def _booking_ctx(booking, tutor_fallback):
+    """What every booking mail shows: the tutor, the date/time and the links."""
+    tutor = _tutor_name(booking, tutor_fallback)
     return {
-        "guest_name": booking.guest_name,
-        "guest_first": (booking.guest_name or "").split(" ")[0] or "du",
-        "guest_email": booking.guest_email,
-        "guest_phone": booking.guest_phone,
         "tutor_name": tutor,
         # First name only — the studio addresses tutors informally everywhere else
-        # in the product, so the confirmation should read "mit Davit", not the full name.
-        "tutor_first": (tutor or "").split(" ")[0] or tutor,
-        "when": booking_when(booking),
+        # in the product, so the mails read "mit Davit", not the full name.
+        "tutor_first": _first(tutor, tutor),
+        "when": when(booking),
         "date_long": _date_long(booking.date),
-        "time_range": f"{booking.time}–{_end_time(booking.time)}",
+        "time_range": _time_range(booking),
         "site_url": settings.SITE_URL,
+        # Tokenized public cancel link — works for both sides, no login required.
+        # Empty if the booking predates the token.
+        "cancel_url": (f"{settings.SITE_URL}/cancel/{booking.cancel_token}/"
+                       if booking.cancel_token else ""),
+    }
+
+
+def _ctx(booking):
+    return {
+        **_booking_ctx(booking, "deinem Tutor"),
+        "guest_name": booking.guest_name,
+        "guest_first": _first(booking.guest_name, "du"),
+        "guest_email": booking.guest_email,
+        "guest_phone": booking.guest_phone,
         # Join link for the video call — auto-created on the tutor's connected
         # Zoom/Teams account when the booking came in. Empty when the tutor has
         # no connection; the templates then fall back to "we'll be in touch".
         "call_link": booking.call_link,
-        # Tokenized public cancel link — works for both the guest and the tutor,
-        # no login required. Empty if the booking predates the token.
-        "cancel_url": (f"{settings.SITE_URL}/cancel/{booking.cancel_token}/"
-                       if booking.cancel_token else ""),
     }
 
 
@@ -151,30 +155,31 @@ def _message(subject, to, text_body, html_body, reply_to=None):
 
 def send_intro_notifications(booking_id):
     """Everything that follows a fresh intro booking, in order: first create
-    the video call on the tutor's connected Zoom/Teams account (lazy import —
-    ``video`` imports this module), so the join link is already on the booking
-    when the confirmation e-mails render; then mail the guest and the studio.
-    Each step is isolated — a video-provider outage still sends the mails."""
-    from . import video
+    the video call on the tutor's connected Zoom/Teams account, so the join
+    link is already on the booking when the confirmation e-mails render; then
+    mail the guest and the studio. Each step is isolated — a video-provider
+    outage still sends the mails."""
     _safe(video.attach_call_link, booking_id)
     _safe(send_intro_confirmation, booking_id)
     _safe(send_intro_tutor_notification, booking_id)
 
 
-def send_intro_confirmation(booking_id):
-    """Confirmation to the guest, with the lesson as a calendar attachment."""
-    booking = Booking.objects.filter(pk=booking_id).first()
-    if not booking or not booking.guest_email:
-        return
+def intro_confirmation_message(booking):
+    """The guest's confirmation, with the lesson as a calendar attachment."""
     ctx = _ctx(booking)
-    subject = f"Deine Schnupperstunde ist bestätigt · {ctx['date_long']}"
     msg = _message(
-        subject, booking.guest_email,
+        f"Deine Schnupperstunde ist bestätigt · {ctx['date_long']}", booking.guest_email,
         render_to_string("email/intro_confirmation.txt", ctx),
         render_to_string("email/intro_confirmation.html", ctx),
     )
     msg.attach("schnupperstunde.ics", build_ics(booking), "text/calendar; method=REQUEST")
-    msg.send()
+    return msg
+
+
+def send_intro_confirmation(booking_id):
+    booking = Booking.objects.filter(pk=booking_id).first()
+    if booking and booking.guest_email:
+        intro_confirmation_message(booking).send()
 
 
 def send_intro_tutor_notification(booking_id):
@@ -196,28 +201,14 @@ def send_intro_tutor_notification(booking_id):
 
 
 def _lesson_ctx(booking):
-    student = booking.student if booking.student_id else None
-    student_name = (
-        (student.get_full_name() or student.username) if student else booking.student_name
-    ) or "Ein Schüler"
-    student_email = (student.email if student else "") or ""
-    tutor = booking.tutor_name or (
-        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else "Tutor"
-    )
+    name, email = _student_contact(booking)
+    name = name or "Ein Schüler"
     return {
-        "student_name": student_name,
-        "student_first": (student_name or "").split(" ")[0] or "dein Schüler",
-        "student_email": student_email,
-        "tutor_name": tutor,
-        "tutor_first": (tutor or "").split(" ")[0] or tutor,
+        **_booking_ctx(booking, "Tutor"),
+        "student_name": name,
+        "student_first": _first(name, "dein Schüler"),
+        "student_email": email,
         "title": booking.title,
-        "when": lesson_when(booking),
-        "date_long": _date_long(booking.date),
-        "time_range": f"{booking.time}–{_end_time(booking.time, LESSON_MINUTES)}",
-        "site_url": settings.SITE_URL,
-        # Tokenized public cancel link for the lesson — works for student and tutor.
-        "cancel_url": (f"{settings.SITE_URL}/cancel/{booking.cancel_token}/"
-                       if booking.cancel_token else ""),
     }
 
 
@@ -270,41 +261,24 @@ def _cancel_snapshot(booking, *, refunded=False):
     deletes the booking). Mirrors the confirmation recipients: an intro notifies the
     guest and the studio inbox; a paid lesson notifies the student and that lesson's
     own tutor."""
-    is_intro = booking.is_intro
-    tutor_name = booking.tutor_name or (
-        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else "Tutor"
-    )
-    if is_intro:
-        person_name = booking.guest_name or "Gast"
-        person_email = booking.guest_email or ""
+    if booking.is_intro:
+        person_name, person_email = booking.guest_name or "Gast", booking.guest_email or ""
         # Intros go to the studio-wide inbox, just like the booking notification.
         tutor_email = settings.TUTOR_NOTIFY_EMAIL or ""
-        when = booking_when(booking)
-        time_range = f"{booking.time}–{_end_time(booking.time)}"
     else:
-        student = booking.student if booking.student_id else None
-        person_name = (
-            (student.get_full_name() or student.username) if student else booking.student_name
-        ) or "Schüler"
-        person_email = (student.email if student else "") or ""
+        person_name, person_email = _student_contact(booking)
+        person_name = person_name or "Schüler"
         # Paid lessons go to that lesson's own tutor, not the studio inbox.
         tutor_email = (booking.tutor.email if booking.tutor_id and booking.tutor else "") or ""
-        when = lesson_when(booking)
-        time_range = f"{booking.time}–{_end_time(booking.time, LESSON_MINUTES)}"
     return {
-        "is_intro": is_intro,
+        **_booking_ctx(booking, "Tutor"),
+        "is_intro": booking.is_intro,
         "person_name": person_name,
-        "person_first": (person_name or "").split(" ")[0] or "du",
+        "person_first": _first(person_name, "du"),
         "person_email": person_email,
-        "tutor_name": tutor_name,
-        "tutor_first": (tutor_name or "").split(" ")[0] or tutor_name,
         "tutor_email": tutor_email,
-        "when": when,
-        "date_long": _date_long(booking.date),
-        "time_range": time_range,
         # Only meaningful for paid lessons — whether the credit was returned.
         "refunded": refunded,
-        "site_url": settings.SITE_URL,
     }
 
 
@@ -342,8 +316,7 @@ def send_cancellation_notifications(snapshot):
 def _business_inbox():
     """The studio/business address that hears about purchases and cancellations —
     the dedicated notify inbox if configured, else the studio's own From address."""
-    return (getattr(settings, "TUTOR_NOTIFY_EMAIL", "") or
-            getattr(settings, "DEFAULT_FROM_EMAIL", "") or "")
+    return settings.TUTOR_NOTIFY_EMAIL or settings.DEFAULT_FROM_EMAIL
 
 
 def _receipt_pdf(receipt):
@@ -387,7 +360,6 @@ def send_purchase_notifications(receipt_id):
     Covers every purchase path — a tutor's cash top-up or a student's Stripe
     payment. If the student has no address (e.g. a deleted account) the business is
     still notified."""
-    from .models import Receipt
     receipt = Receipt.objects.filter(pk=receipt_id).select_related("student").first()
     if not receipt:
         return
@@ -432,7 +404,6 @@ def send_storno_notifications(receipt_id):
 
     Takes the *Storno* receipt id. Skips any recipient without an address (e.g. a
     deleted student account)."""
-    from .models import Receipt
     receipt = Receipt.objects.filter(pk=receipt_id).select_related("student", "reverses").first()
     if not receipt:
         return
@@ -480,9 +451,8 @@ SECURITY_CONTACT = "davit@thegreenpencil.at"
 
 
 def _account_ctx(user):
-    name = user.get_full_name() or user.username
     return {
-        "user_first": (name or "").split(" ")[0] or "du",
+        "user_first": _first(user.get_full_name() or user.username, "du"),
         "user_email": user.email,
         "site_url": settings.SITE_URL,
         "security_contact": SECURITY_CONTACT,

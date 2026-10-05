@@ -1,5 +1,8 @@
+from datetime import datetime, time as dt_time
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -99,6 +102,26 @@ class Booking(models.Model):
         if is_new:
             self._charge_credit()
 
+    @property
+    def minutes(self):
+        # A Schnupperstunde runs 15 minutes; a paid lesson is one 45-minute Einheit.
+        return 15 if self.is_intro else 45
+
+    @property
+    def start(self):
+        """Aware start datetime in the studio's timezone (settings.TIME_ZONE)."""
+        return timezone.make_aware(datetime.combine(self.date, dt_time.fromisoformat(self.time)))
+
+    def ledger_sub(self):
+        """Credit-ledger sub-line: which tutor and when, e.g. 'mit Davit · 01.06.2026 · 09:00'.
+        Prefers the frozen snapshot, falling back to the live tutor FK."""
+        tutor_name = self.tutor_name or (
+            self.tutor.get_full_name() if self.tutor_id and self.tutor else ""
+        )
+        tutor_first = tutor_name.split(" ")[0]
+        when = f"{self.date.strftime('%d.%m.%Y')} · {self.time}"
+        return f"mit {tutor_first} · {when}" if tutor_first else when
+
     def _charge_credit(self):
         """Deduct one credit from the student and record it on the ledger when a
         booking is created. Centralised here (rather than in the booking view) so
@@ -118,19 +141,8 @@ class Booking(models.Model):
         student = self.student
         student.credits -= 1
         student.save(update_fields=['credits'])
-        # Note which tutor the lesson is with, so the credit ledger shows it.
-        tutor_first = (self.tutor_name or "").split(" ")[0]
-        sub = f"{self.date.strftime('%d.%m.%Y')} · {self.time}"
-        if tutor_first:
-            sub = f"mit {tutor_first} · {sub}"
-        CreditTransaction.objects.create(
-            student=student,
-            student_slug=student.slug,
-            student_name=student.get_full_name() or student.username,
-            txn_type='book',
-            label='Stunde gebucht',
-            sub=sub,
-            amount=-1,
+        CreditTransaction.log(
+            student, txn_type='book', label='Stunde gebucht', sub=self.ledger_sub(), amount=-1,
         )
 
     def __str__(self):
@@ -192,6 +204,16 @@ class CreditTransaction(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    @classmethod
+    def log(cls, student, **fields):
+        """A ledger entry stamped with the student's identity snapshot."""
+        return cls.objects.create(
+            student=student,
+            student_slug=student.slug,
+            student_name=student.get_full_name() or student.username,
+            **fields,
+        )
 
     def __str__(self):
         return f'{self.student_slug}: {self.label}'

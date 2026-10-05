@@ -40,15 +40,8 @@ class Command(BaseCommand):
             student_name="Test Gast",
             student_slug="intro",
         )
-        ctx = emails._ctx(sample)
-        from django.template.loader import render_to_string
-        msg = emails._message(
-            f"[Test] Deine Schnupperstunde ist bestätigt · {ctx['date_long']}",
-            to,
-            render_to_string("email/intro_confirmation.txt", ctx),
-            render_to_string("email/intro_confirmation.html", ctx),
-        )
-        msg.attach("schnupperstunde.ics", emails.build_ics(sample), "text/calendar; method=REQUEST")
+        msg = emails.intro_confirmation_message(sample)
+        msg.subject = f"[Test] {msg.subject}"
         sent = msg.send()
 
         backend = settings.EMAIL_BACKEND.rsplit(".", 2)[-2]

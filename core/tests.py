@@ -1827,11 +1827,6 @@ class SettlePricingTests(TestCase):
         self.assertEqual(settle_unit_euros(self.s, 8), 29)    # 5-pack tier (145/5)
         self.assertEqual(settle_unit_euros(self.s, 13), 27)   # 10-pack tier (270/10)
 
-    def test_total_cents(self):
-        from core.views import settle_total_cents
-        self.assertEqual(settle_total_cents(self.s, 8), 8 * 29 * 100)
-        self.assertEqual(settle_total_cents(self.s, 13), 13 * 27 * 100)
-
 
 class SettleFlowTests(FluentDataMixin, TestCase):
     def setUp(self):

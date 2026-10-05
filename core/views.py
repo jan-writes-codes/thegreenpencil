@@ -1,16 +1,20 @@
 import json
 import logging
+import mimetypes
+import re
 import secrets
-from datetime import date, datetime, time as dtime, timedelta
+import time
+from datetime import date, timedelta
 from functools import wraps
 from django.conf import settings as dj_settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction as db_transaction
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt
@@ -21,6 +25,8 @@ from .models import (
     VideoConnection,
 )
 from . import emails, video
+from .ical import build_tutor_feed
+from .receipts_pdf import render_receipt_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -233,29 +239,38 @@ def get_settings():
 
 def parse_price(s):
     """Numeric euros from a price string like '€270' / '270,50' (None if absent)."""
-    import re
     m = re.search(r"\d+(?:[.,]\d+)?", str(s or ""))
     return float(m.group(0).replace(",", ".")) if m else None
 
 
-def receipt_unit_price(settings, n):
-    """Per-credit price for a purchase of n credits. If n matches a configured
-    pack, use that pack's total ÷ n so the receipt reflects the package price
-    (e.g. 10 credits -> €270, not 10 × the per-credit rate). Server-authoritative
-    so a client can't dictate the price. Falls back to the per-credit rate."""
+def get_packs(settings):
+    """The configured credit packs as ``[(n, total_euros or None, raw_dict)]``,
+    skipping malformed rows."""
     try:
-        packs = json.loads(settings.packs_json)
+        raw = json.loads(settings.packs_json)
     except (ValueError, TypeError):
-        packs = []
-    for p in packs:
+        return []
+    packs = []
+    for p in raw:
         try:
-            if int(p.get("n")) == n:
-                amt = parse_price(p.get("price"))
-                if amt and n > 0:
-                    return round(amt / n)
-        except (ValueError, TypeError):
+            packs.append((int(p.get("n")), parse_price(p.get("price")), p))
+        except (ValueError, TypeError, AttributeError):
             continue
-    return settings.credit_price
+    return packs
+
+
+def pack_price_cents(settings, n):
+    """Total price (in cents) for a pack of ``n`` credits — server-authoritative so
+    a client can never dictate what it pays. Uses the configured pack price when
+    ``n`` matches a pack, else falls back to the per-credit rate × n."""
+    total = next((t for pn, t, _ in get_packs(settings) if pn == n and t), None)
+    return round(total * 100) if total else settings.credit_price * 100 * n
+
+
+def receipt_unit_price(settings, n):
+    """Per-credit price on the receipt for a purchase of n credits: the pack's
+    total ÷ n (10 credits -> €270 -> €27), else the per-credit rate."""
+    return round(pack_price_cents(settings, n) / 100 / n)
 
 
 def settle_unit_euros(settings, n):
@@ -266,26 +281,9 @@ def settle_unit_euros(settings, n):
 
     Example with packs {1:€32, 5:€145, 10:€270}: settling 8 → the 5-pack tier is
     reached (€145/5 = €29) → €29/credit; settling 13 → the 10-pack tier (€27)."""
-    try:
-        packs = json.loads(settings.packs_json)
-    except (ValueError, TypeError):
-        packs = []
-    best_n, best_rate = 0, None
-    for p in packs:
-        try:
-            pn = int(p.get("n"))
-            amt = parse_price(p.get("price"))
-        except (ValueError, TypeError):
-            continue
-        if amt and pn > 0 and pn <= n and pn > best_n:
-            best_n, best_rate = pn, amt / pn
-    rate = best_rate if best_rate is not None else settings.credit_price
-    return round(rate)
-
-
-def settle_total_cents(settings, n):
-    """Total settlement charge in cents for ``n`` outstanding credits (tier rule)."""
-    return settle_unit_euros(settings, n) * 100 * n
+    tiers = [(pn, t) for pn, t, _ in get_packs(settings) if t and 0 < pn <= n]
+    best = max(tiers, key=lambda tier: tier[0], default=None)
+    return round(best[1] / best[0] if best else settings.credit_price)
 
 
 def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", unit_euros=None):
@@ -301,8 +299,6 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
     billing address at issue time: these are immutable financial records that must
     stay readable verbatim even after the account is deleted (GDPR erasure).
     """
-    from django.db import transaction as db_transaction
-    from django.utils import timezone
 
     with db_transaction.atomic():
         # Lock the student row so two concurrent grants can't both read the same
@@ -333,15 +329,8 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
             stripe_session_id=stripe_session_id,
         )
 
-        CreditTransaction.objects.create(
-            student=student,
-            student_slug=student.slug,
-            student_name=student_name,
-            txn_type="buy",
-            label=label,
-            sub=sub,
-            amount=n,
-            receipt_no=receipt_no,
+        CreditTransaction.log(
+            student, txn_type="buy", label=label, sub=sub, amount=n, receipt_no=receipt_no,
         )
 
     # Notify the student (with their receipt) and the business inbox that a
@@ -349,7 +338,6 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
     # grant (and any enclosing transaction) has durably committed — the sender reads
     # the persisted receipt, and an e-mail failure can never roll back or race the
     # credit write.
-    from . import emails
     db_transaction.on_commit(lambda: emails.queue_email(emails.send_purchase_notifications, receipt.pk))
     return receipt
 
@@ -362,25 +350,6 @@ def stripe_enabled():
 def stripe_client():
     stripe.api_key = dj_settings.STRIPE_SECRET_KEY
     return stripe
-
-
-def pack_price_cents(settings, n):
-    """Total price (in cents) for a pack of ``n`` credits — server-authoritative so
-    a client can never dictate what it pays. Uses the configured pack price when
-    ``n`` matches a pack, else falls back to the per-credit rate × n."""
-    try:
-        packs = json.loads(settings.packs_json)
-    except (ValueError, TypeError):
-        packs = []
-    for p in packs:
-        try:
-            if int(p.get("n")) == n:
-                amt = parse_price(p.get("price"))
-                if amt:
-                    return round(amt * 100)
-        except (ValueError, TypeError):
-            continue
-    return settings.credit_price * 100 * n
 
 
 def credit_from_stripe_session(session):
@@ -429,13 +398,16 @@ def credit_from_stripe_session(session):
         return Receipt.objects.filter(stripe_session_id=sid).first()
 
 
-def _storno_number(original_number):
-    """The Storno (credit note) number paired with a purchase receipt: the same
-    running number under an ``ST-`` prefix (e.g. RE-2026-1001 -> ST-2026-1001). One
-    Storno per purchase — guarded by the ``cancelled`` flag — so this stays unique."""
-    if original_number.startswith("RE-"):
-        return "ST-" + original_number[len("RE-"):]
-    return "ST-" + original_number
+def _reverse_credits(locked):
+    """Deduct a locked ledger entry's credits back off its student, if the account
+    still exists. Returns (student or None, slug, name) for the reversing entry —
+    the snapshot from the original row when the account is gone."""
+    if locked.student_id is None:
+        return None, locked.student_slug, locked.student_name
+    student = User.objects.select_for_update().get(pk=locked.student_id)
+    student.credits -= locked.amount
+    student.save(update_fields=["credits"])
+    return student, student.slug, student.get_full_name() or student.username
 
 
 def cancel_purchase(txn):
@@ -450,8 +422,6 @@ def cancel_purchase(txn):
     was already cancelled (a concurrent caller won). The Stripe refund, if any, is
     made by the caller afterwards so a payment-provider outage never rolls back the
     bookkeeping."""
-    from django.db import transaction as db_transaction
-    from django.utils import timezone
 
     original = Receipt.objects.filter(number=txn.receipt_no).first()
     if not original:
@@ -463,20 +433,12 @@ def cancel_purchase(txn):
         if locked.cancelled:
             return None
         n = locked.amount  # credits originally granted (positive)
-
-        # Snapshot identity from the purchase row; the account may since be deleted.
-        student = locked.student
-        student_slug = locked.student_slug
-        student_name = locked.student_name
-        if student is not None:
-            student = User.objects.select_for_update().get(pk=student.pk)
-            student.credits -= n
-            student.save(update_fields=["credits"])
-            student_slug = student.slug
-            student_name = student.get_full_name() or student.username
+        student, student_slug, student_name = _reverse_credits(locked)
 
         now = timezone.localtime()
-        storno_no = _storno_number(original.number)
+        # Same running number under an ST- prefix (RE-2026-1001 -> ST-2026-1001).
+        # One Storno per purchase (guarded by ``cancelled``), so it stays unique.
+        storno_no = "ST-" + original.number.removeprefix("RE-")
         storno_receipt = Receipt.objects.create(
             number=storno_no,
             student=student,
@@ -526,7 +488,7 @@ def refund_stripe_purchase(original, storno_receipt):
         if not payment_intent:
             return None
         refund = client.Refund.create(payment_intent=payment_intent)
-        refund_id = refund.get("id") if isinstance(refund, dict) else getattr(refund, "id", "")
+        refund_id = refund.get("id")
         if refund_id:
             storno_receipt.stripe_refund_id = refund_id
             storno_receipt.save(update_fields=["stripe_refund_id"])
@@ -553,12 +515,6 @@ def finalize_history_snapshots(user):
     Receipt.objects.filter(student=user, student_slug="").update(
         student_slug=user.slug, student_name=name
     )
-
-
-def require_auth(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "auth"}, status=401)
-    return None
 
 
 def billing_complete(user):
@@ -622,26 +578,15 @@ def landing_view(request):
     # Pricing mirrors the admin-configured credit packs so the public page and
     # the in-app "Einheiten aufladen" screen never drift apart.
     settings = get_settings()
-    try:
-        raw_packs = json.loads(settings.packs_json)
-    except (ValueError, TypeError):
-        raw_packs = []
     packs = []
-    for p in raw_packs:
-        try:
-            n = int(p.get("n"))
-        except (ValueError, TypeError):
-            continue
-        total = parse_price(p.get("price"))
-        per_unit = round(total / n) if total and n > 0 else None
-        # The popular badge is driven solely by SiteSettings.popular_n so it can
-        # be toggled from the admin (a dropdown of pack sizes) rather than by
-        # hand-editing the feat/tag fields inside packs_json.
+    for n, total, raw in get_packs(settings):
+        # The popular badge is driven solely by SiteSettings.popular_n, the single
+        # source of truth shared with the in-app pricing screen.
         is_popular = n == settings.popular_n
         packs.append({
             "n": n,
-            "price": p.get("price", ""),
-            "per_unit": per_unit,
+            "price": raw.get("price", ""),
+            "per_unit": round(total / n) if total and n > 0 else None,
             "feat": is_popular,
             "tag": "Beliebteste Wahl" if is_popular else "",
         })
@@ -674,40 +619,9 @@ def password_reset_view(request, uidb64, token):
     })
 
 
-def impressum_view(request):
-    # Public legal pages (Impressum / Offenlegung). Required under §5 ECG, §25 MedienG.
-    return render(request, "impressum.html")
-
-
-def datenschutz_view(request):
-    # Public privacy notice (Datenschutzerklärung). Required under GDPR Art. 13/14.
-    return render(request, "datenschutz.html")
-
-
-def agb_view(request):
-    # Public terms of service (Allgemeine Geschäftsbedingungen).
-    return render(request, "agb.html")
-
-
-def widerruf_view(request):
-    # Consumer right-of-withdrawal instructions for distance contracts (FAGG).
-    return render(request, "widerruf.html")
-
-
 # Public, crawler-facing pages worth listing in the sitemap. The booking app and
 # API endpoints are intentionally excluded — they're gated or non-content.
 SITEMAP_PATHS = ["/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
-
-
-def favicon_ico(request):
-    # Google Search (and older browsers) fetch /favicon.ico from the site root,
-    # not the <link> in the page head. Serve the raster icon there directly so
-    # the search-result icon resolves instead of falling back to a placeholder.
-    from django.contrib.staticfiles import finders
-    path = finders.find("favicon.ico")
-    if not path:
-        raise Http404("favicon.ico not found")
-    return FileResponse(open(path, "rb"), content_type="image/x-icon")
 
 
 def robots_txt(request):
@@ -739,6 +653,17 @@ def sitemap_xml(request):
     return HttpResponse(body, content_type="application/xml")
 
 
+def _tutor_calendars():
+    """Every tutor's availability overrides and custom times, keyed per tutor so
+    two calendars never collide: ({tid: {date|time: is_open}}, {tid: {date: [times]}})."""
+    availability, custom_times = {}, {}
+    for ao in AvailabilityOverride.objects.select_related("tutor"):
+        availability.setdefault(ao.tutor.slug, {})[f"{date_to_jskey(ao.date)}|{ao.time}"] = ao.is_open
+    for ct in CustomTime.objects.select_related("tutor"):
+        custom_times.setdefault(ct.tutor.slug, {}).setdefault(date_to_jskey(ct.date), []).append(ct.time)
+    return availability, custom_times
+
+
 def public_booking_payload():
     """Public, PII-free data for the anonymous intro-booking calendar: every
     tutor, their availability overrides + custom times, and the slots already
@@ -757,27 +682,14 @@ def public_booking_payload():
         for t in tutors
     ]
 
-    availability = {}
-    for ao in AvailabilityOverride.objects.all().select_related("tutor"):
-        if not ao.tutor:
-            continue
-        k = f"{date_to_jskey(ao.date)}|{ao.time}"
-        availability.setdefault(ao.tutor.slug, {})[k] = ao.is_open
-
-    custom_times = {}
-    for ct in CustomTime.objects.all().select_related("tutor"):
-        if not ct.tutor:
-            continue
-        dk = date_to_jskey(ct.date)
-        custom_times.setdefault(ct.tutor.slug, {}).setdefault(dk, []).append(ct.time)
+    availability, custom_times = _tutor_calendars()
 
     # Anonymized taken slots so the calendar greys them out without leaking who
     # booked. Only today onward matters for booking.
-    from django.utils import timezone
     today = timezone.localdate()
     booked = {}
     for b in Booking.objects.filter(date__gte=today).select_related("tutor"):
-        slug = b.tutor.slug if b.tutor_id and b.tutor else b.tutor_slug
+        slug = booking_tutor_slug(b)
         if slug:
             booked.setdefault(slug, []).append(f"{date_to_jskey(b.date)}|{b.time}")
 
@@ -796,8 +708,7 @@ def intro_view(request):
     return render(request, "intro.html", {"intro_data": json.dumps(data)})
 
 
-import re as _re
-_TIME_RE = _re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 # Shown to guests on every booking error so they always have a way to reach a
 # human: Davit's mobile and e-mail.
@@ -832,7 +743,7 @@ def api_intro_booking(request):
     except ValidationError:
         return _intro_error("Bitte gib eine gültige E-Mail-Adresse ein.", 400)
     # Phone is required so the tutor can reach the guest (WhatsApp / callback).
-    if len(_re.sub(r"[^0-9]", "", phone)) < 6:
+    if len(re.sub(r"[^0-9]", "", phone)) < 6:
         return _intro_error(
             "Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen).", 400
         )
@@ -847,7 +758,6 @@ def api_intro_booking(request):
     except (ValueError, AttributeError, TypeError):
         return _intro_error("Ungültiger Termin.", 400)
 
-    from django.utils import timezone
     if booking_date < timezone.localdate():
         return _intro_error("Dieser Termin liegt in der Vergangenheit.", 400)
 
@@ -861,11 +771,10 @@ def api_intro_booking(request):
             409,
         )
     # Slot must be free and not explicitly closed by the tutor.
-    if Booking.objects.filter(tutor=tutor, date=booking_date, time=time_str).exists():
+    conflict = _slot_unavailable(tutor, booking_date, time_str)
+    if conflict == "slot_taken":
         return _intro_error("Dieser Termin ist bereits vergeben.", 409)
-    if AvailabilityOverride.objects.filter(
-        tutor=tutor, date=booking_date, time=time_str, is_open=False
-    ).exists():
+    if conflict:
         return _intro_error("Dieser Termin ist nicht verfügbar.", 409)
 
     booking = Booking.objects.create(
@@ -882,7 +791,6 @@ def api_intro_booking(request):
     # connected) and send both confirmations — a hiccup in either must never
     # fail the booking itself. One queued job so the call link exists before
     # the e-mails render.
-    from . import emails
     emails.queue_email(emails.send_intro_notifications, booking.pk)
     return JsonResponse({
         "ok": True,
@@ -904,54 +812,24 @@ def booking_cancel_view(request, token):
     A paid lesson follows the same 24h policy as the in-app cancel: the credit is
     refunded when cancelled more than 24h ahead, and forfeited inside that window —
     so the e-mail link can't be used to dodge the forfeit rule."""
-    from . import emails
     booking = Booking.objects.filter(cancel_token=token).first() if token else None
-    if request.method == "POST":
-        if not booking:
-            return render(request, "intro_cancel.html", {"state": "gone"})
-        is_intro = booking.is_intro
-        when = emails.booking_when(booking) if is_intro else emails.lesson_when(booking)
-        # Remember the auto-created Zoom/Teams meeting (if any) before the row
-        # goes away, so it can be removed from the tutor's account afterwards.
-        video_ref = (booking.tutor_id, booking.video_provider, booking.video_meeting_id)
-        refunded = False
-        if not is_intro and booking.student_id:
-            from django.db import transaction as db_transaction
-            forfeit = _booking_within_24h(booking)
-            with db_transaction.atomic():
-                locked = User.objects.select_for_update().get(pk=booking.student_id)
-                if not forfeit:
-                    locked.credits += 1
-                    locked.save(update_fields=["credits"])
-                    _booking_credit_txn(
-                        locked, "Buchung storniert — Einheit erstattet",
-                        _booking_txn_sub(booking), 1,
-                    )
-                    refunded = True
-                snapshot = emails._cancel_snapshot(booking, refunded=refunded)
-                booking.delete()
-        else:
-            snapshot = emails._cancel_snapshot(booking, refunded=refunded)
-            booking.delete()
-        # Notify both sides (student/guest and tutor/studio) that it's off.
-        emails.queue_email(emails.send_cancellation_notifications, snapshot)
-        if video_ref[2]:
-            emails.queue_email(video.cleanup_meeting, *video_ref)
-        return render(request, "intro_cancel.html", {
-            "state": "done", "when": when, "is_intro": is_intro,
-            "refunded": refunded,
-        })
     if not booking:
         return render(request, "intro_cancel.html", {"state": "gone"})
-    tutor_name = booking.tutor_name or (
-        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else "deinem Tutor"
-    )
+    within_24h = (not booking.is_intro) and _booking_within_24h(booking)
+    if request.method == "POST":
+        when = emails.when(booking)
+        refund_txn, _ = _cancel_booking(booking, forfeit=within_24h)
+        return render(request, "intro_cancel.html", {
+            "state": "done", "when": when, "is_intro": booking.is_intro,
+            "refunded": refund_txn is not None,
+        })
+    ctx = emails._booking_ctx(booking, "deinem Tutor")
     return render(request, "intro_cancel.html", {
         "state": "confirm",
         "is_intro": booking.is_intro,
-        "when": emails.booking_when(booking) if booking.is_intro else emails.lesson_when(booking),
-        "tutor_name": (tutor_name or "").split(" ")[0] or tutor_name,
-        "within_24h": (not booking.is_intro) and _booking_within_24h(booking),
+        "when": ctx["when"],
+        "tutor_name": ctx["tutor_first"],
+        "within_24h": within_24h,
     })
 
 
@@ -1019,19 +897,7 @@ def app_view(request):
         all_receipts = list(Receipt.objects.all().select_related("student", "reverses"))
     receipts_data = [serialize_receipt(r) for r in all_receipts]
 
-    # Availability overrides, keyed per tutor so two tutors' calendars never
-    # collide: {tutor_slug: {date_key|time: is_open}}
-    availability = {}
-    for ao in AvailabilityOverride.objects.all().select_related("tutor"):
-        # date_key format: "YYYY-M-D" (matches JS keyOf, 0-indexed month)
-        k = f"{date_to_jskey(ao.date)}|{ao.time}"
-        availability.setdefault(ao.tutor.slug, {})[k] = ao.is_open
-
-    # Custom times, also per tutor: {tutor_slug: {date_key: [times]}}
-    custom_times = {}
-    for ct in CustomTime.objects.all().select_related("tutor"):
-        dk = date_to_jskey(ct.date)
-        custom_times.setdefault(ct.tutor.slug, {}).setdefault(dk, []).append(ct.time)
+    availability, custom_times = _tutor_calendars()
 
     # Student notes are tutor-private — never expose them to a student client.
     student_notes = {}
@@ -1064,14 +930,11 @@ def app_view(request):
     # (the single source of truth shared with the public landing page) rather
     # than by per-pack feat/tag flags inside packs_json, so the in-app
     # "Einheiten aufladen" screen and the marketing page never drift apart.
-    packs = json.loads(settings.packs_json)
-    for p in packs:
-        try:
-            is_popular = int(p.get("n")) == settings.popular_n
-        except (ValueError, TypeError):
-            is_popular = False
-        p["feat"] = is_popular
-        p["tag"] = "Beliebt" if is_popular else ""
+    packs = [
+        dict(raw, n=n, feat=n == settings.popular_n, tag="Beliebt" if n == settings.popular_n else "")
+        for n, _, raw in get_packs(settings)
+    ]
+
     django_data = {
         "isAuthenticated": True,
         "role": user.role,
@@ -1188,12 +1051,10 @@ def _set_own_password(user, password):
 
 
 @require_http_methods(["POST"])
+@require_roles("student", "tutor", "admin")
 def api_change_password(request):
     """Logged-in user sets their own password — the forced step after first
     login with a handed-over temp password (or after an admin overwrote it)."""
-    err = require_auth(request)
-    if err:
-        return err
     data = parse_body(request)
     password = data.get("password") or ""
     problem = validate_new_password(password)
@@ -1251,33 +1112,6 @@ def api_password_reset(request):
 # Bookings API
 # ---------------------------------------------------------------------------
 
-def _booking_txn_sub(booking):
-    """Ledger sub-line for a booking movement: which tutor, plus the lesson's
-    date/time — so the credit history says who the lesson was (or would have been)
-    with. Prefers the frozen snapshot, falling back to the live tutor FK."""
-    tutor_name = booking.tutor_name or (
-        booking.tutor.get_full_name() if booking.tutor_id and booking.tutor else ""
-    )
-    tutor_first = (tutor_name or "").split(" ")[0]
-    when = f"{booking.date.strftime('%d.%m.%Y')} · {booking.time}"
-    return f"mit {tutor_first} · {when}" if tutor_first else when
-
-
-def _booking_credit_txn(student, label, sub, amount):
-    """Record a booking-related movement on the credit ledger (book = -1,
-    refund = +1) with the identity snapshot, mirroring grant_credits' bookkeeping.
-    Returns the created transaction so callers can echo it to the client."""
-    return CreditTransaction.objects.create(
-        student=student,
-        student_slug=student.slug,
-        student_name=student.get_full_name() or student.username,
-        txn_type="book" if amount < 0 else "buy",
-        label=label,
-        sub=sub,
-        amount=amount,
-    )
-
-
 def _slot_unavailable(tutor, booking_date, time_str, *, exclude_pk=None):
     """Return an error code if the tutor's slot can't be booked — already taken, or
     explicitly closed by the tutor — else None. Server-side mirror of the browser's
@@ -1298,20 +1132,38 @@ def _slot_unavailable(tutor, booking_date, time_str, *, exclude_pk=None):
 def _booking_within_24h(b):
     """True when booking ``b`` starts less than 24h from now (or is in the past) —
     the window in which a student forfeits the credit on cancellation."""
-    from django.utils import timezone
-    try:
-        hh, mm = (int(x) for x in b.time.split(":"))
-    except (ValueError, AttributeError):
-        hh, mm = 0, 0
-    naive = datetime.combine(b.date, dtime(hh, mm))
-    start = timezone.make_aware(naive, timezone.get_current_timezone())
-    return start - timezone.now() < timedelta(hours=24)
+    return b.start - timezone.now() < timedelta(hours=24)
+
+
+def _cancel_booking(b, *, forfeit, label="Buchung storniert — Einheit erstattet",
+                    sub=None, notify=True):
+    """Delete booking ``b``: refund its credit unless ``forfeit``, mail both sides
+    (when ``notify``) and remove its auto-created Zoom/Teams meeting.
+    Returns (refund transaction or None, the student's new balance or None)."""
+    video_ref = (b.tutor_id, b.video_provider, b.video_meeting_id)
+    refund_txn = credits = None
+    with db_transaction.atomic():
+        if b.student_id:
+            locked = User.objects.select_for_update().get(pk=b.student_id)
+            if not forfeit:
+                locked.credits += 1
+                locked.save(update_fields=["credits"])
+                refund_txn = CreditTransaction.log(
+                    locked, txn_type="buy", label=label, sub=sub or b.ledger_sub(), amount=1,
+                )
+            credits = locked.credits
+        snapshot = emails._cancel_snapshot(b, refunded=refund_txn is not None)
+        b.delete()
+    if notify:
+        emails.queue_email(emails.send_cancellation_notifications, snapshot)
+    if video_ref[2]:
+        emails.queue_email(video.cleanup_meeting, *video_ref)
+    return refund_txn, credits
 
 
 @require_http_methods(["POST"])
 @require_roles("student", "tutor", "admin")
 def api_bookings(request):
-    from django.db import transaction as db_transaction
     data = parse_body(request)
     try:
         student = User.objects.get(slug=data["studentSlug"], role="student")
@@ -1321,6 +1173,8 @@ def api_bookings(request):
             return JsonResponse({"error": "forbidden"}, status=403)
         booking_date = date.fromisoformat(data["date"])
         time_str = data["time"]
+        if not _TIME_RE.match(str(time_str)):
+            raise ValueError("invalid time")
         title = data.get("title", "English session")
     except (KeyError, User.DoesNotExist, ValueError) as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -1328,9 +1182,8 @@ def api_bookings(request):
     # Logging a past ("forgotten") session is a tutor/admin action, bounded to a
     # 30-day look-back so old history can't be silently rewritten. Students never
     # book in the past (their UI only offers future slots).
-    from django.utils import timezone
     today = timezone.localdate()
-    if booking_date < today and getattr(request.user, "role", None) in ("tutor", "admin"):
+    if booking_date < today and request.user.role in ("tutor", "admin"):
         if (today - booking_date).days > BACKDATE_LIMIT_DAYS:
             return JsonResponse(
                 {"error": "too_far_back", "maxDays": BACKDATE_LIMIT_DAYS}, status=400
@@ -1372,7 +1225,6 @@ def api_bookings(request):
         new_credits = locked.credits
 
     # Confirm to the student (with a cancel link) and notify the tutor.
-    from . import emails
     emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
     emails.queue_email(emails.send_lesson_tutor_notification, b.pk)
     return JsonResponse({"pk": b.pk, "credits": new_credits})
@@ -1393,12 +1245,6 @@ def api_booking_detail(request, pk):
         return JsonResponse({"error": "forbidden"}, status=403)
 
     if request.method == "DELETE":
-        from django.db import transaction as db_transaction
-        from django.utils import timezone
-        from . import emails
-        student = b.student
-        # Auto-created Zoom/Teams meeting reference, captured before the row dies.
-        video_ref = (b.tutor_id, b.video_provider, b.video_meeting_id)
         # A booking whose day is already over is "abgeschlossen" in the UI, so
         # deleting it is a retroactive correction (the lesson never actually
         # happened) rather than a normal cancellation. It gets its own ledger
@@ -1406,41 +1252,19 @@ def api_booking_detail(request, pk):
         # and sends no cancellation e-mails (there is nothing to call off; the
         # refund shows up in the student's credit history instead).
         retroactive = b.date < timezone.localdate()
-        refunded = False
-        new_credits = None
-        refund_txn = None
-        if student is not None:
-            # A tutor/admin removal always returns the credit; a student cancelling
-            # inside the 24h window forfeits it (mirrors the booking UI's policy).
-            forfeit = is_student and _booking_within_24h(b)
-            with db_transaction.atomic():
-                locked = User.objects.select_for_update().get(pk=student.pk)
-                if not forfeit:
-                    locked.credits += 1
-                    locked.save(update_fields=["credits"])
-                    if retroactive:
-                        actor = request.user.get_full_name() or request.user.username
-                        label = "Stunde rückwirkend storniert — Einheit erstattet"
-                        sub = f"{_booking_txn_sub(b)} · von {actor}"
-                    else:
-                        label = "Buchung storniert — Einheit erstattet"
-                        sub = _booking_txn_sub(b)
-                    refund_txn = _booking_credit_txn(locked, label, sub, 1)
-                    refunded = True
-                new_credits = locked.credits
-                snapshot = emails._cancel_snapshot(b, refunded=refunded)
-                b.delete()
-        else:
-            snapshot = emails._cancel_snapshot(b, refunded=refunded)
-            b.delete()
-        # Notify both sides (student/guest and tutor/studio) that it's off —
-        # unless this was a retroactive correction of a past lesson.
-        if not retroactive:
-            emails.queue_email(emails.send_cancellation_notifications, snapshot)
-        if video_ref[2]:
-            emails.queue_email(video.cleanup_meeting, *video_ref)
+        label, sub = "Buchung storniert — Einheit erstattet", None
+        if retroactive:
+            actor = request.user.get_full_name() or request.user.username
+            label = "Stunde rückwirkend storniert — Einheit erstattet"
+            sub = f"{b.ledger_sub()} · von {actor}"
+        # A tutor/admin removal always returns the credit; a student cancelling
+        # inside the 24h window forfeits it (mirrors the booking UI's policy).
+        refund_txn, credits = _cancel_booking(
+            b, forfeit=is_student and _booking_within_24h(b),
+            label=label, sub=sub, notify=not retroactive,
+        )
         return JsonResponse({
-            "ok": True, "refunded": refunded, "credits": new_credits,
+            "ok": True, "refunded": refund_txn is not None, "credits": credits,
             "retroactive": retroactive,
             "txn": serialize_transaction(refund_txn) if refund_txn else None,
         })
@@ -1453,6 +1277,8 @@ def api_booking_detail(request, pk):
     if "date" in data:
         b.date = date.fromisoformat(data["date"])
     if "time" in data:
+        if not _TIME_RE.match(str(data["time"])):
+            return JsonResponse({"error": "invalid time"}, status=400)
         b.time = data["time"]
     # A reschedule must land on a free, open slot — same guard as creating one.
     if ("date" in data or "time" in data) and b.tutor_id:
@@ -1470,7 +1296,6 @@ def api_booking_detail(request, pk):
             # the orphan from the tutor's account and drop the reference so a
             # later cancel/reschedule never touches the wrong call.
             if b.video_meeting_id:
-                from . import emails
                 emails.queue_email(
                     video.cleanup_meeting, b.tutor_id, b.video_provider, b.video_meeting_id
                 )
@@ -1481,7 +1306,6 @@ def api_booking_detail(request, pk):
     # A rescheduled booking drags its auto-created Zoom/Teams meeting along to
     # the new slot (best-effort, off-request) so the mailed link stays valid.
     if b.video_meeting_id and (b.date, b.time) != old_slot:
-        from . import emails
         emails.queue_email(video.move_meeting, b.pk)
     return JsonResponse({"ok": True})
 
@@ -1518,21 +1342,12 @@ def reverse_opening_credit(txn):
     ``open`` ledger entry; marks the original cancelled so a fresh opening balance
     can be booked again. Returns the reversing transaction, or None if already
     cancelled (a concurrent caller won)."""
-    from django.db import transaction as db_transaction
     with db_transaction.atomic():
         locked = CreditTransaction.objects.select_for_update().get(pk=txn.pk)
         if locked.cancelled:
             return None
         n = locked.amount
-        student = locked.student
-        student_slug = locked.student_slug
-        student_name = locked.student_name
-        if student is not None:
-            student = User.objects.select_for_update().get(pk=student.pk)
-            student.credits -= n
-            student.save(update_fields=["credits"])
-            student_slug = student.slug
-            student_name = student.get_full_name() or student.username
+        student, student_slug, student_name = _reverse_credits(locked)
         rev = CreditTransaction.objects.create(
             student=student,
             student_slug=student_slug,
@@ -1591,8 +1406,6 @@ def api_cancel_transaction(request, txn_id):
     refunded_stripe = bool(refund_stripe_purchase(original, storno_receipt)) if original else False
 
     # Notify the student and the business once the reversal has committed.
-    from django.db import transaction as db_transaction
-    from . import emails
     db_transaction.on_commit(
         lambda: emails.queue_email(emails.send_storno_notifications, storno_receipt.pk)
     )
@@ -1613,28 +1426,30 @@ def api_cancel_transaction(request, txn_id):
 # Billing API
 # ---------------------------------------------------------------------------
 
-@require_http_methods(["PUT"])
-def api_billing(request):
-    err = require_auth(request)
-    if err:
-        return err
-    data = parse_body(request)
-    user = request.user
-    if "name" in data:
-        parts = (data["name"] or "").strip().split(" ", 1)
-        user.first_name = parts[0]
-        user.last_name = parts[1] if len(parts) > 1 else ""
-        user.billing_name = data["name"]
-        user.initials = compute_initials(data["name"])
-    if "line1" in data:
-        user.billing_line1 = data["line1"]
-    if "postcode" in data:
-        user.billing_postcode = data["postcode"]
-    if "city" in data:
-        user.billing_city = data["city"]
+def _apply_name(u, name):
+    """Set the display name everywhere it's derived: first/last, billing, initials."""
+    name = name or ""
+    u.first_name, _, u.last_name = name.strip().partition(" ")
+    u.billing_name = name
+    u.initials = compute_initials(name)
+
+
+def _apply_billing(u, data):
+    for field in ("line1", "postcode", "city"):
+        if field in data:
+            setattr(u, f"billing_{field}", data[field])
     if "country" in data:
-        user.billing_country = data["country"] or "Österreich"
-    user.save()
+        u.billing_country = data["country"] or "Österreich"
+
+
+@require_http_methods(["PUT"])
+@require_roles("student", "tutor", "admin")
+def api_billing(request):
+    data = parse_body(request)
+    if "name" in data:
+        _apply_name(request.user, data["name"])
+    _apply_billing(request.user, data)
+    request.user.save()
     return JsonResponse({"ok": True})
 
 
@@ -1748,8 +1563,7 @@ def api_stripe_webhook(request):
             event = json.loads(payload)
     except Exception:
         return JsonResponse({"error": "invalid"}, status=400)
-    event_type = event.get("type") if isinstance(event, dict) else event["type"]
-    if event_type == "checkout.session.completed":
+    if event.get("type") == "checkout.session.completed":
         credit_from_stripe_session(event["data"]["object"])
     return JsonResponse({"ok": True})
 
@@ -1838,7 +1652,7 @@ def api_settle_link(request, slug):
     return JsonResponse({
         "url": f"{origin}/settle/{student.settle_token}/",
         "outstanding": outstanding,
-        "amount": settle_total_cents(settings, outstanding) // 100,
+        "amount": settle_unit_euros(settings, outstanding) * outstanding,
     })
 
 
@@ -1863,7 +1677,7 @@ def settle_page(request, token):
         "first_name": student.first_name or student.username,
         "outstanding": outstanding,
         "unit": settle_unit_euros(settings, outstanding) if outstanding else 0,
-        "amount": settle_total_cents(settings, outstanding) // 100 if outstanding else 0,
+        "amount": settle_unit_euros(settings, outstanding) * outstanding,
         "stripe_enabled": stripe_enabled(),
         "paid": request.GET.get("paid") == "1",
     })
@@ -1969,7 +1783,6 @@ def api_opening_credit(request, slug):
         return JsonResponse({"error": "invalid amount"}, status=400)
     note = (data.get("note") or "").strip()[:200]
 
-    from django.db import transaction as db_transaction
     with db_transaction.atomic():
         locked = User.objects.select_for_update().get(pk=student.pk)
         # One active opening balance per student. A reversed one (cancelled) frees
@@ -1980,10 +1793,8 @@ def api_opening_credit(request, slug):
             return JsonResponse({"error": "already_set"}, status=409)
         locked.credits += n
         locked.save(update_fields=["credits"])
-        txn = CreditTransaction.objects.create(
-            student=locked,
-            student_slug=locked.slug,
-            student_name=locked.get_full_name() or locked.username,
+        txn = CreditTransaction.log(
+            locked,
             txn_type="open",
             label="Eröffnungsguthaben",
             sub=note or "Übertrag bestehender Einheiten",
@@ -2071,11 +1882,10 @@ def api_lesson_file_detail(request, file_id):
 
 
 @require_http_methods(["GET"])
+@require_roles("student", "tutor", "admin")
 def api_lesson_file_download(request, file_id):
     # Access-controlled file serving (no public MEDIA URL): students may only
     # download materials for lessons they have unlocked; tutor/admin always.
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "auth"}, status=401)
     try:
         lf = LessonFile.objects.get(pk=file_id)
     except LessonFile.DoesNotExist:
@@ -2084,7 +1894,6 @@ def api_lesson_file_download(request, file_id):
         student=request.user, lesson_id=lf.lesson_id
     ).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
-    import mimetypes
     ctype = mimetypes.guess_type(lf.original_name)[0] or "application/octet-stream"
     try:
         resp = FileResponse(lf.file.open("rb"), content_type=ctype)
@@ -2102,6 +1911,7 @@ def api_lesson_file_download(request, file_id):
 # ---------------------------------------------------------------------------
 
 @require_http_methods(["GET"])
+@require_roles("student", "tutor", "admin")
 def api_receipt_pdf(request, number):
     """Serve an issued receipt (or Storno credit note) as a formatted PDF.
 
@@ -2110,17 +1920,14 @@ def api_receipt_pdf(request, number):
     A logged-in student therefore can't open another student's receipt by guessing
     its number. Rendered on the fly from the frozen snapshot, so it reads the same
     forever and needs no stored file."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "auth"}, status=401)
     receipt = Receipt.objects.filter(number=number).select_related("student", "reverses").first()
     if not receipt:
         raise Http404
-    is_staff = getattr(request.user, "role", None) in ("tutor", "admin")
+    is_staff = request.user.role in ("tutor", "admin")
     owns_it = receipt.student_id is not None and receipt.student_id == request.user.pk
     if not (is_staff or owns_it):
         return JsonResponse({"error": "forbidden"}, status=403)
     try:
-        from .receipts_pdf import render_receipt_pdf
         pdf = render_receipt_pdf(receipt)
     except Exception:
         # reportlab missing or a render error — don't 500 the client.
@@ -2143,7 +1950,6 @@ def api_users(request):
         return JsonResponse({"users": [serialize_user(u) for u in users]})
 
     # POST: create a student (default) or a tutor
-    import time as time_module
     data = parse_body(request)
     role = data.get("role", "student")
     if role not in ("student", "tutor"):
@@ -2152,7 +1958,7 @@ def api_users(request):
     # Unique, collision-safe slug. The timestamp tail is near-unique, but two
     # rapid creates could clash — loop until the slug is actually free.
     prefix = "tut" if role == "tutor" else "stu"
-    base = prefix + str(int(time_module.time() * 1000))[-8:]
+    base = prefix + str(int(time.time() * 1000))[-8:]
     slug = base
     n = 2
     while User.objects.filter(slug=slug).exists():
@@ -2161,32 +1967,22 @@ def api_users(request):
 
     name = (data.get("name") or "").strip()
     first_name, _, last_name = name.partition(" ")
+    initials, color1, color2, last_default = {
+        "tutor": ("NT", "#309050", "#277a42", "Tutor"),
+        "student": ("NS", "#52a86a", "#2f8a4d", "Student"),
+    }[role]
     # Each account gets a unique, unguessable temporary password — never a shared
     # default. It is returned once (below) so the admin can hand it over; it is not
     # stored in clear text and can't be read back afterwards.
     temp_password = secrets.token_urlsafe(9)
-
-    if role == "tutor":
-        new_user = User.objects.create_user(
-            username=slug, email=f"{slug}@fluent.at", password=temp_password,
-            role="tutor", slug=slug,
-            initials=compute_initials(name) if name else "NT",
-            color1="#309050", color2="#277a42",
-            must_change_password=True,  # temp password: force an own one on first login
-        )
-        new_user.first_name = first_name or "New"
-        new_user.last_name = last_name or "Tutor"
-    else:
-        new_user = User.objects.create_user(
-            username=slug, email=f"{slug}@fluent.at", password=temp_password,
-            role="student", slug=slug,
-            initials=compute_initials(name) if name else "NS",
-            color1="#52a86a", color2="#2f8a4d",
-            must_change_password=True,  # temp password: force an own one on first login
-        )
-        new_user.first_name = first_name or "New"
-        new_user.last_name = last_name or "Student"
-    new_user.save()
+    new_user = User.objects.create_user(
+        username=slug, email=f"{slug}@fluent.at", password=temp_password,
+        role=role, slug=slug,
+        initials=compute_initials(name) if name else initials,
+        color1=color1, color2=color2,
+        first_name=first_name or "New", last_name=last_name or last_default,
+        must_change_password=True,  # temp password: force an own one on first login
+    )
     payload = serialize_user(new_user)
     payload["tempPassword"] = temp_password  # shown to the admin once, then discarded
     return JsonResponse(payload)
@@ -2217,12 +2013,7 @@ def api_user_detail(request, slug):
     # PUT
     data = parse_body(request)
     if "name" in data:
-        name = data["name"] or ""
-        parts = name.strip().split(" ", 1)
-        u.first_name = parts[0]
-        u.last_name = parts[1] if len(parts) > 1 else ""
-        u.billing_name = name
-        u.initials = compute_initials(name)
+        _apply_name(u, data["name"])
     if "email" in data:
         new_email = (data["email"] or "").strip().lower()
         # Email is the login identifier — keep it unique to avoid ambiguous logins.
@@ -2248,17 +2039,8 @@ def api_user_detail(request, slug):
     # audit trail (a fraud risk); balances now only move through booked
     # transactions — purchases, bookings, and the one-time opening balance
     # (api_opening_credit).
-    if "billing" in data:
-        b = data["billing"]
-        if isinstance(b, dict):
-            if "line1" in b:
-                u.billing_line1 = b["line1"]
-            if "postcode" in b:
-                u.billing_postcode = b["postcode"]
-            if "city" in b:
-                u.billing_city = b["city"]
-            if "country" in b:
-                u.billing_country = b["country"] or "Österreich"
+    if isinstance(data.get("billing"), dict):
+        _apply_billing(u, data["billing"])
     u.save()
     return JsonResponse(serialize_user(u))
 
@@ -2406,7 +2188,7 @@ def api_calendar_link(request):
     url = request.build_absolute_uri(f"/calendar/{tutor.calendar_token}.ics")
     # webcal:// is what makes Apple Calendar / Outlook subscribe (poll) instead
     # of importing a one-off snapshot.
-    return JsonResponse({"url": url, "webcalUrl": _re.sub(r"^https?", "webcal", url)})
+    return JsonResponse({"url": url, "webcalUrl": re.sub(r"^https?", "webcal", url)})
 
 
 @require_http_methods(["GET"])
@@ -2414,7 +2196,6 @@ def calendar_feed(request, token):
     """Public (token-as-capability) iCal feed of a tutor's bookings, for
     calendar apps to poll. No login: the unguessable, rotatable token on the
     tutor's account is the authorization, exactly like the settle/cancel links."""
-    from django.utils import timezone
     tutor = User.objects.filter(role="tutor", calendar_token=token).first() if token else None
     if tutor is None:
         raise Http404
@@ -2425,7 +2206,6 @@ def calendar_feed(request, token):
         Booking.objects.filter(tutor=tutor, date__gte=since)
         .select_related("student", "tutor")
     )
-    from .ical import build_tutor_feed
     resp = HttpResponse(build_tutor_feed(tutor, bookings),
                         content_type="text/calendar; charset=utf-8")
     resp["Content-Disposition"] = 'inline; filename="thegreenpencil.ics"'
