@@ -1396,6 +1396,13 @@ window.DJANGO_DATA = {{ django_data|safe }};
     PACKS.forEach(p=>{ const pn=+p.n, amt=parsePrice(p.price); if(amt && pn>0 && pn<=n && pn>bestN){ bestN=pn; rate=amt/pn; } });
     return Math.round(rate!=null ? rate : state.creditPrice);
   }
+  // Quick-add credit amounts for the tutor, driven by the admin-defined packs
+  // (their credit counts), so the +N buttons always match configured pricing.
+  function creditQuickAdds(){
+    const ns = (PACKS||[]).map(p=>parseInt(p.n,10)).filter(n=>Number.isFinite(n)&&n>0);
+    const uniq = [...new Set(ns)].sort((a,b)=>a-b);
+    return uniq.length ? uniq : [1,5,10];
+  }
   function issueReceipt(s, n, dateStr){
     const no = "RE-"+NOW.getFullYear()+"-"+String(state.receiptSeq++).padStart(4,"0");
     const unit = unitForCredits(n);
@@ -2561,9 +2568,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="modal-add">
           <span class="ma-label">Einheiten hinzufügen<em>Bar oder Stripe</em></span>
           <div class="ma-btns">
-            <button class="mini-btn" data-madd="1">+1</button>
-            <button class="mini-btn" data-madd="5">+5</button>
-            <button class="mini-btn" data-madd="10">+10</button>
+            ${creditQuickAdds().map(n=>`<button class="mini-btn" data-madd="${n}">+${n}</button>`).join("")}
           </div>
         </div>
         ${s.credits < 0 ? `
@@ -2636,9 +2641,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="rinfo"><div class="rname">${s.name}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
-          <button class="mini-btn" data-add="1">+1</button>
-          <button class="mini-btn" data-add="5">+5</button>
-          <button class="mini-btn" data-add="10">+10</button>
+          ${creditQuickAdds().map(n=>`<button class="mini-btn" data-add="${n}">+${n}</button>`).join("")}
         </div>`;
       card.querySelectorAll("[data-add]").forEach(btn=> btn.onclick=(e)=>{ e.stopPropagation(); openSettleChooser(s, +btn.dataset.add, false); });
       card.onclick=(e)=>{ if(e.target.closest("[data-add]")) return; openStudentModal(s); };
