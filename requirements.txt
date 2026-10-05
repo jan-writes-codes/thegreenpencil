@@ -1,4 +1,4 @@
-Django>=4.2,<5.0
+Django>=5.2,<5.3          # 5.2 LTS: security fixes until April 2028
 
 # --- Production serving ---
 gunicorn>=21,<23          # WSGI app server (replaces `runserver` in prod)

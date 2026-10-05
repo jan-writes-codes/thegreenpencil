@@ -31,13 +31,13 @@ dashboard — `.env` files are gitignored):
 
 | Variable | Required when | Example |
 | -------- | ------------- | ------- |
-| `DJANGO_DEBUG` | always | `false` in test **and** prod |
-| `DJANGO_SECRET_KEY` | `DEBUG=false` | a long random string — **different per environment** |
+| `DJANGO_DEBUG` | always | `false` in test **and** prod (on Render it defaults to `false`) |
+| `DJANGO_SECRET_KEY` | `DEBUG=false` | a long random string — **different per environment**; without it the app refuses to start |
 | `DJANGO_ALLOWED_HOSTS` | `DEBUG=false` | `thegreenpencil.at,www.thegreenpencil.at` |
 | `DATABASE_URL` | to use a non-default DB | `postgres://user:pass@host:5432/greenpencil_prod` |
 | `STRIPE_SECRET_KEY` | to enable self-checkout | `sk_live_…` (or `sk_test_…`) |
 | `STRIPE_PUBLISHABLE_KEY` | with Stripe | `pk_live_…` (or `pk_test_…`) |
-| `STRIPE_WEBHOOK_SECRET` | with Stripe webhook | `whsec_…` |
+| `STRIPE_WEBHOOK_SECRET` | with Stripe | `whsec_…` — the webhook answers 503 until it is set |
 | `RESEND_API_KEY` | to send real e-mail | `re_…` |
 | `DEFAULT_FROM_EMAIL` | with e-mail | `The Green Pencil <hallo@thegreenpencil.at>` |
 | `EMAIL_REPLY_TO` | recommended | `davit@thegreenpencil.at` |
@@ -82,9 +82,11 @@ Stripe keys turns on self-service Stripe Checkout in the credit-top-up panel.
 
 Point a Stripe webhook at `https://<host>/api/stripe/webhook/` for the
 `checkout.session.completed` event and put its signing secret in
-`STRIPE_WEBHOOK_SECRET`. The webhook is the source of truth; the app also
-re-confirms the session when the student returns, so credits are granted exactly
-once even if the webhook is slow or not yet configured.
+`STRIPE_WEBHOOK_SECRET` — unsigned events are refused, so without the secret the
+webhook stays off (locally, `stripe listen` prints one). The webhook is the
+source of truth, and the only path that credits settle-link payments; for
+self-checkout the app also re-confirms the session when the student returns, so
+credits are granted exactly once even if the webhook is slow.
 
 ### Transactional e-mail (Resend, optional)
 

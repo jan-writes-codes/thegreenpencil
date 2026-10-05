@@ -1111,15 +1111,13 @@
   <div class="modal-overlay" id="settleModal" hidden></div>
   <div class="modal-overlay" id="backdateModal" hidden></div>
 
-<script>
-window.DJANGO_DATA = {{ django_data|safe }};
-</script>
+{{ django_data|json_script:"django-data" }}
 <script>
 (function () {
   "use strict";
 
   // ---------- Data (from Django) ----------
-  const DJ = window.DJANGO_DATA || {};
+  const DJ = JSON.parse(document.getElementById("django-data").textContent);
   const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
   async function api(method, url, body) {
@@ -1380,7 +1378,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       ${stornoNote}
       <div class="r-parties">
         <div><div class="r-lbl">Leistungserbringer · From</div>${SUPPLIER.name}<br/>${SUPPLIER.line2}<br/>${SUPPLIER.addr}<br/>${SUPPLIER.city}<br/>${SUPPLIER.email}</div>
-        <div><div class="r-lbl">Empfänger · Billed to</div>${r.studentName}${r.billing?'<br/>'+r.billing.line1+'<br/>'+r.billing.postcode+' '+r.billing.city+'<br/>'+r.billing.country:''}</div>
+        <div><div class="r-lbl">Empfänger · Billed to</div>${esc(r.studentName)}${r.billing?'<br/>'+esc(r.billing.line1)+'<br/>'+esc(r.billing.postcode)+' '+esc(r.billing.city)+'<br/>'+esc(r.billing.country):''}</div>
       </div>
       <table class="r-table">
         <thead><tr><th>Menge</th><th>Beschreibung</th><th>Einzel</th><th>Betrag</th></tr></thead>
@@ -1421,7 +1419,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
   // for yet); the server is authoritative, so we don't clamp here.
   function setStudentCredits(id, val){ const s=studentById(id); if(!s) return; s.credits=val; if(id===state.currentUser){ state.credits=s.credits; updateCredits(); } }
   function addStudentCredits(id, n){ const s=studentById(id); if(!s) return; setStudentCredits(id, s.credits + n); }
-  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${t.photo}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
+  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
 
   // ---------- Render tutors ----------
   function renderTutors() {
@@ -1430,7 +1428,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       const chip = document.createElement("div");
       chip.className = "tutor-chip" + (t.id===state.tutor ? " sel" : "");
       chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-        <div><div class="tn">${t.name}</div><div class="tm">${t.role}</div></div>`;
+        <div><div class="tn">${esc(t.name)}</div><div class="tm">${t.role}</div></div>`;
       chip.onclick = () => { state.tutor = t.id; state.selected = null; renderTutors(); renderWeek(); renderSummary(); };
       tutorsEl.appendChild(chip);
     });
@@ -1444,7 +1442,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       if (state.rescheduling) {
         _rb.hidden = false;
         _rb.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.9"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>
-          <span>Umbuchung von <b>${state.rescheduling.title}</b> — wähle unten eine neue freie Zeit.</span>
+          <span>Umbuchung von <b>${esc(state.rescheduling.title)}</b> — wähle unten eine neue freie Zeit.</span>
           <button class="banner-x" id="bannerCancel">Abbrechen</button>`;
         _rb.querySelector("#bannerCancel").onclick = cancelReschedule;
       } else { _rb.hidden = true; }
@@ -1657,9 +1655,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8.5 15.5a3 3 0 1 0 3-3"/></svg></div>
       <h3 class="buy-h">Kalender abonnieren</h3>
       <p class="buy-p">Füge diesen Live-Feed einmal hinzu — neue Buchungen, Umbuchungen und Stornierungen synchronisieren sich automatisch, ganz ohne erneuten Download.</p>
-      <div class="cal-url"><input id="calUrl" readonly value="${calFeed.url}"><button class="mini-btn" id="calCopy">Kopieren</button></div>
-      <a class="btn" href="${calFeed.webcalUrl}">Abonnieren · Apple &amp; Outlook</a>
-      <a class="btn ghost" href="${gcal}" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a>
+      <div class="cal-url"><input id="calUrl" readonly value="${esc(calFeed.url)}"><button class="mini-btn" id="calCopy">Kopieren</button></div>
+      <a class="btn" href="${esc(calFeed.webcalUrl)}">Abonnieren · Apple &amp; Outlook</a>
+      <a class="btn ghost" href="${esc(gcal)}" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a>
       <button class="btn-text" id="calDownload">Oder einmalig .ics herunterladen</button>
       <div class="micro" style="margin-top:10px;">Der Link ist privat — wer ihn hat, sieht deine Stunden.</div>
     </div>`;
@@ -1679,7 +1677,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     let body;
     if (conn) {
       body = `
-        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${escHtml(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit — er steht in der Bestätigungs-Mail und im Kalender.</p>
+        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${esc(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit — er steht in der Bestätigungs-Mail und im Kalender.</p>
         <button class="btn ghost" id="videoDisconnect">Konto trennen</button>`;
     } else if (DJ.role !== "tutor") {
       body = `<p class="buy-p">Nur der Tutor selbst kann sein Zoom- oder Teams-Konto verbinden — die Freigabe gehört zu seinem Login.</p>`;
@@ -1733,7 +1731,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
           <div class="manage-eyebrow">Stunde umbuchen</div>
           <div class="sum-head">
             <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-            <div><div class="nm">${b.title}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
+            <div><div class="nm">${esc(b.title)}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
           </div>
           <div class="pick-prompt">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.7"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -1754,7 +1752,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="sum-confirm">
           <div class="confirm-badge">✓</div>
           <h3 class="confirm-h">${resched ? "Umgebucht!" : "Gebucht!"}</h3>
-          <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${t.name}</p>
+          <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${esc(t.name)}</p>
         </div>
         <button class="btn" id="icsBtn">
           <span class="grainbtn"></span>
@@ -1776,17 +1774,17 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="manage-eyebrow">Buchung verwalten</div>
         <div class="sum-head">
           <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-          <div><div class="nm">${b.title}</div><div class="rl">with ${t.name}</div></div>
+          <div><div class="nm">${esc(b.title)}</div><div class="rl">with ${esc(t.name)}</div></div>
         </div>
         <div class="sum-rows">
           <div class="sum-row"><span class="k">Datum</span><span class="v">${fmtLong(b.date)}</span></div>
           <div class="sum-row"><span class="k">Zeit</span><span class="v hl">${b.time} – ${endTime(b.time)}</span></div>
           <div class="sum-row"><span class="k">Dauer</span><span class="v">45 Minuten</span></div>
         </div>
-        ${b.callLink?`<a class="btn join-btn" href="${escHtml(b.callLink)}" target="_blank" rel="noopener"><span class="grainbtn"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px"><path d="M15 10l5-3v10l-5-3v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/></svg>Zum Call</a>`:`<div class="micro" style="text-align:left;margin:2px 0 0;">Dein Tutor stellt den Call-Link vor der Stunde hier ein.</div>`}
+        ${b.callLink?`<a class="btn join-btn" href="${esc(b.callLink)}" target="_blank" rel="noopener"><span class="grainbtn"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px"><path d="M15 10l5-3v10l-5-3v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/></svg>Zum Call</a>`:`<div class="micro" style="text-align:left;margin:2px 0 0;">Dein Tutor stellt den Call-Link vor der Stunde hier ein.</div>`}
         <div class="notes-block">
           <label class="field-label">Themen für die Stunde</label>
-          <textarea class="notes-ta" id="noteTA" placeholder="Themen, Fragen oder Ziele für diese Stunde…">${escHtml(b.notes)}</textarea>
+          <textarea class="notes-ta" id="noteTA" placeholder="Themen, Fragen oder Ziele für diese Stunde…">${esc(b.notes)}</textarea>
           <div class="micro" style="text-align:left;margin:6px 0 0;">Für deinen Tutor sichtbar.</div>
         </div>
         ${mod ? `
@@ -1832,7 +1830,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     sumCard.innerHTML = `
       <div class="sum-head">
         <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-        <div><div class="nm">${t.name}</div><div class="rl">${t.role}</div></div>
+        <div><div class="nm">${esc(t.name)}</div><div class="rl">${t.role}</div></div>
       </div>
       <div class="sum-rows">
         <div class="sum-row"><span class="k">Datum</span><span class="v">${fmtLong(d)}</span></div>
@@ -1919,9 +1917,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
     PACKS.forEach(p => {
       const d = document.createElement("div");
       d.className = "pack" + (p.feat?" feat":"");
-      d.innerHTML = `${p.tag?`<span class="tag">${p.tag}</span>`:""}
+      d.innerHTML = `${p.tag?`<span class="tag">${esc(p.tag)}</span>`:""}
         <div class="pc">${p.n}</div><div class="pl">Einheiten</div>
-        <div class="pp">${p.price}</div><div class="pe">${p.each}</div>`;
+        <div class="pp">${esc(p.price)}</div><div class="pe">${esc(p.each)}</div>`;
       d.onclick = () => openBuyInfo(p);
       el.appendChild(d);
     });
@@ -1967,17 +1965,17 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <button class="btn" id="buyBilling"><span class="grainbtn"></span>Rechnungsadresse hinterlegen</button>
       <button class="btn ghost" id="buyClose">Schließen</button>`
       : `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
-      <p class="buy-p">Bezahle das <b>${p.n}er-Paket</b> (<b>${p.price}</b>) sicher per Karte. Deine <b>${p.n} Einheiten</b> werden sofort gutgeschrieben und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
+      <p class="buy-p">Bezahle das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) sicher per Karte. Deine <b>${p.n} Einheiten</b> werden sofort gutgeschrieben und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       <label class="buy-consent"><input type="checkbox" id="buyConsent"><span>Ich stimme den <a href="/agb/" target="_blank" rel="noopener">AGB</a> zu und habe die <a href="/widerruf/" target="_blank" rel="noopener">Widerrufsbelehrung</a> zur Kenntnis genommen. Löse ich eine Einheit vor Ablauf der Widerrufsfrist ein, wünsche ich die vorzeitige Leistungserbringung ausdrücklich und nehme zur Kenntnis, dass mein Widerrufsrecht bei vollständiger Erbringung erlischt.</span></label>
       <button class="btn" id="buyStripe" disabled><span class="grainbtn"></span>Jetzt sicher bezahlen</button>
-      <a class="btn ghost" id="buyMail" href="${mailHref(t0)}">Lieber Tutor schreiben</a>
+      <a class="btn ghost" id="buyMail" href="${esc(mailHref(t0))}">Lieber Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>
       <div class="micro" style="margin-top:12px;">Zahlung über Stripe · du verlässt kurz die Seite und kommst danach automatisch zurück.</div>`)
       : `<h3 class="buy-h">Einheiten fügt dein Tutor hinzu</h3>
-      <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${p.price}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
+      <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       ${tutorPicker}
       <div class="buy-contact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span id="buyTutorEmail">${esc(t0.email)}</span></div>
-      <a class="btn" id="buyMail" href="${mailHref(t0)}"><span class="grainbtn"></span>Tutor schreiben</a>
+      <a class="btn" id="buyMail" href="${esc(mailHref(t0))}"><span class="grainbtn"></span>Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>`}
     </div>`;
     m.hidden=false;
@@ -2059,9 +2057,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
         <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
-        <div class="info"><div class="t">${b.title}</div><div class="s">${t.name} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${escHtml(b.notes)}</div>`:""}</div>
+        <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
-          ${b.callLink?`<a class="join-mini" href="${escHtml(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
+          ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
           <button class="ics-mini" title="Zum Kalender (.ics)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></button>
           <div class="li-actions">
             ${mod
@@ -2095,8 +2093,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
     return log.map(a => {
       const ic = TXN_ICONS[a.type] || TXN_ICONS.done;
       const amtCls = a.amt.startsWith("+")?"plus":(a.amt.startsWith("-")?"minus":"");
-      const who = (opts.showStudent && a.studentName) ? `${escHtml(a.studentName)} · ` : "";
-      const sub = [who + (a.sub||""), a.date].filter(Boolean).join(" · ");
+      const who = (opts.showStudent && a.studentName) ? `${esc(a.studentName)} · ` : "";
+      const sub = [who + esc(a.sub||""), a.date].filter(Boolean).join(" · ");
       const receiptBtn = a.receiptNo?`<button class="rcpt-link" data-receipt="${a.receiptNo}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg> ${a.receiptNo}</button>`:"";
       let cancelCtl = "";
       if (isAdmin && a.cancellable && a.id) {
@@ -2106,7 +2104,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         cancelCtl = `<span class="txn-cancelled-tag">storniert</span>`;
       }
       return `<div class="ai"><div class="adot" style="background:${ic.bg}">${ic.t}</div>
-        <div class="at"><div>${a.label}</div><div class="as">${sub}</div>${receiptBtn}${cancelCtl}</div>
+        <div class="at"><div>${esc(a.label)}</div><div class="as">${sub}</div>${receiptBtn}${cancelCtl}</div>
         ${a.amt?`<div class="amt ${amtCls}">${a.amt}</div>`:""}</div>`;
     }).join("");
   }
@@ -2200,7 +2198,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
           if(bk){
             const s=bookingStudent(bk);
             el.className="slot t-booked locked";
-            el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${s.name.split(" ")[0]}</span>`;
+            el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}</span>`;
             el.onclick=()=>toast("Gebuchte Zeit kann nicht geschlossen werden");
           } else if(conflict){
             el.className="slot avail avail-blocked";
@@ -2221,7 +2219,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         if(bk){
           const s=bookingStudent(bk);
           el.className="slot t-booked"+(state.teacherManage===bk?" sel":"");
-          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${s.name.split(" ")[0]}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
+          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
           el.onclick=()=>teacherManageSlot(bk);
         } else {
           const isSel=state.teacherSel && state.teacherSel.dateKey===dk && state.teacherSel.time===time;
@@ -2290,7 +2288,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg></div>
       <h3 class="buy-h">Stunde nachtragen</h3>
       <p class="buy-p">Trage eine bereits gehaltene Stunde nach — bis zu <b>30 Tage</b> zurück. Es wird <b>1 Einheit</b> abgezogen und die Stunde erscheint im Verlauf.</p>
-      <label class="bf-lab" style="text-align:left;">Schüler<select class="bf-input" id="bdStudent">${list.map(s=>`<option value="${esc(s.id)}">${escHtml(s.name)}</option>`).join("")}</select></label>
+      <label class="bf-lab" style="text-align:left;">Schüler<select class="bf-input" id="bdStudent">${list.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select></label>
       <div class="bf-grid">
         <label class="bf-lab" style="text-align:left;">Datum<input class="bf-input" type="date" id="bdDate" min="${ymd(min)}" max="${ymd(NOW)}" value="${ymd(NOW)}"></label>
         <label class="bf-lab" style="text-align:left;">Uhrzeit<select class="bf-input" id="bdTime">${times.map(t=>`<option${t==="16:00"?" selected":""}>${t}</option>`).join("")}</select></label>
@@ -2374,7 +2372,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     }
     if(state.teacherSel){
       const sel=state.teacherSel;
-      const opts=state.students.map(s=>`<option value="${s.id}">${s.name} — ${s.credits} Einheiten</option>`).join("");
+      const opts=state.students.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${s.credits} Einheiten</option>`).join("");
       card.innerHTML=`
         <div class="manage-eyebrow">Schüler eintragen</div>
         <div class="sum-rows" style="margin-bottom:16px;">
@@ -2389,8 +2387,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
       `;
       const selEl=$("#assignSel");
       const note=()=>{ const s=studentById(selEl.value); $("#assignNote").innerHTML = s.credits>0
-        ? `Bucht die Stunde und zieht <b style='color:var(--c1)'>1 Einheit</b> von ${s.name.split(" ")[0]} ab (→ ${s.credits-1}).`
-        : `<span class="warn">${s.name.split(" ")[0]} hat keine Einheiten mehr offen.</span>`; };
+        ? `Bucht die Stunde und zieht <b style='color:var(--c1)'>1 Einheit</b> von ${esc(s.name.split(" ")[0])} ab (→ ${s.credits-1}).`
+        : `<span class="warn">${esc(s.name.split(" ")[0])} hat keine Einheiten mehr offen.</span>`; };
       selEl.onchange=note; note();
       $("#assignBtn").onclick=()=>teacherAssign(sel.date, sel.time, selEl.value);
       $("#assignCancel").onclick=()=>{ state.teacherSel=null; renderTeacherWeek(); renderTeacherSummary(); };
@@ -2398,29 +2396,29 @@ window.DJANGO_DATA = {{ django_data|safe }};
     }
     if(state.teacherManage){
       const bk=state.teacherManage, s=bookingStudent(bk);
-      const guestLine = s.isGuest ? `<div class="rl">${escHtml(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
+      const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
       card.innerHTML=`
         <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":"Gebuchte Zeit"}</div>
-        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${escHtml(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
         <label class="field-label">Titel der Stunde</label>
-        <input class="bf-input" id="tTitle" value="${escHtml(bk.title)}">
+        <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
         <div class="time-edit">
           <input type="time" class="bf-input" id="tTimeInput" value="${bk.time}" step="300" min="07:00" max="21:00">
           <span class="time-end" id="tTimeEnd">endet ${endTime(bk.time, lessonMins(bk))}</span>
         </div>
         <label class="field-label" style="margin-top:12px;">Call-Link <span class="lbl-only">· Zoom, Teams…</span></label>
-        <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${escHtml(bk.callLink)}">
+        <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${esc(bk.callLink)}">
         <label class="field-label" style="margin-top:12px;">Themen für die Stunde</label>
-        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${escHtml(s.name.split(' ')[0])}…">${escHtml(bk.notes)}</textarea>
+        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${esc(s.name.split(' ')[0])}…">${esc(bk.notes)}</textarea>
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
-        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${escHtml(bk.tutorNotes)}</textarea>
+        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
           ? `Entfernen gibt die Zeit wieder frei. Eine Schnupperstunde verbraucht keine Einheit.`
-          : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${s.name.split(" ")[0]}.`}</div>
+          : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${esc(s.name.split(" ")[0])}.`}</div>
       `;
       $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
       $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
@@ -2506,7 +2504,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <button class="modal-x" id="modalX" aria-label="Close">×</button>
         <div class="sum-head" style="margin-bottom:18px;">
           <div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${s.i}</div>
-          <div><div class="nm">${s.name}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+          <div><div class="nm">${esc(s.name)}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         </div>
         <div class="modal-add">
           <span class="ma-label">Einheiten hinzufügen<em>Bar oder Stripe</em></span>
@@ -2522,14 +2520,14 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
-          <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${escHtml(s.name.split(' ')[0])}…">
+          <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
           <button class="mini-btn snote-btn" id="snoteAdd">Hinzufügen</button>
         </div>
         <div class="snote-log">${notesLogHtml(s)}</div>
         <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2></div>
-        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${escHtml(s.name.split(' ')[0])} im Lern-Tab zugreifen kann.</div>
+        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} im Lern-Tab zugreifen kann.</div>
         <div class="curric-mgr">${curriculumMgrHtml(s)}</div>
-        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${escHtml(s.name.split(' ')[0])}s Lern-Tab</button>
+        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Lern-Tab</button>
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
         <div class="section-h" style="margin:22px 2px 6px;"><h2>Verlauf</h2></div>
         <div class="activity modal-txns">${txnHtml(s.log)}</div>
@@ -2567,7 +2565,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     bindCancelLinks($("#studentModal"));
     if($("#modalCard")) $("#modalCard").scrollTop = prevScroll;
   }
-  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen — oben die erste hinzufügen.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${escHtml(n.text)}</div></div>`).join(""); }
+  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen — oben die erste hinzufügen.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${esc(n.text)}</div></div>`).join(""); }
   function addStudentNote(s){ const inp=$("#snoteInput"); const t=(inp.value||"").trim(); if(!t) return; s.notesLog=s.notesLog||[]; s.notesLog.unshift({ date:fmtAT(NOW), text:t }); inp.value=""; api('POST', '/api/notes/' + s.id + '/', { text: t, tutorSlug: state.myTutor }); renderStudentModal(); toast("Notiz zu "+s.name.split(" ")[0]+" hinzugefügt"); }
 
   function renderRoster(){
@@ -2575,13 +2573,13 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const q=(state.studentQuery||"").trim().toLowerCase();
     const list=state.students.filter(s=> !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q));
     const cnt=$("#studentsCount"); if(cnt) cnt.textContent = q ? `${list.length} von ${state.students.length}` : `${state.students.length} Schüler`;
-    if(!list.length){ el.innerHTML=`<div class="empty-list" style="padding:22px 0;">Keine Schüler passen zu „${escHtml(q)}“.</div>`; renderTutorLists(); return; }
+    if(!list.length){ el.innerHTML=`<div class="empty-list" style="padding:22px 0;">Keine Schüler passen zu „${esc(q)}“.</div>`; renderTutorLists(); return; }
     list.forEach(s=>{
       const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
       const card=document.createElement("div"); card.className="rost";
       card.innerHTML=`
         <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${s.i}</div>
-        <div class="rinfo"><div class="rname">${s.name}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
           ${creditQuickAdds().map(n=>`<button class="mini-btn" data-add="${n}">+${n}</button>`).join("")}
@@ -2599,12 +2597,12 @@ window.DJANGO_DATA = {{ django_data|safe }};
     // free guest intro sessions (which have no roster account).
     if(b.studentId==="__blocked__") return "";
     const s=bookingStudent(b);
-    const nameLine = s.isGuest ? `${escHtml(s.name)} · Intro` : escHtml(s.name);
+    const nameLine = s.isGuest ? `${esc(s.name)} · Intro` : esc(s.name);
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
       <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
-      <div class="info"><div class="t">${b.title}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${escHtml(b.notes)}</div>`:""}</div>
-      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${escHtml(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
+      <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
   }
   function renderTutorLists(){
@@ -2632,7 +2630,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     m.innerHTML=`<div class="modal-card buy-card" id="buyCard">
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <h3 class="buy-h">Stunde rückwirkend stornieren?</h3>
-      <p class="buy-p"><b>${escHtml(s.name)}</b>${isGuest?" · Intro":""} · ${fmtLong(b.date)} · ${b.time}</p>
+      <p class="buy-p"><b>${esc(s.name)}</b>${isGuest?" · Intro":""} · ${fmtLong(b.date)} · ${b.time}</p>
       <p class="buy-p">${isGuest
         ? "Eine Schnupperstunde kostet keine Einheit — sie wird nur aus der Liste entfernt."
         : "Die Stunde wird entfernt und die Einheit dem Schüler zurückgebucht. Der Vorgang wird mit deinem Namen im Einheiten-Verlauf protokolliert."}</p>
@@ -2687,8 +2685,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
   }
 
   // ---------- Admin: user management ----------
-  function esc(s){ return String(s==null?"":s).replace(/"/g,"&quot;"); }
-  function escHtml(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
   function renderAdmin(){ renderAdminList(); renderAdminEditor(); renderAdminPacks(); renderAdminTxns(); renderPayouts(); }
   // Per-tutor payout basis. Lessons paid for with *migrated* (opening-balance)
   // credits carry no on-platform revenue, so they can't be paid out. For each
@@ -2739,7 +2736,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="payout-table">
         <div class="payout-row payout-hrow"><div>Tutor</div><div>Abgeschl.</div><div>Migriert</div><div>Vergütbar</div><div>Wert</div></div>
         ${rows.length ? rows.map(r=>`<div class="payout-row">
-          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${escHtml(r.t.name)}</div>
+          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${esc(r.t.name)}</div>
           <div>${r.comp}</div><div class="${r.migr?'payout-mig':''}">${r.migr||"—"}</div><div><b>${r.pay}</b></div><div>€ ${r.value}</div>
         </div>`).join("") : `<div class="empty-list" style="padding:16px 0;">Noch keine Stunden im Zeitraum.</div>`}
         ${rows.length>1?`<div class="payout-row payout-total"><div>Gesamt</div><div>${sum("comp")}</div><div>${sum("migr")||"—"}</div><div><b>${sum("pay")}</b></div><div>€ ${sum("value")}</div></div>`:""}
@@ -2801,7 +2798,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       const item=document.createElement("button");
       item.className="admin-item"+(u.id===state.adminSel?" sel":"");
       item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${u.i}</div>
-        <div class="ai-info"><div class="ai-name">${u.name}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${u.email}</div></div>`;
+        <div class="ai-info"><div class="ai-name">${esc(u.name)}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${esc(u.email)}</div></div>`;
       item.onclick=()=>{ state.adminSel=u.id; renderAdmin(); };
       el.appendChild(item);
     });
@@ -2816,7 +2813,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="ed-head">
         <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${u.i}</div>
         <div class="ed-photo-actions">
-          <div class="ed-who"><div class="ed-name">${u.name}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
+          <div class="ed-who"><div class="ed-name">${esc(u.name)}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
           <div class="ed-photo-btns">
             <label class="mini-btn">Foto hochladen<input type="file" id="edPhoto" accept="image/*" hidden></label>
             ${u.photo?'<button class="mini-btn" id="edPhotoClear">Entfernen</button>':''}
@@ -2855,7 +2852,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       </div>
       <div class="ed-actions">
         <button class="btn" id="edSave"><span class="grainbtn"></span>Änderungen speichern</button>
-        <button class="btn ghost" id="edViewAs">Ansehen als ${u.name.split(" ")[0]}</button>
+        <button class="btn ghost" id="edViewAs">Ansehen als ${esc(u.name.split(" ")[0])}</button>
       </div>
       ${isStudent?'<button class="btn-text" id="edRemove" style="color:#b8492c;">Schüler entfernen</button>':''}
       ${isTutor?'<button class="btn-text" id="edRemoveTutor" style="color:#b8492c;">Tutor entfernen</button>':''}
@@ -2917,7 +2914,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         reflectUser(u); renderAdmin();
         toast("Foto aktualisiert — zum Speichern „Änderungen speichern“");
       };
-      img.onerror=()=>{ u.photo=rd.result; reflectUser(u); renderAdmin(); };
+      img.onerror=()=>toast("Diese Datei ist kein Bild");
       img.src=rd.result;
     };
     rd.readAsDataURL(f);
@@ -3004,7 +3001,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
   function toast(msg) {
     const w = $("#toastWrap");
     const el = document.createElement("div"); el.className="toast";
-    el.innerHTML = `<div class="ti">✓</div><div>${msg}</div>`;
+    el.innerHTML = `<div class="ti">✓</div><div></div>`;
+    el.lastChild.textContent = msg;
     w.appendChild(el);
     setTimeout(()=>{ el.style.transition="0.4s"; el.style.opacity="0"; el.style.transform="translateY(10px)"; setTimeout(()=>el.remove(),400); }, 2600);
   }
@@ -3089,7 +3087,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${l.t}</span><span class="les-tag">Gesperrt</span></div></div>`;
     const files=lessonFilesFor(l.id);
     const filesHtml = files.length
-      ? files.map(f=>`<a class="file-row" href="${escHtml(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${escHtml(f.name)}</span><span class="file-ext">${escHtml(f.ext||'FILE')}</span></a>`).join("")
+      ? files.map(f=>`<a class="file-row" href="${esc(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext||'FILE')}</span></a>`).join("")
       : `<div class="micro" style="text-align:left;padding:8px 4px;">Noch keine Materialien — dein Tutor hat für diese Lektion noch keine Dateien hinzugefügt.</div>`;
     return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${l.t}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
       <div class="les-files">${filesHtml}</div></div>`;
@@ -3114,7 +3112,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="cm-lessons">${lvl.lessons.map(l=>{
           const on=isActive(s,l.id);
           const files=lessonFilesFor(l.id);
-          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${escHtml(f.url)}" title="Herunterladen">${escHtml(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
+          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
           return `<div class="cm-les-wrap">
             <button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${l.t}</span></button>
             <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>

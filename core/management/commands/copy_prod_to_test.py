@@ -18,6 +18,7 @@ Safety:
   leaves it exactly as it was;
 * ``django_migrations`` is not copied — the target keeps its own migration
   history, so a newer test schema is left intact;
+* tutors' Zoom/Teams OAuth tokens (``core_videoconnection``) are not copied;
 * aborts if production has a table or column the target lacks (run
   ``migrate`` on the target first).
 
@@ -30,7 +31,9 @@ from django.core.management.base import BaseCommand, CommandError
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
 
-SKIP_TABLES = {"django_migrations"}
+# core_videoconnection holds tutors' live Zoom/Teams OAuth tokens: copied, the
+# test service would create and delete meetings on their real accounts.
+SKIP_TABLES = {"django_migrations", "core_videoconnection"}
 
 
 def _identity(url):

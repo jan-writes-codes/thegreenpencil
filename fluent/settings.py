@@ -2,17 +2,23 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-dev-secret-key-fluent-tutoring-2026-not-for-production',
-)
+# Fails closed on Render (which sets RENDER=true): DEBUG is off there unless
+# DJANGO_DEBUG says otherwise. Local dev and CI keep DEBUG on by default.
+DEBUG = os.environ.get(
+    'DJANGO_DEBUG', 'false' if os.environ.get('RENDER') else 'true'
+).lower() in ('1', 'true', 'yes', 'on')
 
-# Safe production posture is opt-in via env. Local dev keeps DEBUG on by default;
-# set DJANGO_DEBUG=false (and DJANGO_SECRET_KEY / DJANGO_ALLOWED_HOSTS) in prod.
-DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() in ('1', 'true', 'yes', 'on')
+# Without DEBUG there is no fallback: a missing key aborts startup (and with it
+# the Render build) instead of signing sessions with a key published in git.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Set DJANGO_SECRET_KEY (required when DEBUG is off).')
+    SECRET_KEY = 'django-dev-secret-key-fluent-tutoring-2026-not-for-production'
 
 if DEBUG:
     ALLOWED_HOSTS = ['*']

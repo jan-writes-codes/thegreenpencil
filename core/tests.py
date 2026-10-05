@@ -22,18 +22,23 @@ Map of bug -> guarding test:
   * bookings don't sync between users .... BookingPersistenceTests.*  +  DomBookingTests.test_booking_persists_with_local_date
   * identity always shows Maya ........... DomRoleTests.test_identity_*
 """
+import hashlib
+import hmac
 import json
 import os
 import re
 import secrets
 import shutil
 import subprocess
+import sys
+import time
 import tempfile
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from unittest import mock
 
-from django.test import TestCase, Client, override_settings
+from django.core.cache import cache
+from django.test import TestCase as _DjangoTestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -65,8 +70,25 @@ def current_week_monday():
     return today - timedelta(days=today.weekday())
 
 
-DJANGO_DATA_RE = re.compile(r"window\.DJANGO_DATA = (\{.*?\});", re.S)
+DJANGO_DATA_RE = re.compile(r'<script id="django-data" type="application/json">(.*?)</script>', re.S)
 DATA_ROLE_RE = re.compile(r'<div class="app" data-role="([^"]*)"')
+
+
+class TestCase(_DjangoTestCase):
+    """Rate-limit counters live in the cache; every test starts with a clean one."""
+    def run(self, result=None):
+        cache.clear()
+        return super().run(result)
+
+
+WEBHOOK_SECRET = "whsec_test"
+
+
+def stripe_signed(payload, secret=WEBHOOK_SECRET):
+    """The header Stripe sends with ``payload``: a v1 HMAC-SHA256 signature."""
+    ts = int(time.time())
+    sig = hmac.new(secret.encode(), f"{ts}.{payload}".encode(), hashlib.sha256).hexdigest()
+    return {"HTTP_STRIPE_SIGNATURE": f"t={ts},v1={sig}"}
 
 
 def extract_payload(html):
@@ -1087,6 +1109,53 @@ class DomRoleTests(_DomProbeBase):
         self._check(self.admin, *self.EXPECTED["admin"])
 
 
+class XssTests(_DomProbeBase):
+    """User-supplied text (guest/student/tutor names, booking titles) must render
+    as text, never as markup, in every role's app — and must not be able to
+    close the <script> block that carries the page data."""
+    MARK = "<i/data-xss>Eve"            # no spaces: survives name.split(" ")[0]
+    BREAKOUT = "</script><script>window.__pwned=1</script>"
+
+    def setUp(self):
+        super().setUp()
+        today = date.today()
+        self.maya.first_name = self.MARK
+        self.maya.save()
+        self.davit.first_name = self.MARK
+        self.davit.save()
+        Booking.objects.create(student=self.maya, tutor=self.davit, date=today,
+                               time="19:00", title=self.MARK)
+        Booking.objects.create(tutor=self.davit, date=today + timedelta(days=1), time="19:00",
+                               is_intro=True, guest_name=self.MARK, guest_email="eve@example.at",
+                               student_name=self.MARK, student_slug="intro")
+
+    def test_names_and_titles_render_as_text(self):
+        for user in (self.davit, self.admin, self.maya):
+            r = self.run_probe(user)
+            self.assertEqual(r["initErrors"], [], f"init must not throw ({user.slug})")
+            self.assertEqual(r["xss"], 0, f"markup injected into {user.slug}'s app")
+
+    def test_page_data_cannot_close_its_script_block(self):
+        self.client.force_login(self.maya)
+        self.client.put("/api/users/me/billing/", data=json.dumps({"name": self.BREAKOUT}),
+                        content_type="application/json")
+        self.client.force_login(self.davit)
+        html = self.client.get(reverse("app")).content.decode()
+        self.assertNotIn(self.BREAKOUT, html)
+        maya = next(s for s in extract_payload(html)["students"] if s["slug"] == "maya")
+        self.assertEqual(maya["name"], self.BREAKOUT)   # data survives intact
+        self.davit.first_name = self.BREAKOUT
+        self.davit.save()
+        self.assertNotIn(self.BREAKOUT, self.client.get("/intro/").content.decode())
+
+    def test_photo_must_be_an_image_data_url(self):
+        self.client.force_login(self.admin)
+        for bad in ("javascript:alert(1)", "data:text/html;base64,PHNjcmlwdD4=", "x');}*{background:red"):
+            r = self.client.put(f"/api/users/{self.maya.slug}/", data=json.dumps({"photo": bad}),
+                                content_type="application/json")
+            self.assertEqual(r.status_code, 400, bad)
+
+
 class DomAdminTests(_DomProbeBase):
     def test_avatar_initials_update_live_on_rename(self):
         # Admin editor opens on a user; typing a new name must update the
@@ -1416,7 +1485,7 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_x").count(), 0)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")  # no webhook secret -> unverified JSON
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_webhook_credits_idempotently(self):
         start = self.maya.credits
         event = json.dumps({
@@ -1426,13 +1495,15 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "10"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, start + 10)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_wh_1").count(), 1)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_webhook_ignores_unpaid_session(self):
         start = self.maya.credits
         event = json.dumps({
@@ -1442,7 +1513,8 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "5"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, start)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_unpaid").count(), 0)
@@ -1896,7 +1968,7 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         # Unknown token -> 404 page, no leak.
         self.assertEqual(self.client.get("/settle/nope/").status_code, 404)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_token_checkout_then_webhook_settles_to_zero(self):
         self.maya.credits = -8
         self.maya.settle_token = "tok_pay"
@@ -1916,13 +1988,75 @@ class SettleFlowTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "8", "kind": "settle", "unit": "29"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, 0)
         r = Receipt.objects.get(stripe_session_id="cs_set")
         self.assertEqual(r.credits, 8)
         self.assertEqual(r.unit_price_cents, 29)          # tier unit on the receipt
+        # Paid: the link is retired, but Stripe's return URL still says thanks.
+        self.assertEqual(self.client.get("/settle/tok_pay/").status_code, 404)
+        self.assertContains(self.client.get("/settle/tok_pay/?paid=1"), "", status_code=200)
+
+
+class SecurityHardeningTests(FluentDataMixin, TestCase):
+    FORGED = json.dumps({"type": "checkout.session.completed", "data": {"object": {
+        "id": "cs_forged", "payment_status": "paid",
+        "metadata": {"student_slug": "maya", "credits": "50"},
+    }}})
+
+    def _post(self, url, body, **extra):
+        return self.client.post(url, data=json.dumps(body), content_type="application/json", **extra)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET="")
+    def test_webhook_is_off_without_a_signing_secret(self):
+        r = self.client.post("/api/stripe/webhook/", data=self.FORGED, content_type="application/json")
+        self.assertEqual(r.status_code, 503)
+        self.assertFalse(Receipt.objects.filter(stripe_session_id="cs_forged").exists())
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+    def test_webhook_rejects_a_forged_signature(self):
+        r = self.client.post("/api/stripe/webhook/", data=self.FORGED, content_type="application/json",
+                             **stripe_signed(self.FORGED, secret="whsec_attacker"))
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(Receipt.objects.filter(stripe_session_id="cs_forged").exists())
+
+    def test_login_attempts_are_throttled_per_ip_and_address(self):
+        wrong = {"email": "maya@fluent.at", "password": "wrong"}
+        for _ in range(10):
+            self.assertEqual(self._post("/api/login/", wrong).status_code, 400)
+        self.assertEqual(self._post("/api/login/", wrong).status_code, 429)
+        # Another address isn't locked out by someone else's guessing.
+        self.assertEqual(self._post("/api/login/", {"email": "ines@fluent.at", "password": "x"}).status_code, 400)
+
+    def test_reset_mails_are_capped_per_address(self):
+        for _ in range(5):
+            self.assertEqual(self._post("/api/password/forgot/", {"email": "maya@fluent.at"}).status_code, 200)
+        self.assertEqual(self._post("/api/password/forgot/", {"email": "maya@fluent.at"}).status_code, 429)
+
+    def test_intro_bookings_are_throttled_per_ip(self):
+        for _ in range(20):
+            self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="203.0.113.7")
+        r = self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="203.0.113.7")
+        self.assertEqual(r.status_code, 429)
+        # A spoofed first hop doesn't buy a fresh counter: the proxy's last entry counts.
+        r = self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="198.51.100.1, 203.0.113.7")
+        self.assertEqual(r.status_code, 429)
+
+    def test_settings_fail_closed_on_render(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("DJANGO_DEBUG", "DJANGO_SECRET_KEY")}
+        env["RENDER"] = "true"
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        run = lambda: subprocess.run([sys.executable, "-c", "import fluent.settings as s; print(s.DEBUG)"],
+                                     env=env, cwd=root, capture_output=True, text=True)
+        r = run()
+        self.assertNotEqual(r.returncode, 0, "must refuse to start with the published dev key")
+        self.assertIn("DJANGO_SECRET_KEY", r.stderr)
+        env["DJANGO_SECRET_KEY"] = "k" * 50
+        self.assertEqual(run().stdout.strip(), "False")   # DEBUG defaults off on Render
 
 
 # --------------------------------------------------------------------------- #

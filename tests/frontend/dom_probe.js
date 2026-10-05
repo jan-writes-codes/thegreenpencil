@@ -107,6 +107,8 @@ function finish(extra) {
         initials: $("#meAvatar") ? $("#meAvatar").textContent : null,
       },
       tabs: tabDisplays(),
+      // Elements injected through user-supplied text (tests plant <i/data-xss>).
+      xss: document.querySelectorAll("[data-xss]").length,
     },
     extra || {}
   );

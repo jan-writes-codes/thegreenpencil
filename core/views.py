@@ -7,6 +7,7 @@ import time
 from datetime import date, timedelta
 from functools import wraps
 from django.conf import settings as dj_settings
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction as db_transaction
@@ -370,15 +371,19 @@ def credit_from_stripe_session(session):
         label, sub = "Offener Betrag beglichen", "Online bezahlt"
     else:
         label, sub = "Einheiten via Stripe", "Online bezahlt"
-    settings = get_settings()
     try:
-        return grant_credits(
-            student, n, settings,
+        receipt = grant_credits(
+            student, n, get_settings(),
             label=label, sub=sub, stripe_session_id=sid, unit_euros=unit_euros,
         )
     except IntegrityError:
         # A concurrent caller (webhook vs. redirect) won the race; reuse its receipt.
         return Receipt.objects.filter(stripe_session_id=sid).first()
+    if meta.get("kind") == "settle":
+        # Paid: retire the shared link so it stops showing the student's name and
+        # balance to whoever still has it. The tutor can mint a fresh one.
+        User.objects.filter(pk=student.pk).update(settle_token="")
+    return receipt
 
 
 def _reverse_credits(locked):
@@ -528,6 +533,26 @@ def require_roles(*roles):
             return view(request, *args, **kwargs)
         return wrapped
     return decorator
+
+
+def _client_ip(request):
+    # Behind Render's proxy REMOTE_ADDR is the proxy; it appends the connecting
+    # address to X-Forwarded-For, so the last entry is the one a client can't forge.
+    return (request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[-1].strip()
+            or request.META.get("REMOTE_ADDR", ""))
+
+
+def _throttled(key, limit, window):
+    """Count one hit on ``key``; True once more than ``limit`` hits fall within
+    ``window`` seconds of each other (each hit extends the window)."""
+    # ponytail: per-process cache (LocMemCache) — each gunicorn worker counts on
+    # its own. Point CACHES at a shared backend if the app runs several instances.
+    hits = cache.get(key, 0) + 1
+    cache.set(key, hits, window)
+    return hits > limit
+
+
+TOO_MANY = "Zu viele Versuche — bitte warte ein paar Minuten."
 
 
 def acting_tutor(request, slug=None):
@@ -688,10 +713,11 @@ def intro_view(request):
     # Public booking page: anonymous visitors pick a tutor + open slot and book a
     # free intro session. No login required; sign-in is a separate route.
     data = public_booking_payload()
-    return render(request, "intro.html", {"intro_data": json.dumps(data)})
+    return render(request, "intro.html", {"intro_data": data})
 
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_PHOTO_RE = re.compile(r"^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$")
 
 # Shown to guests on every booking error so they always have a way to reach a
 # human: Davit's mobile and e-mail.
@@ -711,6 +737,8 @@ def api_intro_booking(request):
     identified only by the name + e-mail they provide here; the booking never
     touches a User row. Capped at one intro per e-mail.
     """
+    if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
+        return _intro_error(TOO_MANY, 429)
     data = parse_body(request)
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -958,7 +986,8 @@ def app_view(request):
                 "provider": conn.provider, "account": conn.account_label,
             }
 
-    return render(request, "app.html", {"django_data": json.dumps(django_data), "role": user.role})
+    # json_script escapes <, > and &, so user text can't close the <script> tag.
+    return render(request, "app.html", {"django_data": django_data, "role": user.role})
 
 
 # ---------------------------------------------------------------------------
@@ -972,6 +1001,9 @@ def api_login(request):
     password = data.get("password") or ""
     if not email:
         return JsonResponse({"error": "Gib deine E-Mail ein"}, status=400)
+    # Brute-force guard, keyed on IP + address so nobody can lock out someone else.
+    if _throttled(f"login:{_client_ip(request)}:{email}", 10, 15 * 60):
+        return JsonResponse({"error": TOO_MANY}, status=429)
     # Single generic message for both unknown-email and wrong-password so the
     # endpoint can't be used to enumerate which emails have accounts.
     INVALID = "E-Mail oder Passwort ungültig."
@@ -1061,6 +1093,9 @@ def api_password_forgot(request):
     email = (data.get("email") or "").strip().lower()
     if not email:
         return JsonResponse({"error": "Gib deine E-Mail ein"}, status=400)
+    # Caps reset mails per address, so the form can't be used to mail-bomb anyone.
+    if _throttled(f"forgot:{email}", 5, 60 * 60):
+        return JsonResponse({"error": TOO_MANY}, status=429)
     user = User.objects.filter(email__iexact=email).first()
     if user is not None:
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
@@ -1529,21 +1564,19 @@ def api_stripe_webhook(request):
     """Stripe -> us. Verifies the signature (when a webhook secret is configured)
     and credits the student on checkout.session.completed. The source of truth for
     crediting; the post-payment redirect is only a faster-feeling fallback."""
-    if not stripe_enabled():
-        return JsonResponse({"error": "stripe_disabled"}, status=503)
-    payload = request.body
-    sig = request.META.get("HTTP_STRIPE_SIGNATURE", "")
     secret = dj_settings.STRIPE_WEBHOOK_SECRET
-    client = stripe_client()
+    # Without a signing secret anyone could post a "paid" event and mint credits,
+    # so the endpoint stays off until one is configured (`stripe listen` prints
+    # one for local dev).
+    if not stripe_enabled() or not secret:
+        return JsonResponse({"error": "stripe_disabled"}, status=503)
     try:
-        if secret:
-            # Raises on a bad payload or a signature that doesn't match the secret
-            # (i.e. a forged event). Exception type varies across SDK versions, so
-            # catch broadly here — this block only constructs the event.
-            event = client.Webhook.construct_event(payload, sig, secret)
-        else:
-            # No secret configured (e.g. local dev): accept unverified JSON.
-            event = json.loads(payload)
+        # Raises on a bad payload or a signature that doesn't match the secret
+        # (i.e. a forged event). Exception type varies across SDK versions, so
+        # catch broadly here — this block only constructs the event.
+        event = stripe_client().Webhook.construct_event(
+            request.body, request.META.get("HTTP_STRIPE_SIGNATURE", ""), secret,
+        )
     except Exception:
         return JsonResponse({"error": "invalid"}, status=400)
     if event.get("type") == "checkout.session.completed":
@@ -1649,6 +1682,9 @@ def _settle_student_for_token(token):
 def settle_page(request, token):
     """Public capability-URL page where a student settles outstanding credits. No
     login required — possession of the unguessable token authorizes payment."""
+    if request.GET.get("paid") == "1":
+        # Stripe's return URL. The webhook may already have retired the token.
+        return render(request, "settle.html", {"paid": True})
     student = _settle_student_for_token(token)
     if not student:
         return render(request, "settle.html", {"invalid": True}, status=404)
@@ -1662,7 +1698,6 @@ def settle_page(request, token):
         "unit": settle_unit_euros(settings, outstanding) if outstanding else 0,
         "amount": settle_unit_euros(settings, outstanding) * outstanding,
         "stripe_enabled": stripe_enabled(),
-        "paid": request.GET.get("paid") == "1",
     })
 
 
@@ -2015,7 +2050,10 @@ def api_user_detail(request, slug):
     if "photo" in data:
         # Profile photo as a base64 data URL; null/empty removes it. Persisting
         # here (rather than only in client state) is what makes an admin-set
-        # photo visible when the student later signs in on another device.
+        # photo visible when the student later signs in on another device. It
+        # lands in a CSS url('…'), so only a plain base64 image data URL passes.
+        if data["photo"] and not _PHOTO_RE.match(str(data["photo"])):
+            return JsonResponse({"error": "Ungültiges Foto."}, status=400)
         u.photo = data["photo"] or None
     # NB: credits are intentionally NOT settable here. A free-form reset left no
     # audit trail (a fraud risk); balances now only move through booked
