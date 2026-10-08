@@ -112,8 +112,7 @@ def render_receipt_pdf(receipt):
     is_storno = receipt.reverses_id is not None
     reverses_no = receipt.reverses.number if is_storno and receipt.reverses else ""
     credits = receipt.credits
-    unit = receipt.unit_price_cents
-    net = credits * unit
+    unit, net = receipt.amounts()
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)

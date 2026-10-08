@@ -68,7 +68,12 @@
     hier sicher per Karte über Stripe aus.</p>
     <p class="amount">€ {{ amount }} <small>für {{ outstanding }} Einheit{{ outstanding|pluralize:"en" }}</small></p>
     <p class="break">{{ outstanding }} × € {{ unit }} pro Einheit</p>
-    {% if stripe_enabled %}
+    {% if stripe_enabled and setup_missing %}
+      <button disabled>Online-Zahlung noch nicht möglich</button>
+      <p class="note">Bitte melde dich zuerst in deinem Konto an und hinterlege dort
+      {% if "email" in setup_missing %}deine E-Mail-Adresse{% if "billing" in setup_missing %} und {% endif %}{% endif %}{% if "billing" in setup_missing %}deine Rechnungsadresse{% endif %}.
+      Danach kannst du hier bezahlen.</p>
+    {% elif stripe_enabled %}
       <label class="consent">
         <input type="checkbox" id="consent">
         <span>Ich stimme den <a href="/agb/" target="_blank" rel="noopener">AGB</a> zu und habe die
@@ -85,7 +90,7 @@
   {% endif %}
   </div>
 
-  {% if not invalid and not paid and outstanding != 0 and stripe_enabled %}
+  {% if not invalid and not paid and outstanding != 0 and stripe_enabled and not setup_missing %}
   <script>
     (function () {
       var btn = document.getElementById("payBtn");

@@ -64,6 +64,16 @@ def make_user(slug, role, **extra):
     return user
 
 
+def complete_payment_setup(user):
+    """Give a fixture student what card payments require: a real e-mail (fixtures
+    start with the <slug>@fluent.at placeholder) and a receipt address."""
+    user.email = f"{user.slug}@example.com"
+    user.billing_line1 = "Hauptstraße 1"
+    user.billing_postcode = "1010"
+    user.billing_city = "Wien"
+    user.save()
+
+
 def current_week_monday():
     """Monday of the week containing today (so fixtures land in the default view)."""
     today = date.today()
@@ -1401,11 +1411,8 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x")
     def test_checkout_creates_session(self):
-        # A receipt address is required before a student can pay.
-        self.maya.billing_line1 = "Hauptstraße 1"
-        self.maya.billing_postcode = "1010"
-        self.maya.billing_city = "Wien"
-        self.maya.save()
+        # A completed account (real e-mail + receipt address) is required to pay.
+        complete_payment_setup(self.maya)
         self.client.force_login(self.maya)
         with mock.patch("core.views.stripe") as st:
             st.checkout.Session.create.return_value = mock.Mock(
@@ -1433,7 +1440,9 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_checkout_requires_billing_address(self):
-        # maya has no billing address in the fixture -> checkout is blocked.
+        # Real e-mail but no billing address -> checkout is blocked.
+        self.maya.email = "maya@example.com"
+        self.maya.save()
         self.client.force_login(self.maya)
         with mock.patch("core.views.stripe") as st:
             resp = self.client.post(
@@ -1441,8 +1450,25 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 content_type="application/json",
             )
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()["error"], "billing_required")
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["billing"]})
         st.checkout.Session.create.assert_not_called()  # no session without an address
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    def test_checkout_requires_real_email(self):
+        # Address on file but still the generated placeholder e-mail -> blocked,
+        # so Stripe and our receipt mail never go to a dead address.
+        complete_payment_setup(self.maya)
+        self.maya.email = "maya@fluent.at"
+        self.maya.save()
+        self.client.force_login(self.maya)
+        with mock.patch("core.views.stripe") as st:
+            resp = self.client.post(
+                "/api/checkout/", data=json.dumps({"n": 5}),
+                content_type="application/json",
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["email"]})
+        st.checkout.Session.create.assert_not_called()
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_confirm_credits_student_once(self):
@@ -1906,6 +1932,7 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         SiteSettings.objects.create(credit_price=30, packs_json=json.dumps([
             {"n": 1, "price": "€32"}, {"n": 5, "price": "€145"}, {"n": 10, "price": "€270"},
         ]))
+        complete_payment_setup(self.maya)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_student_settle_creates_session_for_outstanding(self):
@@ -1939,9 +1966,14 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         # Positive balance -> nothing to settle.
         resp = self.client.post("/api/students/maya/settle-link/")
         self.assertEqual(resp.status_code, 400)
-        # Negative balance -> a token + link is minted.
+        # Negative balance but account not set up -> no link (card payment gate).
         self.ines.credits = -5
         self.ines.save()
+        resp = self.client.post("/api/students/ines/settle-link/")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["email", "billing"]})
+        # Account completed -> a token + link is minted.
+        complete_payment_setup(self.ines)
         resp = self.client.post("/api/students/ines/settle-link/")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
@@ -3096,3 +3128,104 @@ class PasswordLifecycleTests(FluentDataMixin, TestCase):
         page = self.client.get("/password/reset/xxxx/yyyy/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "Link abgelaufen")
+
+
+# --------------------------------------------------------------------------- #
+# Tutor custom top-ups: any number of credits for any total (family deals)
+# --------------------------------------------------------------------------- #
+class CustomTopUpTests(FluentDataMixin, TestCase):
+    def _post(self, data, actor=None):
+        self.client.force_login(actor or self.davit)
+        return self.client.post(
+            "/api/credits/maya/", data=json.dumps(data), content_type="application/json",
+        )
+
+    def test_custom_total_sets_exact_receipt_amount(self):
+        start = self.maya.credits
+        resp = self._post({"n": 10, "total": "355,50", "method": "transfer", "note": "Familienangebot"})
+        self.assertEqual(resp.status_code, 200)
+        r = resp.json()["receipt"]
+        self.assertEqual(r["credits"], 10)
+        self.assertEqual(r["total"], 355.5)
+        self.assertEqual(r["unit"], 35.55)
+        receipt = Receipt.objects.get(number=r["no"])
+        self.assertEqual(receipt.total_cents, 35550)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start + 10)
+        txn = CreditTransaction.objects.get(receipt_no=r["no"])
+        self.assertEqual(txn.label, "Familienangebot")
+        self.assertEqual(txn.sub, "Heute · per Überweisung bezahlt")
+
+    def test_standard_top_up_unchanged(self):
+        r = self._post({"n": 5}).json()["receipt"]
+        receipt = Receipt.objects.get(number=r["no"])
+        self.assertIsNone(receipt.total_cents)
+        self.assertEqual(r["total"], 5 * receipt.unit_price_cents)
+        txn = CreditTransaction.objects.get(receipt_no=r["no"])
+        self.assertEqual((txn.label, txn.sub), ("Einheiten vom Tutor", "Heute · bar bezahlt"))
+
+    def test_zero_total_allowed(self):
+        r = self._post({"n": 2, "total": "0"}).json()["receipt"]
+        self.assertEqual((r["total"], r["unit"]), (0.0, 0.0))
+
+    def test_invalid_input_rejected(self):
+        for bad in (
+            {"n": 3, "total": "-5"},
+            {"n": 3, "total": "12.345"},
+            {"n": 3, "total": "abc"},
+            {"n": 3, "total": "50001"},
+            {"n": 0, "total": "10"},
+            {"n": 501, "total": "10"},
+            {"n": 3, "total": "10", "method": "crypto"},
+        ):
+            with self.subTest(bad=bad):
+                self.assertEqual(self._post(bad).status_code, 400)
+        self.assertFalse(Receipt.objects.filter(student=self.maya).exists())
+
+    def test_students_cannot_grant(self):
+        self.assertEqual(self._post({"n": 5, "total": "1"}, actor=self.maya).status_code, 403)
+
+    def test_storno_of_custom_receipt_mirrors_total(self):
+        r = self._post({"n": 10, "total": "355.50"}).json()["receipt"]
+        receipt = Receipt.objects.get(number=r["no"])
+        txn = CreditTransaction.objects.get(receipt_no=r["no"], txn_type="buy")
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.post(f"/api/transactions/{txn.pk}/cancel/").status_code, 200)
+        storno = Receipt.objects.get(reverses=receipt)
+        self.assertEqual(storno.total_cents, -35550)
+        self.assertEqual(storno.amounts(), (35.55, -355.5))
+
+    def test_receipt_pdf_renders_custom_amount(self):
+        from .receipts_pdf import render_receipt_pdf
+        r = self._post({"n": 3, "total": "100"}).json()["receipt"]
+        pdf = render_receipt_pdf(Receipt.objects.get(number=r["no"]))
+        self.assertTrue(pdf.startswith(b"%PDF"))
+
+
+# --------------------------------------------------------------------------- #
+# Students set their own real e-mail (needed before card payments)
+# --------------------------------------------------------------------------- #
+class SelfEmailUpdateTests(FluentDataMixin, TestCase):
+    def _put(self, data):
+        self.client.force_login(self.maya)
+        return self.client.put(
+            "/api/users/me/billing/", data=json.dumps(data), content_type="application/json",
+        )
+
+    def test_student_sets_real_email(self):
+        self.assertEqual(self._put({"email": " Maya@Example.com "}).status_code, 200)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@example.com")
+
+    def test_invalid_email_rejected(self):
+        for bad in ("", "not-an-email", "a@b"):
+            with self.subTest(bad=bad):
+                self.assertEqual(self._put({"email": bad}).status_code, 400)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@fluent.at")
+
+    def test_email_taken_by_someone_else_rejected(self):
+        resp = self._put({"email": self.ines.email})
+        self.assertEqual(resp.status_code, 400)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@fluent.at")

@@ -469,6 +469,11 @@ def _account_email(user):
     return email
 
 
+def has_real_email(user):
+    """True once the account carries a real address, not the creation placeholder."""
+    return bool(_account_email(user))
+
+
 def send_password_reset(user_id, reset_url):
     """The 'Passwort vergessen' mail with the tokenized reset link."""
     user = User.objects.filter(pk=user_id).first()
