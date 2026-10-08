@@ -5,6 +5,7 @@ import re
 import secrets
 import time
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from django.conf import settings as dj_settings
 from django.core.cache import cache
@@ -179,6 +180,7 @@ def serialize_transaction(t):
 def serialize_receipt(r):
     # Read from the frozen snapshot, not the live user: the receipt must read the
     # same forever, and the student may no longer exist.
+    unit, total = r.amounts()
     return {
         "no": r.number,
         "dateStr": r.date_str,
@@ -192,9 +194,9 @@ def serialize_receipt(r):
             "country": r.billing_country,
         },
         "credits": r.credits,
-        "unit": r.unit_price_cents,  # already in EUR (stored as integer EUR)
-        "net": r.credits * r.unit_price_cents,
-        "total": r.credits * r.unit_price_cents,
+        "unit": unit,
+        "net": total,
+        "total": total,
         # A Storno (credit note) receipt: negative credits/totals, and a pointer to
         # the original purchase receipt it reverses so both documents cross-reference.
         "isStorno": r.reverses_id is not None,
@@ -270,7 +272,8 @@ def settle_unit_euros(settings, n):
     return round(best[1] / best[0] if best else settings.credit_price)
 
 
-def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", unit_euros=None):
+def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", unit_euros=None,
+                  total_cents=None):
     """Add ``n`` credits to ``student`` and issue the matching receipt + ledger
     entry, atomically. Shared by the tutor "add credits" action and the Stripe
     checkout flow so both produce identical, auditable records.
@@ -278,6 +281,8 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
     ``unit_euros`` overrides the per-credit price stamped on the receipt (used by
     the settlement flow, where the price follows the tier rule rather than an exact
     pack match); when omitted it falls back to ``receipt_unit_price``.
+    ``total_cents`` sets an exact receipt total instead (tutor custom deals); the
+    per-credit price shown is then derived from it.
 
     The receipt and transaction capture a *snapshot* of the student's identity and
     billing address at issue time: these are immutable financial records that must
@@ -309,7 +314,12 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
             billing_country=student.billing_country,
             date_str=date_str,
             credits=n,
-            unit_price_cents=unit_euros if unit_euros is not None else receipt_unit_price(settings, n),
+            unit_price_cents=(
+                round(total_cents / 100 / n) if total_cents is not None
+                else unit_euros if unit_euros is not None
+                else receipt_unit_price(settings, n)
+            ),
+            total_cents=total_cents,
             stripe_session_id=stripe_session_id,
         )
 
@@ -442,6 +452,7 @@ def cancel_purchase(txn):
             date_str=now.strftime("%d.%m.%Y"),
             credits=-n,
             unit_price_cents=original.unit_price_cents,
+            total_cents=(-original.total_cents if original.total_cents is not None else None),
             reverses=original,
         )
         storno_txn = CreditTransaction.objects.create(
@@ -503,6 +514,22 @@ def finalize_history_snapshots(user):
     Receipt.objects.filter(student=user, student_slug="").update(
         student_slug=user.slug, student_name=name
     )
+
+
+def payment_setup_missing(user):
+    """What a student still has to fill in before any Stripe payment: a real
+    e-mail (Stripe receipts, our Beleg mail) and the receipt address. Empty list
+    when the account is ready to pay."""
+    missing = []
+    if not emails.has_real_email(user):
+        missing.append("email")
+    if not billing_complete(user):
+        missing.append("billing")
+    return missing
+
+
+def setup_required_response(missing):
+    return JsonResponse({"error": "setup_required", "missing": missing}, status=400)
 
 
 def billing_complete(user):
@@ -1332,24 +1359,55 @@ def api_booking_detail(request, pk):
 # Einheiten API
 # ---------------------------------------------------------------------------
 
+# How a tutor-recorded top-up was paid (card payments go through the student's
+# own Stripe checkout instead).
+TOPUP_METHODS = {"cash": "bar bezahlt", "transfer": "per Überweisung bezahlt"}
+MAX_TOPUP_CREDITS = 500
+MAX_TOPUP_TOTAL_CENTS = 50_000_00
+
+
+def parse_euro_cents(value):
+    """Euro amount ("355", "355,50", 355.5) -> integer cents, or None if invalid,
+    negative or with more than two decimals."""
+    try:
+        amount = Decimal(str(value).strip().replace(",", "."))
+    except (InvalidOperation, ValueError):
+        return None
+    if not amount.is_finite() or amount < 0 or amount != amount.quantize(Decimal("0.01")):
+        return None
+    return int(amount * 100)
+
+
 @require_http_methods(["POST"])
 @require_roles("tutor", "admin")
 def api_credits(request, slug):
+    """Tutor/admin adds credits and issues the receipt. Standard top-ups use pack
+    pricing; a custom deal passes ``total`` (euros) for an exact receipt total,
+    plus an optional payment ``method`` and ``note`` shown in the history."""
     data = parse_body(request)
     try:
         student = User.objects.get(slug=slug, role="student")
         n = int(data.get("n", 1))
-        if n <= 0:
-            raise ValueError("n must be positive")
+        if n <= 0 or n > MAX_TOPUP_CREDITS:
+            raise ValueError(f"Anzahl muss zwischen 1 und {MAX_TOPUP_CREDITS} liegen.")
     except (User.DoesNotExist, ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    # Tutor top-ups are cash settled in person; card payments go through the
-    # student's own Stripe checkout.
+    total_cents = None
+    if data.get("total") not in (None, ""):
+        total_cents = parse_euro_cents(data["total"])
+        if total_cents is None or total_cents > MAX_TOPUP_TOTAL_CENTS:
+            return JsonResponse({"error": "Ungültiger Betrag."}, status=400)
+    method = data.get("method") or "cash"
+    if method not in TOPUP_METHODS:
+        return JsonResponse({"error": "Ungültige Zahlungsart."}, status=400)
+    note = (data.get("note") or "").strip()[:80]
+
     receipt = grant_credits(
         student, n, get_settings(),
-        label="Einheiten vom Tutor",
-        sub="Heute · bar bezahlt",
+        label=note or "Einheiten vom Tutor",
+        sub=f"Heute · {TOPUP_METHODS[method]}",
+        total_cents=total_cents,
     )
     return JsonResponse({"receipt": serialize_receipt(receipt)})
 
@@ -1464,6 +1522,16 @@ def _apply_billing(u, data):
 @require_roles("student", "tutor", "admin")
 def api_billing(request):
     data = parse_body(request)
+    if "email" in data:
+        new_email = (data["email"] or "").strip().lower()
+        try:
+            validate_email(new_email)
+        except ValidationError:
+            return JsonResponse({"error": "Bitte eine gültige E-Mail-Adresse eingeben."}, status=400)
+        # Email is the login identifier — keep it unique.
+        if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
+            return JsonResponse({"error": "Diese E-Mail wird bereits verwendet."}, status=400)
+        request.user.email = new_email
     if "name" in data:
         _apply_name(request.user, data["name"])
     _apply_billing(request.user, data)
@@ -1490,10 +1558,11 @@ def api_checkout(request):
     except (ValueError, TypeError):
         return JsonResponse({"error": "invalid amount"}, status=400)
 
-    # A purchase always issues a receipt, so the student must have a receipt
-    # address on file before they can pay.
-    if not billing_complete(request.user):
-        return JsonResponse({"error": "billing_required"}, status=400)
+    # A card payment needs a completed account: a real e-mail for the receipts
+    # and a receipt address.
+    missing = payment_setup_missing(request.user)
+    if missing:
+        return setup_required_response(missing)
 
     settings = get_settings()
     amount = pack_price_cents(settings, n)
@@ -1517,7 +1586,7 @@ def api_checkout(request):
             # student. The price is set above, not taken from the client.
             metadata={"student_slug": request.user.slug, "credits": str(n)},
             client_reference_id=request.user.slug,
-            customer_email=request.user.email or None,
+            customer_email=emails._account_email(request.user) or None,
             success_url=f"{origin}/app/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{origin}/app/?checkout=cancel",
         )
@@ -1616,7 +1685,7 @@ def _create_settle_checkout(request, student, n, settings, *, success_path, canc
                 "kind": "settle", "unit": str(unit_euros),
             },
             client_reference_id=student.slug,
-            customer_email=student.email or None,
+            customer_email=emails._account_email(student) or None,
             success_url=f"{origin}{success_path}",
             cancel_url=f"{origin}{cancel_path}",
         )
@@ -1635,9 +1704,10 @@ def api_settle(request):
     outstanding = max(0, -request.user.credits)
     if outstanding <= 0:
         return JsonResponse({"error": "nothing_outstanding"}, status=400)
-    # Settling issues a receipt too — require an address first.
-    if not billing_complete(request.user):
-        return JsonResponse({"error": "billing_required"}, status=400)
+    # Settling is a card payment too — the account must be set up first.
+    missing = payment_setup_missing(request.user)
+    if missing:
+        return setup_required_response(missing)
     settings = get_settings()
     url = _create_settle_checkout(
         request, request.user, outstanding, settings,
@@ -1660,6 +1730,9 @@ def api_settle_link(request, slug):
     outstanding = max(0, -student.credits)
     if outstanding <= 0:
         return JsonResponse({"error": "nothing_outstanding"}, status=400)
+    missing = payment_setup_missing(student)
+    if missing:
+        return setup_required_response(missing)
     if not student.settle_token:
         student.settle_token = secrets.token_urlsafe(24)
         student.save(update_fields=["settle_token"])
@@ -1698,6 +1771,7 @@ def settle_page(request, token):
         "unit": settle_unit_euros(settings, outstanding) if outstanding else 0,
         "amount": settle_unit_euros(settings, outstanding) * outstanding,
         "stripe_enabled": stripe_enabled(),
+        "setup_missing": payment_setup_missing(student),
     })
 
 
@@ -1715,6 +1789,9 @@ def api_settle_token_checkout(request, token):
     outstanding = max(0, -student.credits)
     if outstanding <= 0:
         return JsonResponse({"error": "nothing_outstanding"}, status=400)
+    missing = payment_setup_missing(student)
+    if missing:
+        return setup_required_response(missing)
     settings = get_settings()
     url = _create_settle_checkout(
         request, student, outstanding, settings,

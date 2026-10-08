@@ -236,7 +236,12 @@ class Receipt(models.Model):
     billing_country = models.CharField(max_length=100, blank=True)
     date_str = models.CharField(max_length=20)
     credits = models.IntegerField()
-    unit_price_cents = models.IntegerField()  # in cents to avoid float
+    # Despite the name this holds the per-credit price in whole EUR (legacy).
+    unit_price_cents = models.IntegerField()
+    # Exact receipt total in cents for a custom-priced grant (e.g. a family deal:
+    # 10 credits for €355). NULL for standard receipts, whose total is
+    # credits × unit price. Negative on the Storno of a custom-priced purchase.
+    total_cents = models.IntegerField(null=True, blank=True)
     # Stripe Checkout session that paid for this receipt (empty for receipts the
     # tutor added manually). Used to make webhook/redirect crediting idempotent.
     stripe_session_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
@@ -250,6 +255,14 @@ class Receipt(models.Model):
     # cash purchases, when Stripe isn't involved, or if the refund could not be made.
     stripe_refund_id = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def amounts(self):
+        """``(unit_eur, total_eur)`` as shown on the receipt. Custom-priced
+        receipts derive the per-credit price from their exact total."""
+        if self.total_cents is not None:
+            total = self.total_cents / 100
+            return (round(total / self.credits, 2) if self.credits else 0.0), total
+        return self.unit_price_cents, self.credits * self.unit_price_cents
 
     class Meta:
         constraints = [

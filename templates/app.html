@@ -588,6 +588,8 @@
   .ma-label { font-size: 13px; font-weight: 500; }
   .ma-label em { font-style: normal; color: var(--faint); font-size: 11px; display: block; margin-top: 1px; letter-spacing: 0.02em; }
   .ma-btns { display: flex; gap: 6px; }
+  .credit-warn { text-align: left; font-size: 13px; line-height: 1.45; color: #8a4b16; background: rgba(194,120,47,0.10);
+    border: 1px solid rgba(194,120,47,0.35); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; }
   .modal-txns { max-height: 320px; overflow-y: auto; margin-top: 2px; }
   .modal-txns::-webkit-scrollbar { width: 8px; }
   .modal-txns::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
@@ -960,13 +962,14 @@
             <div class="section-h"><h2>Rechnungsadresse</h2><span class="lnk" id="billingSave">Änderungen speichern</span></div>
             <div class="billing-form">
               <label class="bf-lab">Vollständiger Name<input class="bf-input" id="bfName" /></label>
+              <label class="bf-lab">E-Mail-Adresse<input class="bf-input" id="bfEmail" type="email" autocomplete="email" placeholder="name@beispiel.at" /></label>
               <label class="bf-lab">Straße &amp; Nr.<input class="bf-input" id="bfLine1" /></label>
               <div class="bf-grid">
                 <label class="bf-lab">PLZ<input class="bf-input" id="bfZip" /></label>
                 <label class="bf-lab">Stadt<input class="bf-input" id="bfCity" /></label>
               </div>
               <label class="bf-lab">Land<input class="bf-input" id="bfCountry" /></label>
-              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet.</div>
+              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet. Die E-Mail-Adresse ist auch dein Login und bekommt deine Belege — für Kartenzahlungen sind beide nötig.</div>
             </div>
           </div>
         </div>
@@ -1899,13 +1902,14 @@
     const btn = $("#settleBtn");
     btn.disabled = false;
     btn.onclick = () => {
-      // Settling issues a receipt too — require the address first.
-      if (!billingComplete(studentById(state.currentUser))) { goToBilling(); return; }
+      // Settling is a card payment too — the account must be complete first.
+      const missing = paymentSetupMissing(studentById(state.currentUser));
+      if (missing.length) { goToAccountSetup(missing); return; }
       btn.disabled = true;
       apiResult('POST', '/api/settle/').then(res => {
         if (res.ok && res.data && res.data.url) { window.location.href = res.data.url; return; }
         btn.disabled = false;
-        if (res.data && res.data.error === "billing_required") { goToBilling(); return; }
+        if (res.data && res.data.error === "setup_required") { goToAccountSetup(res.data.missing); return; }
         toast("Zahlung konnte nicht gestartet werden");
       });
     };
@@ -1933,17 +1937,41 @@
   }
   // Send the student to their billing form to fill the receipt address, then come
   // back and buy. Used both as a pre-check and as the server 400 fallback.
-  function goToBilling(){
+  // Accounts start with a generated <slug>@fluent.at placeholder until a real
+  // address is entered. Mirrors emails.has_real_email() server-side.
+  function hasRealEmail(s){
+    const e=((s && s.email)||"").trim().toLowerCase();
+    return !!e && e!==(String(s.id)+"@fluent.at").toLowerCase();
+  }
+  // What's still missing before any card payment — mirrors payment_setup_missing().
+  function paymentSetupMissing(s){
+    const m=[];
+    if(!hasRealEmail(s)) m.push("email");
+    if(!billingComplete(s)) m.push("billing");
+    return m;
+  }
+  function setupMissingText(missing){
+    const parts=[];
+    if(missing.includes("email")) parts.push("deine <b>E-Mail-Adresse</b>");
+    if(missing.includes("billing")) parts.push("deine <b>Rechnungsadresse</b>");
+    return parts.join(" und ");
+  }
+  // Send the student to the account form to finish setup, then come back and pay.
+  // Used both as a pre-check and as the server 400 fallback.
+  function goToAccountSetup(missing){
+    missing = missing && missing.length ? missing : paymentSetupMissing(studentById(state.currentUser));
     closeBuy();
     setView("account");
-    setTimeout(()=>{ const el=$("#bfLine1"); if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.focus(); } }, 60);
-    toast("Bitte zuerst deine Rechnungsadresse hinterlegen.");
+    const target = missing.includes("email") ? "#bfEmail" : "#bfLine1";
+    setTimeout(()=>{ const el=$(target); if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.focus(); } }, 60);
+    toast("Bitte zuerst dein Konto vervollständigen: " + setupMissingText(missing).replace(/<\/?b>/g,"") + ".");
   }
   function openBuyInfo(p){
     const m=$("#buyModal");
     const stripeOn = !!(state.stripe && state.stripe.enabled);
-    // Card payments issue a receipt → require the address first.
-    const needBilling = stripeOn && !billingComplete(studentById(state.currentUser));
+    // Card payments need a completed account (real e-mail + receipt address).
+    const missing = stripeOn ? paymentSetupMissing(studentById(state.currentUser)) : [];
+    const needBilling = missing.length > 0;
     // Every tutor in the system (with their e-mail), so the student can pick who
     // to ask for a manual top-up — keyed on the tutor's real e-mail address.
     const tutors = (tutorAccounts && tutorAccounts.length)
@@ -1961,8 +1989,8 @@
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <div class="buy-ic">${stripeOn ? `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>` : `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z"/></svg>`}</div>
       ${stripeOn ? (needBilling ? `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
-      <p class="buy-p">Bevor du bezahlen kannst, hinterlege bitte deine <b>Rechnungsadresse</b> — sie erscheint auf deinem Beleg (PDF).</p>
-      <button class="btn" id="buyBilling"><span class="grainbtn"></span>Rechnungsadresse hinterlegen</button>
+      <p class="buy-p">Bevor du per Karte bezahlen kannst, hinterlege bitte ${setupMissingText(missing)} in deinem Konto — dorthin gehen deine Belege.</p>
+      <button class="btn" id="buyBilling"><span class="grainbtn"></span>Konto vervollständigen</button>
       <button class="btn ghost" id="buyClose">Schließen</button>`
       : `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
       <p class="buy-p">Bezahle das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) sicher per Karte. Deine <b>${p.n} Einheiten</b> werden sofort gutgeschrieben und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
@@ -1974,6 +2002,7 @@
       : `<h3 class="buy-h">Einheiten fügt dein Tutor hinzu</h3>
       <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       ${tutorPicker}
+      ${billingComplete(studentById(state.currentUser)) ? "" : `<div class="credit-warn" role="alert">⚠ Deine Rechnungsadresse ist noch unvollständig — ergänze sie vorher in deinem Konto, sonst steht sie nicht auf deinem Beleg.</div>`}
       <div class="buy-contact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span id="buyTutorEmail">${esc(t0.email)}</span></div>
       <a class="btn" id="buyMail" href="${esc(mailHref(t0))}"><span class="grainbtn"></span>Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>`}
@@ -1981,7 +2010,7 @@
     m.hidden=false;
     $("#buyCard").onclick=(e)=>e.stopPropagation();
     $("#buyX").onclick=closeBuy; $("#buyClose").onclick=closeBuy;
-    if ($("#buyBilling")) $("#buyBilling").onclick=goToBilling;
+    if ($("#buyBilling")) $("#buyBilling").onclick=()=>goToAccountSetup(missing);
     if (stripeOn && $("#buyStripe")) $("#buyStripe").onclick=()=>startStripeCheckout(p);
     // FAGG: the pay button unlocks only once the buyer accepts the terms.
     if ($("#buyConsent")) $("#buyConsent").onchange=(e)=>{ const b=$("#buyStripe"); if(b) b.disabled=!e.target.checked; };
@@ -2002,8 +2031,8 @@
     apiResult('POST', '/api/checkout/', { n: p.n }).then(res => {
       if (res.ok && res.data && res.data.url) { window.location.href = res.data.url; return; }
       if(btn){ btn.disabled=false; btn.style.opacity=""; }
-      // Server guard fallback: address missing → route to the billing form.
-      if (res.data && res.data.error === "billing_required") { goToBilling(); return; }
+      // Server guard fallback: account incomplete → route to the account form.
+      if (res.data && res.data.error === "setup_required") { goToAccountSetup(res.data.missing); return; }
       toast("Zahlung konnte nicht gestartet werden — bitte schreib deinem Tutor.");
     });
   }
@@ -2450,6 +2479,18 @@
   // Adding credits as a tutor first asks how the top-up was settled. Cash is
   // granted here; a Stripe top-up can only be started by the student from their
   // own account, so we just explain that and grant nothing.
+  // Warning line for tutor crediting: the receipt snapshots the address at issue
+  // time, and the Beleg mail needs a real e-mail — flag what's missing up front.
+  function creditWarningHtml(s){
+    const missing = paymentSetupMissing(s);
+    if (!missing.length) return "";
+    const first = esc(s.name.split(" ")[0]);
+    const parts = [];
+    if (missing.includes("billing")) parts.push(`Die Rechnungsadresse von ${first} ist unvollständig — der Beleg wird ohne vollständige Adresse ausgestellt.`);
+    if (missing.includes("email")) parts.push(`Für ${first} ist keine echte E-Mail-Adresse hinterlegt — der Beleg wird nicht per E-Mail zugestellt.`);
+    return `<div class="credit-warn" role="alert">⚠ ${parts.join(" ")}</div>`;
+  }
+
   function openSettleChooser(s, n, fromModal){
     const m = $("#settleModal");
     const first = esc(s.name.split(" ")[0]);
@@ -2458,6 +2499,7 @@
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19M6 15.5h4"/></svg></div>
       <h3 class="buy-h">+${n} Einheiten für ${first}</h3>
       <p class="buy-p" id="settleP">Wie wurde diese Aufladung beglichen?</p>
+      ${creditWarningHtml(s)}
       <button class="btn" id="settleCash"><span class="grainbtn"></span>Bar bezahlt — jetzt gutschreiben</button>
       <button class="btn ghost" id="settleStripe">Über Stripe</button>
       <button class="btn ghost" id="settleCancel">Abbrechen</button>
@@ -2477,13 +2519,55 @@
   }
   function closeSettle(){ const m=$("#settleModal"); if(m){ m.hidden=true; m.innerHTML=""; } }
 
-  function topUp(s, n, fromModal){
+  // Custom deal: any number of credits for any total (family offers, invoicing
+  // that doesn't match a pack). The server issues the receipt for the exact total.
+  function openCustomTopUp(s, fromModal){
+    const m = $("#settleModal");
+    const first = esc(s.name.split(" ")[0]);
+    const n0 = 10;
+    m.innerHTML = `<div class="modal-card buy-card" id="customCard">
+      <button class="modal-x" id="customX" aria-label="Close">×</button>
+      <h3 class="buy-h">Einheiten für ${first} hinzufügen</h3>
+      <p class="buy-p">Beliebige Anzahl zu einem frei gewählten Gesamtbetrag — der Beleg wird über genau diesen Betrag ausgestellt.</p>
+      <div class="bf-grid">
+        <label class="bf-lab">Einheiten<input class="bf-input" id="ctN" type="number" min="1" max="500" step="1" value="${n0}"></label>
+        <label class="bf-lab">Gesamtbetrag (€)<input class="bf-input" id="ctTotal" type="text" inputmode="decimal" value="${money(settleUnitEuros(n0)*n0)}"></label>
+      </div>
+      <label class="bf-lab">Bezahlt<select class="bf-input" id="ctMethod"><option value="cash">Bar</option><option value="transfer">Per Überweisung</option></select></label>
+      <label class="bf-lab">Notiz (optional)<input class="bf-input" id="ctNote" maxlength="80" placeholder="z. B. Familienangebot"></label>
+      <div class="micro" id="ctEach" style="margin:2px 0 14px;"></div>
+      ${creditWarningHtml(s)}
+      <button class="btn" id="ctSave"><span class="grainbtn"></span>Gutschreiben &amp; Beleg ausstellen</button>
+      <button class="btn ghost" id="ctCancel">Abbrechen</button>
+    </div>`;
+    m.hidden = false;
+    const parseTotal = ()=>{ const v=$("#ctTotal").value.trim().replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(v) ? parseFloat(v) : null; };
+    const readN = ()=>{ const n=parseInt($("#ctN").value,10); return Number.isInteger(n) && n>=1 && n<=500 ? n : null; };
+    const update = ()=>{
+      const n=readN(), t=parseTotal();
+      $("#ctEach").textContent = (n && t!=null) ? `= € ${money(t/n)} pro Einheit` : "Bitte gültige Anzahl (1–500) und Betrag eingeben.";
+      $("#ctSave").disabled = !(n && t!=null);
+    };
+    $("#ctN").oninput = update; $("#ctTotal").oninput = update; update();
+    $("#customCard").onclick = (e)=>e.stopPropagation();
+    $("#customX").onclick = closeSettle; $("#ctCancel").onclick = closeSettle;
+    $("#ctSave").onclick = ()=>{
+      const n=readN(), total=parseTotal(); if(!n || total==null) return;
+      const opts = { total: total.toFixed(2), method: $("#ctMethod").value, note: $("#ctNote").value.trim() };
+      closeSettle();
+      topUp(s, n, fromModal, opts);
+    };
+  }
+
+  function topUp(s, n, fromModal, opts){
     // The server mints the receipt (and its number); show it once it exists.
-    api('POST', '/api/credits/' + s.id + '/', { n }).then(res => {
+    opts = opts || {};
+    api('POST', '/api/credits/' + s.id + '/', Object.assign({ n }, opts)).then(res => {
       if (!res || !res.receipt) { toast("Einheiten konnten nicht gebucht werden"); return; }
       const r = res.receipt;
       state.receipts.push(r);
-      s.log.unshift({ type:"buy", label:"Einheiten vom Tutor", sub:"Heute · bar bezahlt", amt:"+"+n, receiptNo: r.no });
+      const paid = opts.method === "transfer" ? "per Überweisung bezahlt" : "bar bezahlt";
+      s.log.unshift({ type:"buy", label: opts.note || "Einheiten vom Tutor", sub:"Heute · "+paid, amt:"+"+n, receiptNo: r.no });
       addStudentCredits(s.id, n);
       renderRoster(); renderAccount();
       if(fromModal) renderStudentModal();
@@ -2510,6 +2594,7 @@
           <span class="ma-label">Einheiten hinzufügen<em>Bar oder Stripe</em></span>
           <div class="ma-btns">
             ${creditQuickAdds().map(n=>`<button class="mini-btn" data-madd="${n}">+${n}</button>`).join("")}
+            <button class="mini-btn" id="maddCustom" title="Beliebige Anzahl und Betrag, z. B. Familienangebot">Individuell…</button>
           </div>
         </div>
         ${s.credits < 0 ? `
@@ -2535,12 +2620,19 @@
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
+    $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
       settleLinkBtn.disabled = true; settleLinkBtn.textContent = "…";
-      api('POST', '/api/students/' + s.id + '/settle-link/').then(res => {
+      apiResult('POST', '/api/students/' + s.id + '/settle-link/').then(r => {
         settleLinkBtn.disabled = false; settleLinkBtn.textContent = "Zahlungslink";
         const out = $("#settleLinkOut");
+        const res = r.data;
+        if (!r.ok && res && res.error === "setup_required") {
+          const what = res.missing.map(m=>m==="email"?"E-Mail-Adresse":"Rechnungsadresse").join(" und ");
+          toast(`Für Kartenzahlung fehlt bei ${s.name.split(" ")[0]} noch: ${what}.`);
+          return;
+        }
         if (res && res.url) {
           if (out) { out.hidden = false; out.textContent = res.url; }
           if (navigator.clipboard) navigator.clipboard.writeText(res.url).then(()=>toast("Link kopiert — an den Schüler senden")).catch(()=>{});
@@ -2665,10 +2757,19 @@
     const s=studentById(state.currentUser); if(!s) return;
     const b=s.billing||{};
     $("#bfName").value=s.name;
+    $("#bfEmail").value=hasRealEmail(s) ? s.email : "";
     $("#bfLine1").value=b.line1||""; $("#bfZip").value=b.postcode||""; $("#bfCity").value=b.city||""; $("#bfCountry").value=b.country||"Österreich";
   }
   function saveBilling(){
     const s=studentById(state.currentUser); if(!s) return;
+    const email=$("#bfEmail").value.trim().toLowerCase();
+    if (email && email!==s.email) {
+      if (state.impersonating) { s.email=email; api('PUT', '/api/users/' + s.id + '/', { email }); }
+      else apiResult('PUT', '/api/users/me/billing/', { email }).then(res => {
+        if (res.ok) { s.email=email; renderAccount(); }
+        else toast((res.data && res.data.error) || "E-Mail konnte nicht gespeichert werden");
+      });
+    }
     s.name = $("#bfName").value.trim()||s.name;
     s.billing = { line1:$("#bfLine1").value.trim(), postcode:$("#bfZip").value.trim(), city:$("#bfCity").value.trim(), country:$("#bfCountry").value.trim()||"Österreich" };
     $("#acctHello").textContent="Hallo, "+s.name.split(" ")[0]+".";
