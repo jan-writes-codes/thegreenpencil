@@ -24,8 +24,9 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
-    VideoConnection,
+    VideoConnection, ErrorCard, SessionExercise, SessionFile,
 )
+from django.db.models import Prefetch
 from . import emails, video
 from .ical import build_tutor_feed
 from .receipts_pdf import render_receipt_pdf
@@ -43,8 +44,9 @@ except ImportError:  # pragma: no cover - exercised only where stripe isn't inst
 # How many days back a tutor/admin may log a "forgotten" (retroactive) session.
 BACKDATE_LIMIT_DAYS = 30
 
-# Uploaded lesson materials: an allowed type, reasonably sized.
-MAX_LESSON_FILE_BYTES = 25 * 1024 * 1024  # 25 MB
+# Uploaded files (Materialien, worksheets, homework) are stored in the database
+# so they survive deploys — the database is small (1 GB), so cap each file.
+MAX_LESSON_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 AUDIO_EXTS = {"mp3", "m4a", "wav", "ogg"}
 IMAGE_EXTS = {"png", "jpg", "jpeg", "gif", "webp"}
 DOC_EXTS = {"pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "rtf"}
@@ -110,8 +112,9 @@ def booking_tutor_slug(b):
     return b.tutor.slug if b.tutor_id and b.tutor else b.tutor_slug
 
 
-def serialize_booking(b):
-    return {
+def serialize_booking(b, *, private=True):
+    """``private`` includes the tutor's own notes — never set for a student's view."""
+    data = {
         "pk": b.pk,
         "studentId": booking_student_slug(b),
         "tutorId": booking_tutor_slug(b),
@@ -119,14 +122,67 @@ def serialize_booking(b):
         "time": b.time,
         "title": b.title,
         "notes": b.notes,
-        "tutorNotes": b.tutor_notes,
+        "summary": b.summary,
+        "homework": b.homework,
+        "homeworkDone": b.homework_done,
         "callLink": b.call_link,
+        # "requested" until the tutor confirms a student's own booking.
+        "status": b.status,
         # Guest "intro" bookings have no student account; the tutor UI shows the
         # guest's name/e-mail from here instead of looking them up in the roster.
         "isIntro": b.is_intro,
         "guestName": b.guest_name,
         "guestEmail": b.guest_email,
         "guestPhone": b.guest_phone,
+    }
+    if private:
+        data["tutorNotes"] = b.tutor_notes
+    # Session page content, when the caller prefetched it (see SESSION_PREFETCH).
+    cache = getattr(b, "_prefetched_objects_cache", {})
+    if "exercises" in cache:
+        data["exercises"] = [serialize_exercise(e) for e in b.exercises.all()]
+    if "files" in cache:
+        data["files"] = [serialize_session_file(f) for f in b.files.all()]
+    return data
+
+
+# Exercises + file metadata for the session pages, without the file bytes.
+SESSION_PREFETCH = (
+    "exercises",
+    Prefetch("files", queryset=SessionFile.objects.defer("data").select_related("uploaded_by")),
+)
+
+
+def serialize_exercise(e):
+    return {"id": e.pk, "title": e.title, "description": e.description, "link": e.link, "done": e.done}
+
+
+def serialize_session_file(f):
+    return {
+        "id": f.pk,
+        "kind": f.kind,
+        "name": f.name,
+        "ext": file_ext(f.name).upper() or "FILE",
+        "size": f.size,
+        "by": (f.uploaded_by.get_full_name() if f.uploaded_by_id and f.uploaded_by else ""),
+        "url": f"/api/session-files/{f.pk}/",
+    }
+
+
+def serialize_error_card(c):
+    return {
+        "id": c.pk,
+        "kind": c.kind,
+        "studentId": c.student.slug if c.student_id else "",
+        "bookingPk": c.booking_id,
+        "front": c.front,
+        "back": c.back,
+        "note": c.note,
+        "status": c.status,
+        "reviews": c.reviews,
+        "lastResult": c.last_result,
+        "created": timezone.localtime(c.created_at).strftime("%Y-%m-%d"),
+        "mastered": timezone.localtime(c.mastered_at).strftime("%Y-%m-%d") if c.mastered_at else "",
     }
 
 
@@ -781,6 +837,7 @@ def api_intro_booking(request):
     """
     if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
         return _intro_error(TOO_MANY, 429)
+    expire_booking_requests()  # expired requests free their slots
     data = parse_body(request)
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -868,7 +925,9 @@ def booking_cancel_view(request, token):
     booking = Booking.objects.filter(cancel_token=token).first() if token else None
     if not booking:
         return render(request, "intro_cancel.html", {"state": "gone"})
-    within_24h = (not booking.is_intro) and _booking_within_24h(booking)
+    # An unconfirmed request is always refunded — it was never a firm booking.
+    within_24h = (not booking.is_intro and not booking.is_requested
+                  and _booking_within_24h(booking))
     if request.method == "POST":
         when = emails.when(booking)
         refund_txn, _ = _cancel_booking(booking, forfeit=within_24h)
@@ -896,6 +955,7 @@ def app_view(request):
 
     user = request.user
     settings = get_settings()
+    expire_booking_requests()
 
     students = list(User.objects.filter(role="student").order_by("slug"))
     tutors = list(User.objects.filter(role="tutor").order_by("slug"))
@@ -910,19 +970,22 @@ def app_view(request):
     if is_student:
         own_bookings = list(
             Booking.objects.filter(student=user).select_related("student", "tutor")
+            .prefetch_related(*SESSION_PREFETCH)
         )
         other_bookings = list(
             Booking.objects.filter(tutor__role="tutor")
             .exclude(student=user)
             .select_related("tutor")
         )
-        bookings_payload = [serialize_booking(b) for b in own_bookings] + [
+        # The tutor's private notes stay out of a student's payload.
+        bookings_payload = [serialize_booking(b, private=False) for b in own_bookings] + [
             blocker_booking(b) for b in other_bookings
         ]
     else:
         bookings_payload = [
             serialize_booking(b)
             for b in Booking.objects.all().select_related("student", "tutor")
+            .prefetch_related(*SESSION_PREFETCH)
         ]
 
     # Transactions: per visible student slug
@@ -961,6 +1024,12 @@ def app_view(request):
                 {"date": n.created_at.strftime("%d.%m.%Y"), "text": n.text}
                 for n in notes
             ]
+
+    # Error cards (Fehler-Training): a student gets their own, tutor/admin all.
+    cards_qs = ErrorCard.objects.select_related("student")
+    if is_student:
+        cards_qs = cards_qs.filter(student=user)
+    error_cards = [serialize_error_card(c) for c in cards_qs]
 
     # Active lessons: {slug: [lesson_ids]}
     active_lessons = {}
@@ -1004,6 +1073,7 @@ def app_view(request):
         "studentNotes": student_notes,
         "activeLessons": active_lessons,
         "lessonFiles": lesson_files,
+        "errorCards": error_cards,
         "settings": {
             "creditPrice": settings.credit_price,
             "packs": packs,
@@ -1221,6 +1291,72 @@ def _cancel_booking(b, *, forfeit, label="Buchung storniert — Einheit erstatte
     return refund_txn, credits
 
 
+def decline_request(b, *, reason):
+    """Decline a student's booking request: free the slot, refund the credit and
+    tell the student why. ``reason`` is "declined" (tutor) or "expired"."""
+    snapshot = emails._cancel_snapshot(b, refunded=True)
+    label = ("Anfrage abgelehnt — Einheit erstattet" if reason == "declined"
+             else "Anfrage nicht bestätigt — Einheit erstattet")
+    _cancel_booking(b, forfeit=False, label=label, notify=False)
+    emails.queue_email(emails.send_lesson_request_declined, snapshot, reason)
+
+
+def expire_booking_requests(now=None):
+    """Auto-decline requests the tutor hasn't answered by their deadline
+    (Booking.request_deadline). Cheap and idempotent: runs whenever bookings are
+    read or written, and from the ``expire_booking_requests`` command for cron."""
+    now = now or timezone.now()
+    horizon = (now + Booking.REQUEST_EXPIRY + timedelta(days=1)).date()
+    expired = [
+        b for b in Booking.objects.filter(status=Booking.STATUS_REQUESTED, date__lte=horizon)
+        if b.request_deadline() <= now
+    ]
+    for b in expired:
+        decline_request(b, reason="expired")
+    return len(expired)
+
+
+def _tutor_may_answer(request, b):
+    """The booking's own tutor, or an admin, decides on a request."""
+    return request.user.role == "admin" or (
+        request.user.role == "tutor" and b.tutor_id == request.user.pk
+    )
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_booking_confirm(request, pk):
+    """Tutor confirms a student's booking request -> student gets the confirmation."""
+    with db_transaction.atomic():
+        b = Booking.objects.select_for_update().filter(pk=pk).first()
+        if not b:
+            return JsonResponse({"error": "not found"}, status=404)
+        if not _tutor_may_answer(request, b):
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if not b.is_requested:
+            return JsonResponse({"ok": True, "status": b.status})
+        b.status = Booking.STATUS_CONFIRMED
+        b.save(update_fields=["status"])
+    emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
+    return JsonResponse({"ok": True, "status": b.status})
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_booking_decline(request, pk):
+    """Tutor declines a request: slot freed, credit refunded, student informed."""
+    with db_transaction.atomic():
+        b = Booking.objects.select_for_update().filter(pk=pk).first()
+        if not b:
+            return JsonResponse({"error": "not found"}, status=404)
+        if not _tutor_may_answer(request, b):
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if not b.is_requested:
+            return JsonResponse({"error": "not_requested"}, status=400)
+        decline_request(b, reason="declined")
+    return JsonResponse({"ok": True})
+
+
 @require_http_methods(["POST"])
 @require_roles("student", "tutor", "admin")
 def api_bookings(request):
@@ -1250,7 +1386,9 @@ def api_bookings(request):
             )
 
     # The slot must be free and open — enforced here, not just in the UI, so the
-    # API can't be driven into a clash or onto a closed slot.
+    # API can't be driven into a clash or onto a closed slot. Expired requests are
+    # cleared first so they don't hold a slot past their deadline.
+    expire_booking_requests()
     conflict = _slot_unavailable(tutor, booking_date, time_str)
     if conflict:
         return JsonResponse({"error": conflict}, status=409)
@@ -1278,16 +1416,25 @@ def api_bookings(request):
             date=booking_date,
             time=time_str,
             title=title,
+            # A student's own booking is a request the tutor confirms first
+            # (slot reserved, credit charged now); tutor/admin bookings are final.
+            status=Booking.STATUS_REQUESTED if is_self else Booking.STATUS_CONFIRMED,
+            requested_at=timezone.now() if is_self else None,
             # Capability token for the cancel links in the confirmation e-mails.
             cancel_token=secrets.token_urlsafe(24),
         )
         # Booking.save() charged the credit on the locked instance; read it back.
         new_credits = locked.credits
 
-    # Confirm to the student (with a cancel link) and notify the tutor.
-    emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
-    emails.queue_email(emails.send_lesson_tutor_notification, b.pk)
-    return JsonResponse({"pk": b.pk, "credits": new_credits})
+    if is_self:
+        # Tell the student the request is in; ask the tutor to confirm it.
+        emails.queue_email(emails.send_lesson_request_student, b.pk)
+        emails.queue_email(emails.send_lesson_request_tutor, b.pk)
+    else:
+        # Confirm to the student (with a cancel link) and notify the tutor.
+        emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
+        emails.queue_email(emails.send_lesson_tutor_notification, b.pk)
+    return JsonResponse({"pk": b.pk, "credits": new_credits, "status": b.status})
 
 
 @require_http_methods(["PUT", "DELETE"])
@@ -1319,8 +1466,9 @@ def api_booking_detail(request, pk):
             sub = f"{b.ledger_sub()} · von {actor}"
         # A tutor/admin removal always returns the credit; a student cancelling
         # inside the 24h window forfeits it (mirrors the booking UI's policy).
+        # An unconfirmed request is always refunded — it was never a firm booking.
         refund_txn, credits = _cancel_booking(
-            b, forfeit=is_student and _booking_within_24h(b),
+            b, forfeit=is_student and not b.is_requested and _booking_within_24h(b),
             label=label, sub=sub, notify=not retroactive,
         )
         return JsonResponse({
@@ -1345,12 +1493,24 @@ def api_booking_detail(request, pk):
         conflict = _slot_unavailable(b.tutor, b.date, b.time, exclude_pk=b.pk)
         if conflict:
             return JsonResponse({"error": conflict}, status=409)
+    # A student moving their own booking needs the tutor's OK again for the new
+    # slot — otherwise rescheduling would bypass confirmation.
+    re_requested = is_student and (b.date, b.time) != old_slot
+    if re_requested:
+        b.status = Booking.STATUS_REQUESTED
+        b.requested_at = timezone.now()
     if "notes" in data:
         b.notes = data["notes"]
+    if "homeworkDone" in data:
+        b.homework_done = bool(data["homeworkDone"])
     # tutorNotes and callLink are tutor-owned fields — students can't set them.
     if not is_student:
         if "tutorNotes" in data:
             b.tutor_notes = data["tutorNotes"]
+        if "summary" in data:
+            b.summary = str(data["summary"] or "")[:5000]
+        if "homework" in data:
+            b.homework = str(data["homework"] or "")[:5000]
         if "callLink" in data and data["callLink"] != b.call_link:
             # A hand-edited link supersedes the auto-created meeting: remove
             # the orphan from the tutor's account and drop the reference so a
@@ -1367,7 +1527,203 @@ def api_booking_detail(request, pk):
     # the new slot (best-effort, off-request) so the mailed link stays valid.
     if b.video_meeting_id and (b.date, b.time) != old_slot:
         emails.queue_email(video.move_meeting, b.pk)
-    return JsonResponse({"ok": True})
+    if re_requested:
+        emails.queue_email(emails.send_lesson_request_tutor, b.pk)
+    return JsonResponse({"ok": True, "status": b.status})
+
+
+# ---------------------------------------------------------------------------
+# Fehler-Training (error cards)
+# ---------------------------------------------------------------------------
+
+def _card_text(data, key, required):
+    value = str(data.get(key) or "").strip()
+    if required and not value:
+        raise ValueError(f"{key} required")
+    return value[:1000]
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_error_cards(request):
+    """Tutor records a mistake from a lesson as a card in the student's error log."""
+    data = parse_body(request)
+    try:
+        student = User.objects.get(slug=data.get("studentSlug"), role="student")
+        front = _card_text(data, "front", True)
+        back = _card_text(data, "back", True)
+        note = _card_text(data, "note", False)
+    except (User.DoesNotExist, ValueError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    booking = None
+    if data.get("bookingPk"):
+        booking = Booking.objects.filter(pk=data["bookingPk"], student=student).first()
+        if booking is None:
+            return JsonResponse({"error": "unknown lesson"}, status=400)
+    kind = data.get("kind") or ErrorCard.KIND_ERROR
+    if kind not in (ErrorCard.KIND_ERROR, ErrorCard.KIND_VOCAB):
+        return JsonResponse({"error": "unknown kind"}, status=400)
+    card = ErrorCard.objects.create(
+        kind=kind, student=student, booking=booking, tutor=request.user,
+        front=front, back=back, note=note,
+    )
+    return JsonResponse({"card": serialize_error_card(card)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("tutor", "admin")
+def api_error_card_detail(request, pk):
+    """Edit a card's text, reopen a mastered card, or delete it."""
+    card = ErrorCard.objects.filter(pk=pk).select_related("student").first()
+    if not card:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        card.delete()
+        return JsonResponse({"ok": True})
+    data = parse_body(request)
+    try:
+        for key in ("front", "back"):
+            if key in data:
+                setattr(card, key, _card_text(data, key, True))
+        if "note" in data:
+            card.note = _card_text(data, "note", False)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    if data.get("status") == ErrorCard.STATUS_OPEN:
+        card.status, card.mastered_at = ErrorCard.STATUS_OPEN, None
+    card.save()
+    return JsonResponse({"card": serialize_error_card(card)})
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_error_card_review(request, pk):
+    """Record the result of reviewing a card together in a lesson: "known" marks
+    it mastered (done), "again" keeps it in the error log for next time."""
+    card = ErrorCard.objects.filter(pk=pk).select_related("student").first()
+    if not card:
+        return JsonResponse({"error": "not found"}, status=404)
+    result = parse_body(request).get("result")
+    if result not in ("known", "again"):
+        return JsonResponse({"error": "result must be known or again"}, status=400)
+    now = timezone.now()
+    card.reviews += 1
+    card.last_result = result
+    card.last_reviewed_at = now
+    if result == "known":
+        card.status, card.mastered_at = ErrorCard.STATUS_MASTERED, now
+    card.save()
+    return JsonResponse({"card": serialize_error_card(card)})
+
+
+# ---------------------------------------------------------------------------
+# Session page: exercises and files per lesson
+# ---------------------------------------------------------------------------
+
+def _session_booking(request, pk):
+    """The lesson behind a session-page request, or None if it doesn't exist or
+    the user may not see it (a student only ever sees their own lessons)."""
+    b = Booking.objects.filter(pk=pk).select_related("student").first()
+    if not b or b.is_intro:
+        return None
+    if request.user.role == "student" and b.student_id != request.user.pk:
+        return None
+    return b
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_session_exercises(request, pk):
+    """Tutor adds an exercise to a lesson."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    data = parse_body(request)
+    title = str(data.get("title") or "").strip()[:200]
+    if not title:
+        return JsonResponse({"error": "Titel fehlt."}, status=400)
+    link = str(data.get("link") or "").strip()[:500]
+    if link and not re.match(r"^https?://", link):
+        return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+    e = SessionExercise.objects.create(
+        booking=b, title=title, description=str(data.get("description") or "")[:3000], link=link,
+    )
+    return JsonResponse({"exercise": serialize_exercise(e)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_session_exercise_detail(request, ex_id):
+    """Tutor edits/deletes an exercise; the student may only tick it done."""
+    e = SessionExercise.objects.filter(pk=ex_id).select_related("booking").first()
+    if not e or not _session_booking(request, e.booking_id):
+        return JsonResponse({"error": "not found"}, status=404)
+    is_student = request.user.role == "student"
+    if request.method == "DELETE":
+        if is_student:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        e.delete()
+        return JsonResponse({"ok": True})
+    data = parse_body(request)
+    if "done" in data:
+        e.done = bool(data["done"])
+    if not is_student:
+        if "title" in data:
+            title = str(data["title"] or "").strip()[:200]
+            if not title:
+                return JsonResponse({"error": "Titel fehlt."}, status=400)
+            e.title = title
+        if "description" in data:
+            e.description = str(data["description"] or "")[:3000]
+        if "link" in data:
+            link = str(data["link"] or "").strip()[:500]
+            if link and not re.match(r"^https?://", link):
+                return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+            e.link = link
+    e.save()
+    return JsonResponse({"exercise": serialize_exercise(e)})
+
+
+@require_http_methods(["POST"])
+@require_roles("student", "tutor", "admin")
+def api_session_files(request, pk):
+    """Upload to a lesson: the tutor adds worksheets, the student hands in homework."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    f = request.FILES.get("file")
+    if not f:
+        return JsonResponse({"error": "Keine Datei hochgeladen."}, status=400)
+    name = (f.name or "datei")[:255]
+    if file_ext(name) not in ALLOWED_LESSON_EXTS:
+        return JsonResponse(
+            {"error": "Dateityp nicht unterstützt. Erlaubt: PDF, Office-Dokumente, Bilder, Audio, ZIP."},
+            status=400,
+        )
+    if f.size > MAX_LESSON_FILE_BYTES:
+        return JsonResponse({"error": "Datei zu groß (max. 10 MB)."}, status=400)
+    kind = SessionFile.KIND_HOMEWORK if request.user.role == "student" else SessionFile.KIND_WORKSHEET
+    sf = SessionFile.objects.create(
+        booking=b, kind=kind, name=name, size=f.size, data=f.read(),
+        content_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
+        uploaded_by=request.user,
+    )
+    return JsonResponse({"file": serialize_session_file(sf)})
+
+
+@require_http_methods(["GET", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_session_file_detail(request, file_id):
+    """Download a lesson file, or delete it (tutor/admin, or the student's own upload)."""
+    sf = SessionFile.objects.filter(pk=file_id).first()
+    if not sf or not _session_booking(request, sf.booking_id):
+        raise Http404
+    if request.method == "DELETE":
+        if request.user.role == "student" and sf.uploaded_by_id != request.user.pk:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        sf.delete()
+        return JsonResponse({"ok": True})
+    return _attachment(bytes(sf.data), sf.name, sf.content_type)
 
 
 # ---------------------------------------------------------------------------
@@ -1971,9 +2327,11 @@ def api_lesson_files(request, lesson_id):
             status=400,
         )
     if f.size > MAX_LESSON_FILE_BYTES:
-        return JsonResponse({"error": "Datei zu groß (max. 25 MB)."}, status=400)
+        return JsonResponse({"error": "Datei zu groß (max. 10 MB)."}, status=400)
     lf = LessonFile.objects.create(
-        lesson_id=lesson_id, file=f, original_name=name[:255], uploaded_by=request.user,
+        lesson_id=lesson_id, original_name=name[:255], uploaded_by=request.user,
+        data=f.read(), size=f.size,
+        content_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
     )
     return JsonResponse(serialize_lesson_file(lf))
 
@@ -1985,7 +2343,8 @@ def api_lesson_file_detail(request, file_id):
         lf = LessonFile.objects.get(pk=file_id)
     except LessonFile.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
-    lf.file.delete(save=False)  # remove the blob from storage too
+    if lf.file:
+        lf.file.delete(save=False)  # legacy on-disk upload
     lf.delete()
     return JsonResponse({"ok": True})
 
@@ -2003,15 +2362,28 @@ def api_lesson_file_download(request, file_id):
         student=request.user, lesson_id=lf.lesson_id
     ).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
+    if lf.data is not None:
+        return _attachment(bytes(lf.data), lf.original_name, lf.content_type)
+    # Legacy upload on the web server's disk (gone after a redeploy).
     ctype = mimetypes.guess_type(lf.original_name)[0] or "application/octet-stream"
     try:
         resp = FileResponse(lf.file.open("rb"), content_type=ctype)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         raise Http404
-    # Sanitize the user-supplied filename before putting it in a header. Served
-    # as an attachment (+ global nosniff) so nothing renders inline.
-    safe = lf.original_name.replace('"', "").replace("\r", "").replace("\n", "") or "lesson"
-    resp["Content-Disposition"] = f'attachment; filename="{safe}"'
+    resp["Content-Disposition"] = f'attachment; filename="{_safe_filename(lf.original_name)}"'
+    return resp
+
+
+def _safe_filename(name):
+    """User-supplied filename, sanitized for a Content-Disposition header."""
+    return (name or "").replace('"', "").replace("\r", "").replace("\n", "") or "datei"
+
+
+def _attachment(data, name, content_type):
+    """Serve stored bytes as a download. Always an attachment (+ global nosniff)
+    so nothing user-uploaded renders inline."""
+    resp = HttpResponse(data, content_type=content_type or "application/octet-stream")
+    resp["Content-Disposition"] = f'attachment; filename="{_safe_filename(name)}"'
     return resp
 
 
@@ -2311,6 +2683,7 @@ def calendar_feed(request, token):
     tutor = User.objects.filter(role="tutor", calendar_token=token).first() if token else None
     if tutor is None:
         raise Http404
+    expire_booking_requests()
     # Everything upcoming plus a trailing window, so recently finished lessons
     # don't vanish from the tutor's calendar the morning after.
     since = timezone.localdate() - timedelta(days=60)

@@ -255,6 +255,88 @@ def send_lesson_tutor_notification(booking_id):
     msg.send()
 
 
+def _notice(subject, to, ctx, reply_to=None):
+    """Send the shared booking-notice mail (badge, heading, slot, body lines, CTA)."""
+    msg = _message(
+        subject, to,
+        render_to_string("email/booking_notice.txt", ctx),
+        render_to_string("email/booking_notice.html", ctx),
+        reply_to=reply_to,
+    )
+    msg.send()
+
+
+def send_lesson_request_student(booking_id):
+    """Tell the student their booking request is in and awaits the tutor's OK."""
+    booking = Booking.objects.filter(pk=booking_id).first()
+    if not booking or booking.is_intro:
+        return
+    ctx = _lesson_ctx(booking)
+    if not ctx["student_email"]:
+        return
+    _notice(
+        f"Anfrage gesendet · {ctx['date_long']} {ctx['time_range']}", ctx["student_email"], {
+            **ctx, "badge": "Anfrage gesendet", "tone": "ok",
+            "heading": f"Deine Anfrage ist bei {ctx['tutor_first']}.",
+            "who_label": "Tutor", "who": ctx["tutor_name"],
+            "body": [
+                f"Der Termin ist für dich reserviert und eine Einheit vorgemerkt. Sobald "
+                f"{ctx['tutor_first']} bestätigt, bekommst du die Buchungsbestätigung.",
+                "Wird die Anfrage nicht bestätigt, bekommst du die Einheit automatisch zurück.",
+            ],
+            "cta_url": f"{settings.SITE_URL}/app/", "cta_label": "Zu meinen Buchungen",
+        },
+    )
+
+
+def send_lesson_request_tutor(booking_id):
+    """Ask the lesson's tutor to confirm (or decline) a student's request."""
+    booking = Booking.objects.filter(pk=booking_id).first()
+    if not booking or booking.is_intro or not booking.is_requested:
+        return
+    to = (booking.tutor.email if booking.tutor_id and booking.tutor else "") or ""
+    if not to:
+        return
+    ctx = _lesson_ctx(booking)
+    deadline = timezone.localtime(booking.request_deadline())
+    _notice(
+        f"Bitte bestätigen: {ctx['student_name']} · {ctx['date_long']} {ctx['time_range']}", to, {
+            **ctx, "badge": "Neue Anfrage", "tone": "ok",
+            "heading": f"{ctx['student_name']} möchte eine Stunde buchen.",
+            "who_label": "Schüler", "who": ctx["student_name"],
+            "body": [
+                "Bitte bestätige oder lehne die Anfrage im Tutor-Portal ab. Bis dahin ist "
+                "der Termin für niemand anderen buchbar.",
+                f"Ohne Antwort bis {deadline.strftime('%d.%m.%Y, %H:%M')} Uhr wird die Anfrage "
+                "automatisch abgelehnt und die Einheit erstattet.",
+            ],
+            "cta_url": f"{settings.SITE_URL}/app/", "cta_label": "Anfrage ansehen",
+        },
+        reply_to=[ctx["student_email"]] if ctx["student_email"] else None,
+    )
+
+
+def send_lesson_request_declined(snapshot, reason):
+    """Tell the student their request was declined / expired (credit refunded).
+    Takes a ``_cancel_snapshot`` because the booking row is already gone."""
+    if not snapshot.get("person_email"):
+        return
+    declined = reason == "declined"
+    _notice(
+        f"{'Abgelehnt' if declined else 'Nicht bestätigt'}: deine Anfrage · {snapshot['date_long']}",
+        snapshot["person_email"], {
+            **snapshot, "badge": "Abgelehnt" if declined else "Nicht bestätigt", "tone": "warn",
+            "heading": ("Dieser Termin passt leider nicht." if declined
+                        else "Deine Anfrage wurde nicht rechtzeitig bestätigt."),
+            "who_label": "Tutor", "who": snapshot["tutor_name"],
+            "body": [
+                "Die Einheit ist wieder auf deinem Konto. Such dir gern einen anderen Termin aus.",
+            ],
+            "cta_url": f"{settings.SITE_URL}/app/", "cta_label": "Neuen Termin wählen",
+        },
+    )
+
+
 def _cancel_snapshot(booking, *, refunded=False):
     """Capture everything the cancellation e-mails need *before* the booking row is
     deleted, so the senders never depend on a row that no longer exists (cancelling

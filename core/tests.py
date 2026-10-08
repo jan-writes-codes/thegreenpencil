@@ -45,7 +45,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import (
     User, Booking, Receipt, CreditTransaction, ActiveLesson, LessonFile,
-    SiteSettings, AvailabilityOverride,
+    SiteSettings, AvailabilityOverride, ErrorCard, SessionExercise, SessionFile,
 )
 
 
@@ -1095,7 +1095,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
 
 class DomRoleTests(_DomProbeBase):
     EXPECTED = {
-        "maya":  ("Maya Karlsson", {"book", "account", "games", "files"}),
+        "maya":  ("Maya Karlsson", {"book", "account", "lessons", "files", "errors"}),
         "davit": ("Davit Petrosyan", {"teacher", "students"}),
         "admin": ("Studio Admin", {"admin"}),
     }
@@ -1856,6 +1856,8 @@ class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.maya.refresh_from_db()
         after_book = self.maya.credits                    # 4
         b = Booking.objects.filter(student=self.maya).latest("id")
+        b.status = Booking.STATUS_CONFIRMED               # a firm booking, not a request
+        b.save()
         self.client.force_login(self.maya)
         resp = self.client.delete(f"/api/bookings/{b.pk}/")
         self.assertEqual(resp.status_code, 200)
@@ -1864,7 +1866,7 @@ class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.assertEqual(self.maya.credits, after_book)   # forfeited
 
 
-class BookingSlotValidationTests(FluentDataMixin, TestCase):
+class BookingSlotValidationTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     """Slot conflicts/closures must be enforced on the API, not just in the UI."""
 
     def _post(self, actor, student_slug, d, t):
@@ -2430,7 +2432,7 @@ class IntroEmailTests(FluentDataMixin, TestCase):
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_ASYNC=False,  # send inline so mail.outbox is populated deterministically
 )
-class LessonBookingEmailTests(FluentDataMixin, TestCase):
+class LessonBookingEmailTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, student_slug="maya", tutor_slug="davit",
               d="2026-06-08", t="09:00", title="English session"):
         self.client.force_login(getattr(self, student_slug))
@@ -2461,7 +2463,13 @@ class LessonBookingEmailTests(FluentDataMixin, TestCase):
     def test_student_gets_confirmation_with_cancel_link(self):
         from django.core import mail
         self.assertEqual(self._book().status_code, 200)
-        student_mail = [m for m in mail.outbox if m.to == ["maya@fluent.at"]]
+        # A student's booking is a request first; the confirmation follows the
+        # tutor's OK.
+        b = Booking.objects.get(student=self.maya, time="09:00")
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+        student_mail = [m for m in mail.outbox
+                        if m.to == ["maya@fluent.at"] and "gebucht" in m.subject]
         self.assertEqual(len(student_mail), 1, "the student must get a booking confirmation")
         msg = student_mail[0]
         self.assertIn("gebucht", msg.subject)
@@ -3292,3 +3300,349 @@ class ReceiptNumberingTests(FluentDataMixin, TestCase):
         resp = self.client.post("/api/credits/maya/", data=json.dumps({"n": 1}),
                                 content_type="application/json")
         self.assertEqual(resp.json()["receipt"]["no"], f"RE-{year}-1009")
+
+
+# --------------------------------------------------------------------------- #
+# Booking requests: a student's booking awaits the tutor's confirmation
+# --------------------------------------------------------------------------- #
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_ASYNC=False,
+)
+class BookingRequestTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    # FROZEN_NOW is Mon 1 Jun 2026 08:00 UTC; this slot is a week ahead.
+    D, T = "2026-06-08", "10:00"
+
+    def _book(self, actor=None, student="maya", d=None, t=None):
+        self.client.force_login(actor or self.maya)
+        return self.client.post("/api/bookings/", data=json.dumps({
+            "studentSlug": student, "tutorSlug": "davit",
+            "date": d or self.D, "time": t or self.T, "title": "English session",
+        }), content_type="application/json")
+
+    def _booking(self):
+        return Booking.objects.get(student=self.maya, date=date(2026, 6, 8), time=self.T)
+
+    def test_student_booking_is_a_request_that_reserves_slot_and_credit(self):
+        from django.core import mail
+        start = self.maya.credits
+        resp = self._book()
+        self.assertEqual(resp.json()["status"], "requested")
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start - 1)          # credit reserved
+        subjects = {m.to[0]: m.subject for m in mail.outbox}
+        self.assertIn("Bitte bestätigen", subjects["davit@fluent.at"])
+        self.assertIn("Anfrage gesendet", subjects["maya@fluent.at"])
+        # Slot is held: nobody else can take it while it's pending.
+        clash = self._book(actor=self.ines, student="ines")
+        self.assertEqual(clash.status_code, 409)
+
+    def test_tutor_booking_is_confirmed_immediately(self):
+        resp = self._book(actor=self.davit)
+        self.assertEqual(resp.json()["status"], "confirmed")
+
+    def test_tutor_confirms(self):
+        from django.core import mail
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+        b.refresh_from_db()
+        self.assertEqual(b.status, "confirmed")
+        self.assertTrue(any("gebucht" in m.subject and m.to == ["maya@fluent.at"]
+                            for m in mail.outbox))
+
+    def test_tutor_declines_refunds_and_frees_slot(self):
+        from django.core import mail
+        start = self.maya.credits
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/decline/").status_code, 200)
+        self.assertFalse(Booking.objects.filter(pk=b.pk).exists())
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)               # refunded
+        self.assertTrue(any("Abgelehnt" in m.subject for m in mail.outbox))
+        txn = CreditTransaction.objects.filter(student=self.maya).latest("id")
+        self.assertEqual((txn.amount, txn.label), (1, "Anfrage abgelehnt — Einheit erstattet"))
+        self.assertEqual(self._book(actor=self.ines, student="ines").status_code, 200)
+
+    def test_only_own_tutor_or_admin_may_answer(self):
+        self._book()
+        b = self._booking()
+        other = make_user("eva", "tutor", first_name="Eva")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 403)
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 403)
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+
+    def test_unanswered_request_expires_24h_before(self):
+        from core.views import expire_booking_requests
+        from django.core import mail
+        start = self.maya.credits
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        just_before = b.start - timedelta(hours=24, minutes=1)
+        self.assertEqual(expire_booking_requests(now=just_before), 0)
+        self.assertEqual(expire_booking_requests(now=b.start - timedelta(hours=24)), 1)
+        self.assertFalse(Booking.objects.filter(pk=b.pk).exists())
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)
+        self.assertTrue(any("Nicht bestätigt" in m.subject for m in mail.outbox))
+
+    def test_confirmed_bookings_never_expire(self):
+        from core.views import expire_booking_requests
+        self._book(actor=self.davit)
+        b = self._booking()
+        self.assertEqual(expire_booking_requests(now=b.start), 0)
+
+    def test_short_notice_request_gets_until_one_hour_before(self):
+        # Booked for 20:00 today (inside the 24h window).
+        self._book(d="2026-06-01", t="20:00")
+        b = Booking.objects.get(student=self.maya, date=date(2026, 6, 1), time="20:00")
+        self.assertEqual(b.request_deadline(), b.start - timedelta(hours=1))
+
+    def test_student_cancelling_a_request_is_always_refunded(self):
+        start = self.maya.credits
+        self._book(d="2026-06-01", t="20:00")                    # within 24h
+        b = Booking.objects.get(student=self.maya, date=date(2026, 6, 1), time="20:00")
+        self.client.force_login(self.maya)
+        resp = self.client.delete(f"/api/bookings/{b.pk}/")
+        self.assertTrue(resp.json()["refunded"])
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)
+
+    def test_student_reschedule_needs_confirmation_again(self):
+        self._book(actor=self.davit)
+        b = self._booking()
+        self.client.force_login(self.maya)
+        resp = self.client.put(f"/api/bookings/{b.pk}/", data=json.dumps({"time": "11:00"}),
+                               content_type="application/json")
+        self.assertEqual(resp.json()["status"], "requested")
+        b.refresh_from_db()
+        self.assertEqual(b.status, "requested")
+
+    def test_payload_carries_status(self):
+        self._book()
+        self.client.force_login(self.davit)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        mine = [b for b in payload["bookings"] if b["date"] == self.D and b["time"] == self.T]
+        self.assertEqual(mine[0]["status"], "requested")
+
+    def test_ical_marks_requests_tentative(self):
+        from core.ical import build_tutor_feed
+        self._book()
+        feed = build_tutor_feed(self.davit, Booking.objects.filter(tutor=self.davit))
+        self.assertIn("STATUS:TENTATIVE", feed)
+        self.assertIn("SUMMARY:Anfrage:", feed)
+
+
+# --------------------------------------------------------------------------- #
+# Lesson summaries + Fehler-Training (error cards)
+# --------------------------------------------------------------------------- #
+class LessonSummaryTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def test_tutor_sets_summary_student_sees_it_but_not_private_notes(self):
+        self.client.force_login(self.davit)
+        self.client.put(f"/api/bookings/{self.b.pk}/", data=json.dumps({
+            "summary": "Present perfect vs. past simple", "tutorNotes": "PRIVATE: tired today",
+        }), content_type="application/json")
+        self.client.force_login(self.maya)
+        html = self.client.get(reverse("app")).content.decode()
+        payload = extract_payload(html)
+        mine = [b for b in payload["bookings"] if b.get("pk") == self.b.pk][0]
+        self.assertEqual(mine["summary"], "Present perfect vs. past simple")
+        self.assertNotIn("tutorNotes", mine)
+        self.assertNotIn("PRIVATE: tired today", html)
+
+    def test_student_cannot_set_summary(self):
+        self.client.force_login(self.maya)
+        self.client.put(f"/api/bookings/{self.b.pk}/", data=json.dumps({"summary": "hack"}),
+                        content_type="application/json")
+        self.b.refresh_from_db()
+        self.assertEqual(self.b.summary, "")
+
+
+class ErrorCardTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def _add(self, actor=None, **extra):
+        self.client.force_login(actor or self.davit)
+        body = {"studentSlug": "maya", "bookingPk": self.b.pk,
+                "front": "I have seen him yesterday.", "back": "I saw him yesterday.",
+                "note": "Finished time -> past simple"}
+        body.update(extra)
+        return self.client.post("/api/error-cards/", data=json.dumps(body),
+                                content_type="application/json")
+
+    def test_tutor_adds_card_linked_to_lesson(self):
+        resp = self._add()
+        self.assertEqual(resp.status_code, 200)
+        card = resp.json()["card"]
+        self.assertEqual((card["status"], card["bookingPk"]), ("open", self.b.pk))
+
+    def test_students_cannot_add_or_review(self):
+        self.assertEqual(self._add(actor=self.maya).status_code, 403)
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.maya)
+        resp = self.client.post(f"/api/error-cards/{card_id}/review/",
+                                data=json.dumps({"result": "known"}), content_type="application/json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_validation(self):
+        self.assertEqual(self._add(front="").status_code, 400)
+        self.assertEqual(self._add(studentSlug="nobody").status_code, 400)
+        other = Booking.objects.create(student=self.ines, tutor=self.davit,
+                                       date=date(2026, 5, 29), time="09:00")
+        self.assertEqual(self._add(bookingPk=other.pk).status_code, 400)  # not maya's lesson
+
+    def test_review_again_keeps_open_known_masters(self):
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.davit)
+        r = self.client.post(f"/api/error-cards/{card_id}/review/",
+                             data=json.dumps({"result": "again"}), content_type="application/json")
+        self.assertEqual((r.json()["card"]["status"], r.json()["card"]["reviews"]), ("open", 1))
+        r = self.client.post(f"/api/error-cards/{card_id}/review/",
+                             data=json.dumps({"result": "known"}), content_type="application/json")
+        self.assertEqual((r.json()["card"]["status"], r.json()["card"]["reviews"]), ("mastered", 2))
+        self.assertTrue(r.json()["card"]["mastered"])
+        # Reopen.
+        r = self.client.put(f"/api/error-cards/{card_id}/", data=json.dumps({"status": "open"}),
+                            content_type="application/json")
+        self.assertEqual(r.json()["card"]["status"], "open")
+
+    def test_edit_and_delete(self):
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.davit)
+        r = self.client.put(f"/api/error-cards/{card_id}/", data=json.dumps({"back": "I saw him."}),
+                            content_type="application/json")
+        self.assertEqual(r.json()["card"]["back"], "I saw him.")
+        self.assertEqual(self.client.delete(f"/api/error-cards/{card_id}/").status_code, 200)
+        self.assertFalse(ErrorCard.objects.filter(pk=card_id).exists())
+
+    def test_payload_scoping(self):
+        self._add()
+        ines_b = Booking.objects.create(student=self.ines, tutor=self.davit,
+                                        date=date(2026, 5, 29), time="10:00")
+        self._add(studentSlug="ines", bookingPk=ines_b.pk, front="He go.", back="He goes.")
+        self.client.force_login(self.maya)
+        cards = extract_payload(self.client.get(reverse("app")).content.decode())["errorCards"]
+        self.assertEqual({c["studentId"] for c in cards}, {"maya"})
+        self.client.force_login(self.davit)
+        cards = extract_payload(self.client.get(reverse("app")).content.decode())["errorCards"]
+        self.assertEqual({c["studentId"] for c in cards}, {"maya", "ines"})
+
+
+# --------------------------------------------------------------------------- #
+# Session page: homework, exercises, vocabulary deck, files in the database
+# --------------------------------------------------------------------------- #
+class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def _json(self, method, url, body=None, actor=None):
+        self.client.force_login(actor or self.davit)
+        return getattr(self.client, method)(url, data=json.dumps(body or {}),
+                                            content_type="application/json")
+
+    def _upload(self, actor, name="sheet.pdf", content=b"%PDF-1.4 x", pk=None):
+        self.client.force_login(actor)
+        return self.client.post(f"/api/bookings/{pk or self.b.pk}/files/",
+                                {"file": SimpleUploadedFile(name, content)})
+
+    def _payload_booking(self, actor):
+        self.client.force_login(actor)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        return [x for x in payload["bookings"] if x.get("pk") == self.b.pk][0]
+
+    def test_homework_set_by_tutor_ticked_by_student(self):
+        self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "Workbook p. 34"})
+        self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "hack", "homeworkDone": True},
+                   actor=self.maya)
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.homework, self.b.homework_done), ("Workbook p. 34", True))
+
+    def test_exercises(self):
+        r = self._json("post", f"/api/bookings/{self.b.pk}/exercises/",
+                       {"title": "Gap fill", "description": "p. 12", "link": "https://example.com/x"})
+        ex_id = r.json()["exercise"]["id"]
+        self.assertEqual(self._json("post", f"/api/bookings/{self.b.pk}/exercises/",
+                                    {"title": "x", "link": "javascript:alert(1)"}).status_code, 400)
+        # Student: may tick done, nothing else; may not add or delete.
+        r = self._json("put", f"/api/exercises/{ex_id}/", {"done": True, "title": "hack"}, actor=self.maya)
+        self.assertEqual((r.json()["exercise"]["done"], r.json()["exercise"]["title"]), (True, "Gap fill"))
+        self.assertEqual(self._json("post", f"/api/bookings/{self.b.pk}/exercises/", {"title": "x"},
+                                    actor=self.maya).status_code, 403)
+        self.assertEqual(self._json("delete", f"/api/exercises/{ex_id}/", actor=self.maya).status_code, 403)
+        # Another student can't touch it.
+        self.assertEqual(self._json("put", f"/api/exercises/{ex_id}/", {"done": False},
+                                    actor=self.ines).status_code, 404)
+        self.assertEqual(self._json("delete", f"/api/exercises/{ex_id}/").status_code, 200)
+
+    def test_files_stored_in_db_and_access_controlled(self):
+        r = self._upload(self.davit)
+        self.assertEqual(r.json()["file"]["kind"], "worksheet")
+        fid = r.json()["file"]["id"]
+        self.assertEqual(bytes(SessionFile.objects.get(pk=fid).data), b"%PDF-1.4 x")
+        hw = self._upload(self.maya, name="homework.jpg", content=b"jpgdata").json()["file"]
+        self.assertEqual(hw["kind"], "homework")
+        # Download: own student + tutor yes, other student no.
+        self.client.force_login(self.maya)
+        resp = self.client.get(f"/api/session-files/{fid}/")
+        self.assertEqual(resp.content, b"%PDF-1.4 x")
+        self.assertIn("attachment", resp["Content-Disposition"])
+        self.client.force_login(self.ines)
+        self.assertEqual(self.client.get(f"/api/session-files/{fid}/").status_code, 404)
+        self.assertEqual(self._upload(self.ines).status_code, 404)
+        # Student may delete only their own upload.
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.delete(f"/api/session-files/{fid}/").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/session-files/{hw['id']}/").status_code, 200)
+
+    def test_file_type_and_size_limits(self):
+        self.assertEqual(self._upload(self.davit, name="x.exe").status_code, 400)
+        big = b"0" * (10 * 1024 * 1024 + 1)
+        self.assertEqual(self._upload(self.davit, name="big.pdf", content=big).status_code, 400)
+
+    def test_payload_carries_session_content_without_file_bytes(self):
+        self._json("post", f"/api/bookings/{self.b.pk}/exercises/", {"title": "Gap fill"})
+        self._upload(self.davit)
+        mine = self._payload_booking(self.maya)
+        self.assertEqual([e["title"] for e in mine["exercises"]], ["Gap fill"])
+        self.assertEqual(mine["files"][0]["name"], "sheet.pdf")
+        self.assertNotIn("data", mine["files"][0])
+
+    def test_vocab_cards(self):
+        r = self._json("post", "/api/error-cards/", {
+            "studentSlug": "maya", "bookingPk": self.b.pk, "kind": "vocab",
+            "front": "to put off", "back": "verschieben", "note": "We put off the meeting.",
+        })
+        self.assertEqual(r.json()["card"]["kind"], "vocab")
+        self.assertEqual(self._json("post", "/api/error-cards/", {
+            "studentSlug": "maya", "kind": "nope", "front": "a", "back": "b"}).status_code, 400)
+
+    def test_lesson_materials_stored_in_db(self):
+        self.client.force_login(self.davit)
+        r = self.client.post("/api/lesson-files/a1-1/",
+                             {"file": SimpleUploadedFile("unit1.pdf", b"%PDF unit1")})
+        fid = r.json()["id"]
+        lf = LessonFile.objects.get(pk=fid)
+        self.assertEqual(bytes(lf.data), b"%PDF unit1")
+        self.assertFalse(lf.file)
+        ActiveLesson.objects.create(student=self.maya, lesson_id="a1-1")
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.get(f"/api/lesson-files/download/{fid}/").content, b"%PDF unit1")

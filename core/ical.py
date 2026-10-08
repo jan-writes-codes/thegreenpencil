@@ -24,6 +24,8 @@ def _event_lines(booking, stamp):
 
     with_name = booking.guest_name or booking.student_name or ""
     summary = f"{booking.title} — {with_name}" if with_name else booking.title
+    if booking.is_requested:
+        summary = f"Anfrage: {summary}"  # still awaiting the tutor's confirmation
 
     # Everything the tutor needs at a glance in the calendar entry: who the
     # guest is (intros carry contact details), their notes, and the call link.
@@ -50,7 +52,7 @@ def _event_lines(booking, stamp):
     if booking.call_link:
         lines.append(f"LOCATION:{ics_escape(booking.call_link)}")
         lines.append(f"URL:{ics_escape(booking.call_link)}")
-    lines += ["STATUS:CONFIRMED", "END:VEVENT"]
+    lines += ["STATUS:TENTATIVE" if booking.is_requested else "STATUS:CONFIRMED", "END:VEVENT"]
     return lines
 
 

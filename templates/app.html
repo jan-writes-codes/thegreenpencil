@@ -110,6 +110,25 @@
     font-family: inherit; font-size: 14px; color: var(--muted);
     background: transparent; border: 0; padding: 9px 16px; border-radius: 11px;
     cursor: pointer; transition: 0.18s; letter-spacing: -0.01em; display:flex; align-items:center; gap:8px;
+    white-space: nowrap;
+  }
+  /* Students have five tabs in two groups: tighten them on mid-size screens, and
+     below 1160px switch them to the same dropdown the phone layout uses. */
+  @media (max-width: 1360px) {
+    .app[data-role="student"] nav.tabs button { padding: 9px 11px; }
+    .app[data-role="student"] nav.tabs button svg { display: none; }
+  }
+  @media (min-width: 761px) and (max-width: 1160px) {
+    .app[data-role="student"] .nav-toggle { display: flex; }
+    .app[data-role="student"] nav.tabs { position: absolute; top: calc(100% + 6px); left: 14px; flex-direction: column; gap: 2px;
+      margin-left: 0; min-width: 220px; padding: 7px; border-radius: 14px;
+      background: var(--bg-2); box-shadow: var(--shadow), inset 0 0 0 1px var(--line); z-index: 50; display: none; }
+    .app[data-role="student"] nav.tabs.open { display: flex; }
+    .app[data-role="student"] nav.tabs button svg { display: block; }
+    .app[data-role="student"] nav.tabs.open .tab { display: flex; width: 100%; justify-content: flex-start; padding: 11px 14px; }
+    .app[data-role="student"] nav.tabs.open .tab-group { flex-direction: column; align-items: stretch; margin: 6px 0 0;
+      padding: 8px 0 0; background: none; box-shadow: none; border-top: 1px solid var(--line); border-radius: 0; }
+    .app[data-role="student"] nav.tabs.open .tab-group .tg-label { padding: 4px 14px 2px; }
   }
   nav.tabs button svg { width: 16px; height: 16px; opacity: 0.8; }
   nav.tabs button:hover { color: var(--ink); background: rgba(255,255,255,0.04); }
@@ -121,11 +140,20 @@
   .app[data-role] nav.tabs button { display: none; }
   .app[data-role="student"] .tab[data-view="book"],
   .app[data-role="student"] .tab[data-view="account"],
-  .app[data-role="student"] .tab[data-view="games"],
+  .app[data-role="student"] .tab[data-view="lessons"],
   .app[data-role="student"] .tab[data-view="files"],
+  .app[data-role="student"] .tab[data-view="errors"],
   .app[data-role="tutor"] .tab[data-view="teacher"],
   .app[data-role="tutor"] .tab[data-view="students"],
   .app[data-role="admin"] .tab[data-view="admin"] { display: flex; }
+  /* Students' nav in two groups: Organisation (Kalender, Konto) | Lernen. The
+     learning group sits in its own tinted pill with a small label. */
+  .tab-group { display: none; }
+  .app[data-role="student"] .tab-group { display: flex; align-items: center; gap: 4px; margin-left: 10px;
+    padding: 3px 4px 3px 10px; border-radius: 12px; background: color-mix(in oklch, var(--c1) 8%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--c1) 18%, transparent); }
+  .tab-group .tg-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c1);
+    font-weight: 700; margin-right: 4px; }
 
   /* Mobile nav: the inline tab strip overflows a phone-width header, so below
      760px the tabs collapse into a dropdown opened by .nav-toggle. */
@@ -153,11 +181,15 @@
     .app[data-role] nav.tabs.open button { display: none; }
     .app[data-role="student"] nav.tabs.open .tab[data-view="book"],
     .app[data-role="student"] nav.tabs.open .tab[data-view="account"],
-    .app[data-role="student"] nav.tabs.open .tab[data-view="games"],
+    .app[data-role="student"] nav.tabs.open .tab[data-view="lessons"],
     .app[data-role="student"] nav.tabs.open .tab[data-view="files"],
+    .app[data-role="student"] nav.tabs.open .tab[data-view="errors"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="teacher"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="students"],
     .app[data-role="admin"] nav.tabs.open .tab[data-view="admin"] { display: flex; width: 100%; justify-content: flex-start; padding: 11px 14px; }
+    .app[data-role="student"] nav.tabs.open .tab-group { flex-direction: column; align-items: stretch; margin: 6px 0 0;
+      padding: 8px 0 0; background: none; box-shadow: none; border-top: 1px solid var(--line); border-radius: 0; }
+    .app[data-role="student"] nav.tabs.open .tab-group .tg-label { padding: 4px 14px 2px; }
   }
 
   .spacer { flex: 1; }
@@ -306,63 +338,75 @@
   .acct-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px; margin-top: 26px; }
   @media (max-width: 920px) { .acct-grid { grid-template-columns: 1fr; } }
 
-  /* ---------- Practice games ---------- */
-  .games-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 18px; margin-top: 26px; }
-  .game-card { text-align: left; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; cursor: pointer;
-    background: var(--glass); backdrop-filter: blur(6px); transition: 0.16s; font-family: var(--font-body); color: var(--ink); position: relative; overflow: hidden; }
-  .game-card:hover { transform: translateY(-3px); border-color: color-mix(in oklch, var(--ga, var(--c1)) 55%, transparent); box-shadow: 0 18px 40px -26px rgba(31,60,34,0.6); }
-  .gc-icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 14px;
-    background: color-mix(in oklch, var(--ga) 16%, transparent); color: var(--ga); }
-  .gc-icon svg { width: 24px; height: 24px; }
-  .gc-tag { font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ga); font-weight: 600; margin-bottom: 5px; }
-  .gc-title { font-family: var(--font-display); font-weight: 700; font-size: 19px; margin-bottom: 6px; }
-  .gc-desc { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
-  .gc-best { font-size: 11.5px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
-  .gc-best::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ga); opacity: 0.6; }
-
-  .game-bar { display: flex; align-items: center; gap: 14px; margin-top: 22px; margin-bottom: 14px; }
-  .game-title-mini { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
-  .game-panel { padding: 30px; min-height: 320px; }
-  #gameProgress { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--muted);
-    padding-bottom: 14px; margin-bottom: 20px; border-bottom: 1px solid var(--line-2); }
-  #gameProgress:empty { display: none; }
-  .gp-score { color: var(--good); font-weight: 600; }
-  .q-sentence { font-family: var(--font-display); font-size: 25px; line-height: 1.5; color: var(--ink); text-wrap: pretty; }
-  .q-blank { display: inline-block; min-width: 64px; border-bottom: 2.5px dashed color-mix(in oklch, var(--c1) 55%, transparent); margin: 0 3px; }
-  .q-hint { font-size: 13.5px; color: var(--muted); margin-top: 16px; }
-  .q-hint b { color: var(--c1); font-weight: 600; }
-  .q-input-row { display: flex; gap: 10px; margin-top: 20px; max-width: 420px; }
-  .q-input { flex: 1; font-size: 16px; }
-  .q-input.correct { border-color: var(--good); color: var(--good); }
-  .q-input.wrong { border-color: #c0593c; color: #c0593c; }
-  .q-input-row .btn { width: auto; padding-left: 22px; padding-right: 22px; flex-shrink: 0; }
-  .q-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 24px; max-width: 460px; }
-  .q-opt { font-family: var(--font-body); font-size: 16px; font-weight: 500; padding: 15px; border-radius: 13px;
-    border: 1px solid var(--line); background: rgba(251,248,241,0.5); color: var(--ink); cursor: pointer; transition: 0.14s; }
-  .q-opt:hover:not(:disabled) { border-color: color-mix(in oklch, var(--c1) 55%, transparent); transform: translateY(-1px); }
-  .q-opt:disabled { cursor: default; }
-  .q-opt.correct { background: color-mix(in oklch, var(--good) 18%, transparent); border-color: var(--good); color: #46603a; font-weight: 600; }
-  .q-opt.wrong { background: rgba(192,89,60,0.14); border-color: #c0593c; color: #c0593c; }
-  .q-feedback { margin-top: 22px; display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
-  .q-feedback .btn { width: auto; padding-left: 26px; padding-right: 26px; }
-  .fb { font-size: 15px; font-weight: 600; }
-  .fb.ok { color: var(--good); }
-  .fb.no { color: #c0593c; font-weight: 500; }
-  .fb.no b { font-weight: 700; }
-  .scramble-answer { display: flex; flex-wrap: wrap; gap: 8px; min-height: 52px; padding: 12px; margin-top: 18px;
-    border: 1.5px dashed var(--line); border-radius: 13px; background: rgba(251,248,241,0.35); }
-  .scramble-answer:empty::after { content: "Wörter unten antippen, um den Satz zu bauen…"; color: var(--faint); font-size: 13.5px; font-style: italic; }
-  .scramble-pool { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
-  .word-chip { font-family: var(--font-body); font-size: 15.5px; padding: 9px 15px; border-radius: 10px; cursor: pointer; transition: 0.13s;
-    border: 1px solid var(--line); background: var(--glass); color: var(--ink); }
-  .word-chip:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--c1) 50%, transparent); }
-  .word-chip.in { background: color-mix(in oklch, var(--c1) 13%, transparent); border-color: color-mix(in oklch, var(--c1) 40%, transparent); color: var(--c1); font-weight: 500; }
-  .game-result { text-align: center; padding: 24px 0; }
-  .gr-score { font-family: var(--font-display); font-weight: 800; font-size: 64px; color: var(--c1); line-height: 1; }
-  .gr-score span { font-size: 30px; color: var(--faint); font-weight: 600; }
-  .gr-msg { font-size: 16px; color: var(--muted); margin-top: 12px; }
-  .gr-actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; }
-  .gr-actions .btn { width: auto; padding-left: 28px; padding-right: 28px; }
+  /* ---------- Stunden (lesson history) + Fehler-Training ---------- */
+  .lesson-hist .li { cursor: pointer; }
+  .lesson-hist .li:hover { background: color-mix(in oklch, var(--c1) 5%, transparent); }
+  .lh-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+  .lh-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 100px; border: 1px solid var(--line); color: var(--muted); }
+  .lh-pill.open { color: #a23a22; border-color: rgba(194,85,47,0.35); background: rgba(194,85,47,0.08); }
+  .lh-pill.done { color: var(--good); border-color: color-mix(in oklch, var(--good) 35%, transparent); background: color-mix(in oklch, var(--good) 9%, transparent); }
+  .ld-block { margin-top: 18px; }
+  .ld-block h4 { font-family: var(--font-display); font-size: 15px; margin-bottom: 6px; }
+  .ld-text { font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+  .ld-empty { font-size: 13px; color: var(--faint); font-style: italic; }
+  .err-stats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 22px; }
+  .err-stat { flex: 1; min-width: 150px; padding: 18px 20px; }
+  .err-stat .n { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1; }
+  .err-stat .l { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .err-stat.open .n { color: #c2552f; } .err-stat.done .n { color: var(--good); }
+  .ecard { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; background: rgba(251,248,241,0.55); }
+  .ecard .ef { font-size: 14.5px; color: #a23a22; text-decoration: line-through; text-decoration-color: rgba(194,85,47,0.5); }
+  .ecard .eb { font-size: 14.5px; color: var(--ink); font-weight: 600; margin-top: 3px; }
+  .ecard .en { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .ecard .eact { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .ecard.mastered { opacity: 0.75; }
+  .ecard.mastered .ef { color: var(--faint); }
+  .ec-form { display: grid; gap: 8px; margin-top: 10px; }
+  .ec-form textarea { min-height: 54px; }
+  /* Session page: one lesson, scrollable sections, shared by tutor and student */
+  .sess-wrap { max-width: 880px; }
+  .sess-head { padding: 26px 28px 18px; }
+  .sess-title-in { width: 100%; font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 38px);
+    letter-spacing: -0.03em; color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px dashed var(--line);
+    padding: 4px 0; margin: 8px 0 6px; outline: none; }
+  .sess-title-in:focus { border-bottom-color: var(--c1); }
+  .sess-jump { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; position: sticky; top: 0; }
+  .sess-jump a { font-size: 12.5px; text-decoration: none; color: var(--muted); padding: 6px 11px; border-radius: 100px;
+    border: 1px solid var(--line); background: rgba(251,248,241,0.6); white-space: nowrap; }
+  .sess-jump a:hover { color: var(--ink); border-color: color-mix(in oklch, var(--c1) 45%, transparent); }
+  .sess-h { margin: 34px 2px 10px; scroll-margin-top: 16px; }
+  .sess-sec { padding: 18px 22px; }
+  .sess-sec .notes-ta { min-height: 96px; }
+  .sess-sub { font-family: var(--font-display); font-size: 14.5px; margin: 0 0 8px; }
+  .sess-saved { display: inline-block; font-size: 12px; color: var(--good); margin-top: 6px; }
+  .sess-saved[hidden] { display: none; }
+  .sess-ex { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+  .sess-ex:last-of-type { border-bottom: 0; }
+  .sess-ex-body { flex: 1; min-width: 0; }
+  a.lnk { color: var(--c1); text-decoration: none; font-weight: 600; font-size: 13px; }
+  a.lnk:hover { text-decoration: underline; }
+  .sess-ex-body .t { font-weight: 600; font-size: 14.5px; }
+  .sess-ex-body .s { font-size: 13.5px; color: var(--muted); margin-top: 3px; white-space: pre-wrap; }
+  .sess-ex.done .sess-ex-body .t { text-decoration: line-through; color: var(--muted); }
+  .sess-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--c1); cursor: pointer; }
+  .sess-check span { display: none; }
+  .sess-hw-done { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-top: 10px; color: var(--muted); }
+  .sess-hw-done input { width: 17px; height: 17px; accent-color: var(--c1); }
+  .sess-upload { display: inline-flex; width: auto; margin-top: 12px; cursor: pointer; padding-left: 18px; padding-right: 18px; }
+  .sess-file { display: flex; align-items: center; gap: 10px; }
+  .sess-file > a { flex: 1; display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
+  .ecard.vocab .eb { font-size: 15px; }
+  /* Flashcards (practice for students, review with the tutor) */
+  .flash-card { padding: 30px 26px; text-align: center; }
+  .flash-prog { font-size: 12.5px; color: var(--faint); margin-bottom: 16px; }
+  .flash-lab { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
+  .flash-front { font-family: var(--font-display); font-size: 22px; line-height: 1.4; color: #a23a22; }
+  .flash-back { margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--line); }
+  .flash-back .fb-correct { font-family: var(--font-display); font-size: 21px; line-height: 1.4; color: var(--good); font-weight: 700; }
+  .flash-back .fb-note { font-size: 14px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .flash-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .flash-actions .btn { flex: 1; margin: 0; }
+  .flash-actions[hidden], .flash-back[hidden] { display: none; }
 
   /* ---------- Learning files ---------- */
   .lvl-sec { margin-top: 26px; }
@@ -522,6 +566,13 @@
   .slot.t-open:hover .ts-add { color: var(--c1); }
   .slot.t-booked { background: color-mix(in oklch, var(--good) 13%, transparent); border-color: color-mix(in oklch, var(--good) 30%, transparent); cursor: pointer; }
   .slot.t-booked:hover { filter: brightness(1.04); }
+  /* Booking request awaiting the tutor's confirmation */
+  .slot.t-booked.t-req { background: color-mix(in oklch, #c2782f 12%, transparent); border: 1.5px dashed color-mix(in oklch, #c2782f 55%, transparent); }
+  .req-chip { display: inline-block; font-size: 11px; font-weight: 600; color: #8a4b16; background: rgba(194,120,47,0.13);
+    border: 1px solid rgba(194,120,47,0.35); border-radius: 100px; padding: 2px 8px; margin-left: 6px; vertical-align: 1px; }
+  .req-panel { border: 1.5px solid rgba(194,120,47,0.4); background: rgba(194,120,47,0.06); padding: 8px 22px; }
+  .tab .tab-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+    border-radius: 100px; background: #c2552f; color: #fff; font-size: 11px; font-weight: 700; }
   .slot.t-booked .ts-name { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink); }
   .slot .ts-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .slot.t-open.sel .ts-time, .slot.t-open.sel .ts-add,
@@ -822,7 +873,7 @@
       <button id="impExit">Zurück zum Admin</button>
     </div>
     <header class="top">
-      <a class="brand" href="/">
+      <a class="brand" href="/app/" id="brandHome" title="Zu meinem Kalender">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
         <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
       </a>
@@ -833,20 +884,27 @@
       <nav class="tabs" id="navMenu">
         <button class="tab active" data-view="book">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-          Buchen
+          Kalender
         </button>
         <button class="tab" data-view="account">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>
-          Konto
+          Konto &amp; Guthaben
         </button>
-        <button class="tab" data-view="games">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="6.5" width="19" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.5" r="1"/><circle cx="18" cy="14" r="1"/></svg>
-          Üben
-        </button>
-        <button class="tab" data-view="files">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          Lernen
-        </button>
+        <div class="tab-group" role="group" aria-label="Lernen">
+          <span class="tg-label">Lernen</span>
+          <button class="tab" data-view="lessons">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5h16M4 12h16M4 18.5h10"/></svg>
+            Stunden
+          </button>
+          <button class="tab" data-view="files">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Materialien
+          </button>
+          <button class="tab" data-view="errors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3.5" width="13" height="17" rx="2"/><path d="M8 8.5h5M8 12.5h5"/><path d="M19.5 7v13.5H8"/></svg>
+            Training
+          </button>
+        </div>
         <button class="tab" data-view="teacher">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3.5" width="18" height="13" rx="2"/><path d="M3 20.5h18M9 16.5v4M15 16.5v4"/><path d="M7.5 9.5l2.4 2.4L16 6.5"/></svg>
           Tutor-Portal
@@ -975,28 +1033,36 @@
         </div>
       </section>
 
-      <!-- ===================== PRACTICE GAMES ===================== -->
-      <section class="view" id="view-games" data-screen-label="Practice">
+      <!-- ===================== STUNDEN (lesson history) ===================== -->
+      <section class="view" id="view-lessons" data-screen-label="Lessons">
         <div class="wrap">
-          <div class="eyebrow">Üben · zwischen den Stunden</div>
-          <h1 class="title">Spielen &amp; üben.</h1>
-          <p class="sub">Kurze Englisch-Spiele, um zwischen den Stunden fit zu bleiben — ganz ohne Einheiten.</p>
-          <div class="games-menu" id="gamesMenu"></div>
-          <div class="game-host" id="gameHost" hidden>
-            <div class="game-bar">
-              <button class="btn-text" id="gameExit" style="margin:0;">← Alle Spiele</button>
-              <div class="game-title-mini" id="gameTitleMini"></div>
-            </div>
-            <div class="panel game-panel"><div id="gameProgress"></div><div id="gameStage"></div></div>
-          </div>
+          <div class="eyebrow">Lernen · deine Stunden</div>
+          <h1 class="title">Deine Stunden.</h1>
+          <p class="sub">Alle Stunden, die du hattest — tippe eine an, um zu sehen, was ihr gemacht habt und welche Fehler ihr gefunden habt.</p>
+          <div class="panel" style="padding: 8px 22px; margin-top: 22px;"><div class="list lesson-hist" id="lessonHistory"></div></div>
         </div>
+      </section>
+
+      <!-- ===================== FEHLER-TRAINING ===================== -->
+      <section class="view" id="view-errors" data-screen-label="Error training">
+        <div class="wrap">
+          <div class="eyebrow">Lernen · Training</div>
+          <h1 class="title">Wiederholen, bis es sitzt.</h1>
+          <p class="sub">Deine Fehler und neuen Wörter aus den Stunden als Lernkarten. Übe sie jederzeit — in der nächsten Stunde geht ihr sie gemeinsam durch, und was sitzt, hakt dein Tutor als gemeistert ab.</p>
+          <div id="errorsContent"></div>
+        </div>
+      </section>
+
+      <!-- ===================== SESSION PAGE (one lesson) ===================== -->
+      <section class="view" id="view-session" data-screen-label="Session">
+        <div class="wrap sess-wrap"><div id="sessionContent"></div></div>
       </section>
 
       <!-- ===================== LEARNING FILES ===================== -->
       <section class="view" id="view-files" data-screen-label="Learning">
         <div class="wrap">
-          <div class="eyebrow">Lernmaterialien · dein Lehrplan</div>
-          <h1 class="title">Deine Lernmaterialien.</h1>
+          <div class="eyebrow">Lernen · Materialien</div>
+          <h1 class="title">Deine Materialien.</h1>
           <p class="sub">Arbeitsblätter und Materialien, die dein Tutor für dich freigeschaltet hat — nach Niveau geordnet. Gesperrte Lektionen öffnen sich, sobald du weiterkommst.</p>
           <div id="filesContent"></div>
         </div>
@@ -1029,6 +1095,10 @@
             </aside>
           </div>
 
+          <div id="tutorRequestsSec" hidden>
+            <div class="section-h" style="margin-top:34px;"><h2>Offene Anfragen</h2><span class="micro" style="margin:0;">Bitte bestätigen oder ablehnen — ohne Antwort verfallen sie 24 h vor Beginn.</span></div>
+            <div class="panel req-panel"><div class="list" id="tutorRequests"></div></div>
+          </div>
           <div class="section-h" style="margin-top:34px;"><h2>Nächste Stunden</h2><span style="display:flex;gap:18px;"><span class="lnk" id="videoConnectBtn">🎥 Video-Call verbinden</span><span class="lnk" id="calSyncBtn">↻ Kalender abonnieren / sync</span></span></div>
           <div class="panel" style="padding: 8px 22px;"><div class="list" id="tutorUpcoming"></div></div>
 
@@ -1113,6 +1183,7 @@
   <div class="modal-overlay" id="buyModal" hidden></div>
   <div class="modal-overlay" id="settleModal" hidden></div>
   <div class="modal-overlay" id="backdateModal" hidden></div>
+  <div class="modal-overlay" id="lessonModal" hidden></div>
 
 {{ django_data|json_script:"django-data" }}
 <script>
@@ -1272,7 +1343,7 @@
       date: new Date(b.date + 'T00:00:00'),
       time: b.time,
     })),
-    gameBest: {},
+    errorCards: DJ.errorCards || [],  // Fehler-Training cards
     studentQuery: "",
     lessonFiles: DJ.lessonFiles || {},  // {lesson_id: [{id,name,url}]}
   };
@@ -1549,7 +1620,9 @@
 
   // ---------- Reschedule / cancel ----------
   function bookingStart(b){ const [h,m]=b.time.split(":").map(Number); const dt=new Date(b.date); dt.setHours(h,m,0,0); return dt; }
-  function canModify(b){ return (bookingStart(b) - NOW) >= 24*3600000; }
+  // An unconfirmed request can always be withdrawn (full refund); a confirmed
+  // lesson only outside the 24h window.
+  function canModify(b){ return b.status === "requested" || (bookingStart(b) - NOW) >= 24*3600000; }
 
   function openManage(b){ if(!b) return; state.selected=null; state.justBooked=null; state.rescheduling=null; state.managing=b; setView("book"); renderWeek(); renderSummary(); document.querySelector("#main").scrollTop=0; }
 
@@ -1561,12 +1634,13 @@
     const b=state.rescheduling, s=state.selected; if(!b||!s) return;
     const t=tutorById(b.tutorId);
     b.date=new Date(s.date); b.time=s.time;
+    if (state.role === "student") b.status = "requested";  // the tutor confirms the new slot
     meLog().unshift({ type:"book", label:"Umgebucht mit "+t.name, sub:"Jetzt "+MONTHS_S[b.date.getMonth()]+" "+b.date.getDate()+" · "+b.time, amt:"" });
     if (b._pk) api('PUT', '/api/bookings/' + b._pk + '/', { date: ymd(b.date), time: b.time });
     state.rescheduling=null; state.selected=null; state.managing=null;
     state.justBooked=b; state.justAction="rescheduled";
     renderWeek(); renderSummary(); renderAccount(); renderTeacherWeek(); renderRoster();
-    toast("Stunde umgebucht auf "+b.time);
+    toast(b.status === "requested" ? "Umbuchung angefragt · "+b.time : "Stunde umgebucht auf "+b.time);
   }
 
   function cancelBooking(b){
@@ -1754,8 +1828,9 @@
       sumCard.innerHTML = `
         <div class="sum-confirm">
           <div class="confirm-badge">✓</div>
-          <h3 class="confirm-h">${resched ? "Umgebucht!" : "Gebucht!"}</h3>
+          <h3 class="confirm-h">${b.status === "requested" ? (resched ? "Umbuchung angefragt" : "Angefragt!") : (resched ? "Umgebucht!" : "Gebucht!")}</h3>
           <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${esc(t.name)}</p>
+          ${b.status === "requested" ? `<p class="confirm-p" style="margin-top:8px;">${esc(t.name.split(" ")[0])} bestätigt deine Anfrage — du bekommst dann eine E-Mail. Der Termin ist so lange für dich reserviert.</p>` : ""}
         </div>
         <button class="btn" id="icsBtn">
           <span class="grainbtn"></span>
@@ -1858,9 +1933,10 @@
     const s = state.selected; if (!s) return;
     const t = tutorById(s.tutorId);
     state.credits -= 1;
-    const booking = { studentId: state.currentUser, tutorId: s.tutorId, date: new Date(s.date), time: s.time, title: "Englischstunde" };
+    // A student's booking is a request until the tutor confirms it.
+    const booking = { studentId: state.currentUser, tutorId: s.tutorId, date: new Date(s.date), time: s.time, title: "Englischstunde", status: "requested" };
     state.bookings.push(booking);
-    meLog().unshift({ type:"book", label:"Gebucht mit "+t.name, sub: "Stunde · "+MONTHS_S[s.date.getMonth()]+" "+s.date.getDate(), amt:"-1" });
+    meLog().unshift({ type:"book", label:"Angefragt bei "+t.name, sub: "Stunde · "+MONTHS_S[s.date.getMonth()]+" "+s.date.getDate(), amt:"-1" });
     state.selected = null;
     state.justBooked = booking; state.justAction = "booked";
     // Persist first, so a rendering hiccup can never swallow the save.
@@ -1872,11 +1948,12 @@
       title: 'Englischstunde',
     }).then(r => {
       if (r && r.pk) booking._pk = r.pk;
+      if (r && r.status) { booking.status = r.status; renderUpcoming(); }
       // Reconcile with the server's authoritative balance.
       if (r && typeof r.credits === 'number') { state.credits = r.credits; updateCredits(); renderAccount(); }
     });
     updateCredits(); renderWeek(); renderSummary(); renderAccount(); renderTeacherWeek(); renderRoster();
-    toast(`Stunde gebucht mit ${t.name.split(" ")[0]} · ${s.time}`);
+    toast(`Anfrage an ${t.name.split(" ")[0]} gesendet · ${s.time}`);
   }
 
   // ---------- Einheiten ----------
@@ -2086,7 +2163,7 @@
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
         <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
-        <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+        <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip" title="Wartet auf Bestätigung durch deinen Tutor">Angefragt</span>':""}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
           ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
           <button class="ics-mini" title="Zum Kalender (.ics)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></button>
@@ -2143,7 +2220,18 @@
     root.querySelectorAll("[data-cancel-txn]").forEach(btn=>
       btn.onclick=(e)=>{ e.stopPropagation(); cancelPurchaseTxn(+btn.dataset.cancelTxn, btn, btn.dataset.cancelType); });
   }
-  function renderActivity() { $("#activityList").innerHTML = txnHtml(meLog()); bindReceiptLinks($("#activityList")); }
+  // Show the latest few movements; the rest sit behind "Mehr anzeigen".
+  const ACTIVITY_SHOWN = 6;
+  function renderActivity() {
+    const el=$("#activityList"), log=meLog(), all=state.activityAll;
+    const rows = (all || log.length <= ACTIVITY_SHOWN) ? log : log.slice(0, ACTIVITY_SHOWN);
+    let more = "";
+    if (log.length > ACTIVITY_SHOWN)
+      more = `<button class="btn-text act-more" id="activityMore">${all ? "Weniger anzeigen" : `Mehr anzeigen (${log.length-ACTIVITY_SHOWN})`}</button>`;
+    el.innerHTML = txnHtml(rows) + more;
+    bindReceiptLinks(el);
+    const b=$("#activityMore"); if(b) b.onclick=()=>{ state.activityAll=!state.activityAll; renderActivity(); };
+  }
   // Consolidated credit ledger in the Admin view: every student's movements, with
   // the student name shown and purchases cancellable in place.
   // A "buy" row is a real credit purchase only when it carries a receipt; booking
@@ -2247,8 +2335,8 @@
         const el=document.createElement("button");
         if(bk){
           const s=bookingStudent(bk);
-          el.className="slot t-booked"+(state.teacherManage===bk?" sel":"");
-          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
+          el.className="slot t-booked"+(bk.status==="requested"?" t-req":"")+(state.teacherManage===bk?" sel":"");
+          el.innerHTML=`<span class="ts-time">${time}${bk.status==="requested"?' · Anfrage':''}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
           el.onclick=()=>teacherManageSlot(bk);
         } else {
           const isSel=state.teacherSel && state.teacherSel.dateKey===dk && state.teacherSel.time===time;
@@ -2427,8 +2515,9 @@
       const bk=state.teacherManage, s=bookingStudent(bk);
       const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
       card.innerHTML=`
-        <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":"Gebuchte Zeit"}</div>
+        <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":(bk.status==="requested"?"Anfrage · wartet auf dich":"Gebuchte Zeit")}</div>
         <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        ${bk.status==="requested" && bk._pk ? `<div style="display:flex;gap:8px;margin:4px 0 14px;"><button class="btn" id="tReqConfirm" style="flex:1;"><span class="grainbtn"></span>Bestätigen</button><button class="btn ghost" id="tReqDecline" style="flex:1;">Ablehnen</button></div>` : ""}
         <label class="field-label">Titel der Stunde</label>
         <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
@@ -2443,6 +2532,7 @@
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
         <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
+        ${(!bk.isIntro && bk._pk && bk.status!=="requested") ? `<button class="btn ghost" id="tLessonEdit" style="margin-top:10px;">Stunde öffnen · Zusammenfassung, Übungen, Fehler</button>` : ""}
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
@@ -2466,6 +2556,9 @@
         renderTeacherWeek(); renderTutorLists(); renderAccount(); renderWeek(); renderTeacherSummary();
       };
       $("#tRemove").onclick=()=>teacherRemove(bk);
+      if($("#tLessonEdit")) $("#tLessonEdit").onclick=()=>openSession(bk._pk);
+      if($("#tReqConfirm")) $("#tReqConfirm").onclick=()=>answerRequest(bk._pk, true);
+      if($("#tReqDecline")) $("#tReqDecline").onclick=()=>{ state.teacherManage=null; answerRequest(bk._pk, false); };
       $("#tBack").onclick=()=>{ state.teacherManage=null; renderTeacherSummary(); };
       return;
     }
@@ -2603,6 +2696,10 @@
           <button class="mini-btn" id="settleLinkBtn" style="white-space:nowrap;">Zahlungslink</button>
         </div>
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
+        ${errorTrainingMgrHtml(s)}
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Stunden</h2><span class="micro" style="margin:0;">jede Stunde hat ihre eigene Seite</span></div>
+        ${studentLessonsHtml(s)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
           <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
@@ -2610,9 +2707,9 @@
         </div>
         <div class="snote-log">${notesLogHtml(s)}</div>
         <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2></div>
-        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} im Lern-Tab zugreifen kann.</div>
+        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} unter „Materialien“ zugreifen kann.</div>
         <div class="curric-mgr">${curriculumMgrHtml(s)}</div>
-        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Lern-Tab</button>
+        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Materialien</button>
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
         <div class="section-h" style="margin:22px 2px 6px;"><h2>Verlauf</h2></div>
         <div class="activity modal-txns">${txnHtml(s.log)}</div>
@@ -2620,6 +2717,8 @@
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
+    $("#studentModal").querySelectorAll("[data-review]").forEach(btn=> btn.onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && cardKind(c)===btn.dataset.review && c.status==="open"), "review"));
+    $("#studentModal").querySelectorAll("[data-session]").forEach(btn=> btn.onclick=()=>openSession(+btn.dataset.session));
     $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
@@ -2693,9 +2792,32 @@
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
       <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
-      <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
-      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
+      <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip">Anfrage</span>':""}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+      <div class="tail">${(!b.isIntro && b.status!=="requested" && b._pk)?`<button class="mini-btn" data-session="${b._pk}" title="Zusammenfassung, Übungen, Wortschatz, Fehler, Arbeitsblätter">Stunde öffnen</button>`:""}${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
+  }
+  function updateRequestBadge(n){
+    const tab=document.querySelector('.tab[data-view="teacher"]'); if(!tab) return;
+    let badge=tab.querySelector(".tab-badge");
+    if(!n){ if(badge) badge.remove(); return; }
+    if(!badge){ badge=document.createElement("span"); badge.className="tab-badge"; tab.appendChild(badge); }
+    badge.textContent=n;
+  }
+  // Tutor confirms or declines a student's booking request.
+  async function answerRequest(pk, confirm){
+    const b = state.bookings.find(x=>x._pk===pk); if(!b) return;
+    const s = bookingStudent(b), first = esc(s.name.split(" ")[0]);
+    if (!confirm && !window.confirm(`Anfrage von ${s.name} am ${fmtLong(b.date)} um ${b.time} ablehnen? Die Einheit wird erstattet.`)) return;
+    const res = await apiResult('POST', `/api/bookings/${pk}/${confirm ? "confirm" : "decline"}/`);
+    if (!res.ok) { toast("Das hat nicht geklappt — bitte neu laden."); return; }
+    if (confirm) { b.status = "confirmed"; toast(`Bestätigt · ${first} bekommt eine E-Mail`); }
+    else {
+      state.bookings = state.bookings.filter(x=>x!==b);
+      const st = state.students && state.students.find(x=>x.id===b.studentId);
+      if (st) st.credits += 1;
+      toast(`Abgelehnt · ${first} bekommt die Einheit zurück`);
+    }
+    renderTutorLists(); renderTeacherWeek(); if (typeof renderTeacherSummary==="function") renderTeacherSummary(); renderRoster();
   }
   function renderTutorLists(){
     const up=$("#tutorUpcoming"), done=$("#tutorCompleted");
@@ -2703,7 +2825,21 @@
     const upcoming = state.bookings.filter(b=> b.date>=NOW || sameDay(b.date,NOW)).sort((a,b)=>a.date-b.date || toMin(a.time)-toMin(b.time));
     const past = state.bookings.filter(b=> b.date<NOW && !sameDay(b.date,NOW)).sort((a,b)=> b.date-a.date || toMin(b.time)-toMin(a.time));
     up.innerHTML = upcoming.length ? upcoming.map(b=>tutorRow(b,false)).join("") : `<div class="empty-list">Keine geplanten Stunden.</div>`;
+    // Open requests first, in their own panel, so none gets overlooked.
+    const reqs = upcoming.filter(b=>b.status==="requested");
+    const rp=$("#tutorRequests"), rs=$("#tutorRequestsSec");
+    if (rp && rs) { rs.hidden = !reqs.length; rp.innerHTML = reqs.map(b=>tutorRow(b,false)).join(""); }
+    updateRequestBadge(reqs.length);
+    document.querySelectorAll("#tutorUpcoming [data-confirm], #tutorRequests [data-confirm]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.confirm, true); };
+    });
+    document.querySelectorAll("#tutorUpcoming [data-decline], #tutorRequests [data-decline]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.decline, false); };
+    });
     done.innerHTML = past.length ? past.map(b=>tutorRow(b,true)).join("") : `<div class="empty-list">Noch keine abgeschlossenen Stunden.</div>`;
+    document.querySelectorAll("#tutorUpcoming [data-session], #tutorCompleted [data-session]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); openSession(+btn.dataset.session); };
+    });
     // Admin-only: retroactively undo a completed lesson (see openUndoCompleted).
     done.querySelectorAll("[data-undo]").forEach(btn=>{
       btn.onclick=(e)=>{ e.stopPropagation(); openUndoCompleted(+btn.dataset.undo); };
@@ -3223,168 +3359,329 @@
     }).join("");
   }
 
-  // ---------- Practice mini-games ----------
-  let gameState = null;
-  function shuffleArr(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-  function norm(s){ return (s||"").trim().toLowerCase().replace(/\s+/g," ").replace(/[.!?]$/,""); }
+  // ---------- Stunden, session pages & Training ----------
+  // A lesson counts as "had" once it has ended; unconfirmed requests never do.
+  function lessonEnded(b){ return bookingStart(b).getTime() + lessonMins(b)*60000 <= Date.now(); }
+  function bookingByPk(pk){ return state.bookings.find(x=>x._pk===pk); }
+  // Cards (mistakes or vocabulary) recorded in one lesson.
+  function lessonCards(b, kind){ return b && b._pk ? state.errorCards.filter(c=>c.bookingPk===b._pk && (!kind || (c.kind||"error")===kind)) : []; }
+  function cardKind(c){ return c.kind || "error"; }
+  const DECKS = { error: { title:"Fehler", one:"Fehler", many:"Fehler" }, vocab: { title:"Wortschatz", one:"Wort", many:"Wörter" } };
+  function lessonLabel(pk){ const b=bookingByPk(pk); return b ? `Stunde vom ${fmtAT(b.date)}` : "Weitere"; }
+  function groupByLesson(cards){
+    const groups=new Map();
+    cards.forEach(c=>{ const k=c.bookingPk||0; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
+    return [...groups.entries()].map(([k, cs])=>({ pk:+k, label: lessonLabel(+k), cards: cs }));
+  }
+  // One card. Mistakes: crossed-out wrong version -> correct one. Vocabulary:
+  // word -> meaning, example underneath. Tutors get reopen / delete actions.
+  function ecardHtml(c, opts){
+    const tutor = opts && opts.tutor, vocab = cardKind(c)==="vocab";
+    const status = c.status==="mastered"
+      ? `<span class="lh-pill done">✓ gemeistert</span>`
+      : `<span class="lh-pill open">offen${c.reviews ? ` · ${c.reviews}× wiederholt` : ""}</span>`;
+    const acts = tutor
+      ? `${c.status==="mastered" ? `<button class="mini-btn" data-reopen="${c.id}">Wieder öffnen</button>` : ""}<button class="mini-btn danger" data-delcard="${c.id}">Löschen</button>`
+      : "";
+    const body = vocab
+      ? `<div class="eb">${esc(c.front)} <span style="font-weight:400;color:var(--muted);">— ${esc(c.back)}</span></div>${c.note ? `<div class="en">„${esc(c.note)}“</div>` : ""}`
+      : `<div class="ef">${esc(c.front)}</div><div class="eb">→ ${esc(c.back)}</div>${c.note ? `<div class="en">${esc(c.note)}</div>` : ""}`;
+    return `<div class="ecard ${c.status} ${vocab ? "vocab" : ""}">${body}<div class="eact">${status}${acts}</div></div>`;
+  }
+  // Wire the tutor's reopen / delete buttons inside ``root``; ``after`` re-renders.
+  function bindCardActions(root, after){
+    root.querySelectorAll("[data-delcard]").forEach(btn=> btn.onclick=async ()=>{
+      if(!window.confirm("Diese Karte löschen?")) return;
+      const id=+btn.dataset.delcard, r=await apiResult('DELETE', `/api/error-cards/${id}/`);
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      state.errorCards = state.errorCards.filter(c=>c.id!==id); after();
+    });
+    root.querySelectorAll("[data-reopen]").forEach(btn=> btn.onclick=async ()=>{
+      const id=+btn.dataset.reopen, r=await apiResult('PUT', `/api/error-cards/${id}/`, { status: "open" });
+      if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
+      Object.assign(state.errorCards.find(c=>c.id===id), r.data.card); after();
+    });
+  }
+  function rerenderLearning(){
+    if(state.teacherStudent) renderStudentModal();
+    if(state.view==="lessons") renderLessonHistory();
+    if(state.view==="errors") renderErrors();
+    if(state.view==="session") renderSession();
+  }
+  function closeLessonModal(){ const m=$("#lessonModal"); m.hidden=true; m.innerHTML=""; rerenderLearning(); }
 
-  const PAST_TENSE = [
-    { s:"Yesterday, Maya {} to the bakery on the corner.", verb:"go", a:["went"] },
-    { s:"They {} a wonderful film last night.", verb:"watch", a:["watched"] },
-    { s:"He {} his keys somewhere in the park.", verb:"lose", a:["lost"] },
-    { s:"We {} dinner together before the show.", verb:"have", a:["had"] },
-    { s:"My grandfather {} four languages fluently.", verb:"speak", a:["spoke"] },
-    { s:"It {} heavily all through the night.", verb:"rain", a:["rained"] },
-    { s:"You {} exactly the right decision.", verb:"make", a:["made"] },
-    { s:"The bus {} almost ten minutes late.", verb:"come", a:["came"] },
-    { s:"She {} the whole letter and then smiled.", verb:"read", a:["read"] },
-    { s:"I {} early because the train was leaving.", verb:"wake up", a:["woke up","woke"] },
-    { s:"The children {} in the garden all afternoon.", verb:"play", a:["played"] },
-    { s:"We {} across the lake before breakfast.", verb:"swim", a:["swam"] },
-    { s:"He {} me a beautiful postcard from Rome.", verb:"send", a:["sent"] },
-    { s:"They {} the new song three times.", verb:"sing", a:["sang"] },
-  ];
-  const GAP_FILL = [
-    { s:"I've been interested {} astronomy since I was a child.", a:"in", opts:["in","on","at","for"] },
-    { s:"She's really good {} solving difficult puzzles.", a:"at", opts:["at","in","with","for"] },
-    { s:"We arrived {} the airport two hours early.", a:"at", opts:["at","to","in","on"] },
-    { s:"He's been living here {} 2019.", a:"since", opts:["since","for","from","during"] },
-    { s:"Could you turn {} the lights before you leave?", a:"off", opts:["off","down","away","out"] },
-    { s:"This little gift is {} you.", a:"for", opts:["for","to","at","of"] },
-    { s:"Let's meet {} Monday morning, then.", a:"on", opts:["on","at","in","by"] },
-    { s:"She has always been afraid {} spiders.", a:"of", opts:["of","from","about","with"] },
-    { s:"I'll be ready {} an hour or so.", a:"in", opts:["in","on","at","by"] },
-    { s:"They've been married {} twelve years.", a:"for", opts:["for","since","from","during"] },
-  ];
-  const SCRAMBLE = [
-    { tokens:["She","has","never","been","to","Japan"] },
-    { tokens:["We","are","going","to","visit","them","tomorrow"] },
-    { tokens:["I","have","been","studying","English","for","years"] },
-    { tokens:["He","did","not","finish","his","homework"] },
-    { tokens:["Would","you","like","some","more","tea"] },
-    { tokens:["They","were","watching","a","film","last","night"] },
-    { tokens:["My","sister","works","at","a","small","hospital"] },
-    { tokens:["Could","you","please","open","the","window"] },
-  ];
+  // ----- Stunden list (student) -----
+  function renderLessonHistory(){
+    const el=$("#lessonHistory"); if(!el) return;
+    const mine = state.bookings
+      .filter(b=>b.studentId===state.currentUser && !b.isIntro && b.status!=="requested" && b._pk && lessonEnded(b))
+      .sort((a,b)=>bookingStart(b)-bookingStart(a));
+    if(!mine.length){ el.innerHTML=`<div class="empty-list">Noch keine Stunden — nach deiner ersten Stunde findest du sie hier.</div>`; return; }
+    el.innerHTML = mine.map(b=>{
+      const t=tutorById(b.tutorId)||{ name:"Tutor", i:"T" };
+      const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
+      const open=errs.filter(c=>c.status==="open").length;
+      return `<div class="li" data-session="${b._pk}">
+        <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
+        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${esc(t.i)}</div>
+        <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>
+          ${b.summary ? `<div class="note-line">${esc(b.summary.split("\n")[0])}</div>` : ""}
+          <div class="lh-meta">${open ? `<span class="lh-pill open">${open} Fehler offen</span>` : ""}${vocab.length ? `<span class="lh-pill">${vocab.length} ${vocab.length===1?"neues Wort":"neue Wörter"}</span>` : ""}${(b.exercises||[]).length ? `<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>` : ""}${b.homework ? `<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>` : ""}</div></div>
+        <div class="tail"><span class="lnk">Öffnen →</span></div>
+      </div>`;
+    }).join("");
+    el.querySelectorAll("[data-session]").forEach(r=> r.onclick=()=>openSession(+r.dataset.session));
+  }
 
-  const GAMES = [
-    { id:"past", tag:"Grammatik", title:"Zeiten üben", accent:"var(--c1)",
-      desc:"Setze die richtige Vergangenheitsform jedes Verbs ein, um den Satz zu vervollständigen.",
-      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l2.5 1.5"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 5v4h4"/></svg>',
-      start:()=>quizStart("past", PAST_TENSE, "input") },
-    { id:"gap", tag:"Präpositionen", title:"Lückentext", accent:"var(--c3)",
-      desc:"Wähle das passende kleine Wort — die Präpositionen und Partikel, die alle stolpern lassen.",
-      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 8H5a3 3 0 0 0 0 6h2M17 8h2a3 3 0 0 1 0 6h-2M9 11h6"/></svg>',
-      start:()=>quizStart("gap", GAP_FILL, "choice") },
-    { id:"order", tag:"Satzbau", title:"Satz-Puzzle", accent:"var(--c2)",
-      desc:"Tippe die durcheinandergewürfelten Wörter in der richtigen Reihenfolge an, um den Satz zu bauen.",
-      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="7" height="5" rx="1.5"/><rect x="14" y="5" width="7" height="5" rx="1.5"/><rect x="3" y="14" width="7" height="5" rx="1.5"/><rect x="14" y="14" width="7" height="5" rx="1.5"/></svg>',
-      start:startScramble },
-  ];
+  // ----- Session page (tutor + student) -----
+  // Each lesson has its own page at #stunde-<pk>, so it can be bookmarked,
+  // opened from the lists, and left with the browser's back button.
+  function openSession(pk){
+    const b=bookingByPk(pk); if(!b) return;
+    if(state.view!=="session") state.sessionReturn = state.view;
+    state.sessionPk = pk;
+    if(location.hash !== "#stunde-"+pk) history.pushState(null, "", "#stunde-"+pk);
+    closeStudentModalIfOpen();
+    setView("session");
+  }
+  function closeStudentModalIfOpen(){ if(state.teacherStudent){ state.teacherStudent=null; $("#studentModal").hidden=true; } }
+  function leaveSession(){
+    if(location.hash.startsWith("#stunde-")) history.pushState(null, "", location.pathname + location.search);
+    setView(state.sessionReturn || (state.role==="student" ? "lessons" : "teacher"));
+  }
+  window.addEventListener("popstate", ()=>{
+    const m=location.hash.match(/^#stunde-(\d+)$/);
+    if(m && bookingByPk(+m[1])){ state.sessionPk=+m[1]; setView("session"); }
+    else if(state.view==="session") setView(state.sessionReturn || (state.role==="student" ? "lessons" : "teacher"));
+  });
 
-  function renderGamesMenu(){
-    const el=$("#gamesMenu"); if(!el) return;
-    $("#gameHost").hidden=true; el.hidden=false; gameState=null;
-    el.innerHTML = GAMES.map(g=>`
-      <button class="game-card" data-g="${g.id}" style="--ga:${g.accent}">
-        <div class="gc-icon">${g.icon}</div>
-        <div class="gc-tag">${g.tag}</div>
-        <div class="gc-title">${g.title}</div>
-        <div class="gc-desc">${g.desc}</div>
-        <div class="gc-best">${bestLine(g.id)}</div>
-      </button>`).join("");
-    el.querySelectorAll("[data-g]").forEach(b=> b.onclick=()=>launchGame(b.dataset.g));
+  async function saveBooking(b, fields){
+    const r=await apiResult('PUT', `/api/bookings/${b._pk}/`, fields);
+    if(!r.ok){ toast("Speichern fehlgeschlagen"); return false; }
+    Object.assign(b, fields); return true;
   }
-  function bestLine(id){ const b=(state.gameBest||{})[id]; return b!=null?("Bestwert "+b+" %"):"Noch nicht gespielt"; }
-  function launchGame(id){ const g=GAMES.find(x=>x.id===id); if(!g) return; $("#gamesMenu").hidden=true; $("#gameHost").hidden=false; $("#gameTitleMini").textContent=g.title; g.start(); }
-  function exitGame(){ gameState=null; renderGamesMenu(); }
-  function resultMsg(p){ if(p===100) return "Makellos — das sitzt!"; if(p>=75) return "Stark — fast perfekt."; if(p>=50) return "Gut gemacht. Bleib dran!"; return "Übung macht den Meister — versuch es nochmal!"; }
-  function quizProgress(){ const gs=gameState; return `<span>Frage ${gs.i+1} von ${gs.items.length}</span><span class="gp-score">${gs.score} richtig</span>`; }
+  function fileRowHtml(f, canDelete){
+    return `<div class="file-row sess-file"><a href="${esc(f.url)}"><span class="file-ic doc">${fileIcon("doc")}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext)} · ${Math.max(1, Math.round(f.size/1024))} KB${f.by ? " · " + esc(f.by) : ""}</span></a>${canDelete ? `<button class="mini-btn danger" data-delfile="${f.id}">Entfernen</button>` : ""}</div>`;
+  }
+  // A section heading with an anchor id for the jump bar.
+  function secHead(id, title, extra){ return `<div class="section-h sess-h" id="sess-${id}"><h2>${title}</h2>${extra||""}</div>`; }
 
-  function quizStart(gameId, items, mode){
-    gameState = { gameId, mode, items: shuffleArr(items).slice(0, Math.min(8, items.length)), i:0, score:0 };
-    quizQuestion();
+  function renderSession(){
+    const el=$("#sessionContent"); if(!el) return;
+    const b=bookingByPk(state.sessionPk);
+    if(!b){ el.innerHTML=`<div class="empty-list">Diese Stunde gibt es nicht mehr.</div>`; return; }
+    const tutor = state.role !== "student";
+    const s = bookingStudent(b), t = tutorById(b.tutorId) || { name:"Tutor" };
+    const first = esc(s.name.split(" ")[0]);
+    const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
+    const sheets=(b.files||[]).filter(f=>f.kind==="worksheet"), handins=(b.files||[]).filter(f=>f.kind==="homework");
+    const exercises=b.exercises||[];
+    const upcoming=!lessonEnded(b);
+    const ta=(id, val, ph, cls)=>`<textarea class="notes-ta ${cls||""}" id="${id}" placeholder="${ph}">${esc(val||"")}</textarea>`;
+    const saved=`<span class="sess-saved" hidden>gespeichert ✓</span>`;
+
+    el.innerHTML = `
+      <button class="btn-text" id="sessBack" style="margin:0 0 14px;">← ${tutor ? "Zurück" : "Alle Stunden"}</button>
+      <div class="panel sess-head">
+        <div class="eyebrow" style="margin:0;">${upcoming ? "Geplante Stunde" : "Stunde"} · ${fmtLong(b.date)} · ${b.time}–${endTime(b.time)}</div>
+        ${tutor ? `<input class="sess-title-in" id="sessTitle" value="${esc(b.title)}" aria-label="Thema der Stunde">` : `<h1 class="title" style="margin:6px 0 4px;">${esc(b.title)}</h1>`}
+        <div class="sub" style="margin:0;">${tutor ? `mit ${esc(s.name)}` : `mit ${esc(t.name)}`}${b.status==="requested" ? ' <span class="req-chip">Angefragt</span>' : ""}</div>
+        <nav class="sess-jump">
+          <a href="#sess-summary">Zusammenfassung</a><a href="#sess-exercises">Übungen${exercises.length?` · ${exercises.length}`:""}</a><a href="#sess-vocab">Wortschatz${vocab.length?` · ${vocab.length}`:""}</a><a href="#sess-errors">Fehler${errs.length?` · ${errs.length}`:""}</a><a href="#sess-sheets">Arbeitsblätter${sheets.length?` · ${sheets.length}`:""}</a><a href="#sess-homework">Hausaufgabe</a><a href="#sess-notes">Notizen</a>
+        </nav>
+      </div>
+
+      ${secHead("summary", "Was wir gemacht haben", tutor ? `<span class="micro" style="margin:0;">sieht ${first}</span>` : "")}
+      <div class="panel sess-sec">${tutor
+        ? `${ta("sessSummary", b.summary, "Themen, Schwerpunkte, wie es gelaufen ist…")}${saved}`
+        : (b.summary ? `<div class="ld-text">${esc(b.summary)}</div>` : `<div class="ld-empty">Dein Tutor hat noch keine Zusammenfassung eingetragen.</div>`)}</div>
+
+      ${secHead("exercises", "Übungen")}
+      <div class="panel sess-sec">
+        ${exercises.length ? exercises.map(e=>`<div class="sess-ex ${e.done?"done":""}">
+            <label class="sess-check"><input type="checkbox" data-exdone="${e.id}" ${e.done?"checked":""}><span></span></label>
+            <div class="sess-ex-body"><div class="t">${esc(e.title)}</div>${e.description ? `<div class="s">${esc(e.description)}</div>` : ""}${e.link ? `<a class="lnk" href="${esc(e.link)}" target="_blank" rel="noopener">Link öffnen ↗</a>` : ""}</div>
+            ${tutor ? `<button class="mini-btn danger" data-delex="${e.id}">Löschen</button>` : ""}
+          </div>`).join("") : `<div class="ld-empty">${tutor ? "Noch keine Übungen eingetragen." : "Keine Übungen zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><input class="bf-input" id="exTitle" placeholder="Übung, z. B. „Gap fill: present perfect“"><textarea class="bf-input" id="exDesc" placeholder="Beschreibung / Seite (optional)"></textarea><input class="bf-input" id="exLink" placeholder="Link (optional), https://…"><button class="btn ghost" id="exAdd">+ Übung hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("vocab", "Neuer Wortschatz", vocab.some(c=>c.status==="open") ? `<span class="lnk" id="vocabPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
+      <div class="panel sess-sec">
+        ${vocab.length ? vocab.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Wörter eingetragen." : "Keine neuen Wörter zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><div class="bf-grid"><input class="bf-input" id="vcFront" placeholder="Wort / Ausdruck, z. B. „to put off“"><input class="bf-input" id="vcBack" placeholder="Bedeutung, z. B. „verschieben“"></div><input class="bf-input" id="vcNote" placeholder="Beispielsatz (optional)"><button class="btn ghost" id="vcAdd">+ Wort hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("errors", "Fehler", errs.some(c=>c.status==="open") ? `<span class="lnk" id="errsPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
+      <div class="panel sess-sec">
+        ${errs.length ? errs.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Fehler eingetragen." : "Keine Fehler zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><textarea class="bf-input" id="ecFront" placeholder="Was ${first} gesagt/geschrieben hat, z. B. „I have seen him yesterday.“"></textarea><textarea class="bf-input" id="ecBack" placeholder="Richtig: „I saw him yesterday.“"></textarea><input class="bf-input" id="ecNote" placeholder="Erklärung (optional), z. B. abgeschlossene Zeit → Past Simple"><button class="btn ghost" id="ecAdd">+ Fehler hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("sheets", "Arbeitsblätter")}
+      <div class="panel sess-sec">
+        ${sheets.length ? sheets.map(f=>fileRowHtml(f, tutor)).join("") : `<div class="ld-empty">${tutor ? "Noch keine Arbeitsblätter hochgeladen." : "Keine Arbeitsblätter zu dieser Stunde."}</div>`}
+        ${tutor ? `<label class="btn ghost sess-upload">+ Arbeitsblatt hochladen<input type="file" id="sheetUpload" hidden></label><div class="micro" style="text-align:left;margin:6px 2px 0;">PDF, Office, Bilder, Audio · max. 10 MB</div>` : ""}
+      </div>
+
+      ${secHead("homework", "Hausaufgabe")}
+      <div class="panel sess-sec">
+        ${tutor ? `${ta("sessHomework", b.homework, "Was soll bis zur nächsten Stunde erledigt werden?")}${saved}` : (b.homework ? `<div class="ld-text">${esc(b.homework)}</div>` : `<div class="ld-empty">Keine Hausaufgabe.</div>`)}
+        ${b.homework ? `<label class="sess-hw-done"><input type="checkbox" id="hwDone" ${b.homeworkDone?"checked":""} ${tutor?"disabled":""}> ${b.homeworkDone ? "Erledigt" : (tutor ? `${first} hat sie noch nicht als erledigt markiert` : "Als erledigt markieren")}</label>` : ""}
+        <div class="ld-block"><h4>${tutor ? `Abgaben von ${first}` : "Deine Abgabe"}</h4>
+          ${handins.length ? handins.map(f=>fileRowHtml(f, true)).join("") : `<div class="ld-empty">${tutor ? "Noch nichts abgegeben." : "Lade hier deine Hausaufgabe hoch, z. B. ein Foto oder PDF."}</div>`}
+          ${!tutor ? `<label class="btn ghost sess-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : ""}
+        </div>
+      </div>
+
+      ${secHead("notes", "Notizen")}
+      <div class="panel sess-sec">
+        <h4 class="sess-sub">${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
+        ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="ld-empty">${first} hat keine Notizen.</div>`) : `${ta("sessNotes", b.notes, "Deine eigenen Notizen zu dieser Stunde…")}${saved}`}
+        ${tutor ? `<h4 class="sess-sub" style="margin-top:18px;">Private Notizen <span style="font-weight:400;color:var(--faint);">· nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…", "private")}${saved}` : ""}
+      </div>`;
+
+    // ----- handlers -----
+    $("#sessBack").onclick=leaveSession;
+    el.querySelectorAll(".sess-jump a").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); const tgt=$(a.getAttribute("href")); if(tgt) tgt.scrollIntoView({ behavior:"smooth", block:"start" }); });
+    const autosave=(id, field)=>{ const x=$("#"+id); if(!x) return; x.onchange=async ()=>{ if(await saveBooking(b, { [field]: x.value })){ const ok=x.nextElementSibling; if(ok && ok.classList.contains("sess-saved")){ ok.hidden=false; setTimeout(()=>ok.hidden=true, 1600); } } }; };
+    autosave("sessSummary","summary"); autosave("sessHomework","homework"); autosave("sessPrivate","tutorNotes"); autosave("sessNotes","notes");
+    if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
+    if($("#hwDone")) $("#hwDone").onchange=async (e)=>{ if(await saveBooking(b, { homeworkDone: e.target.checked })) renderSession(); };
+    el.querySelectorAll("[data-exdone]").forEach(cb=> cb.onchange=async ()=>{
+      const id=+cb.dataset.exdone, r=await apiResult('PUT', `/api/exercises/${id}/`, { done: cb.checked });
+      if(!r.ok){ toast("Speichern fehlgeschlagen"); cb.checked=!cb.checked; return; }
+      Object.assign(exercises.find(x=>x.id===id), r.data.exercise); renderSession();
+    });
+    el.querySelectorAll("[data-delex]").forEach(btn=> btn.onclick=async ()=>{
+      if(!window.confirm("Diese Übung löschen?")) return;
+      const id=+btn.dataset.delex, r=await apiResult('DELETE', `/api/exercises/${id}/`);
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      b.exercises=exercises.filter(x=>x.id!==id); renderSession();
+    });
+    if($("#exAdd")) $("#exAdd").onclick=async ()=>{
+      const title=$("#exTitle").value.trim(); if(!title){ toast("Bitte einen Titel eintragen"); return; }
+      const r=await apiResult('POST', `/api/bookings/${b._pk}/exercises/`, { title, description: $("#exDesc").value.trim(), link: $("#exLink").value.trim() });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      b.exercises=[...exercises, r.data.exercise]; renderSession();
+    };
+    const addCard=async (kind, f, bk, n)=>{
+      const front=$(f).value.trim(), back=$(bk).value.trim(), note=$(n).value.trim();
+      if(!front || !back){ toast(kind==="vocab" ? "Bitte Wort und Bedeutung eintragen" : "Bitte Fehler und richtige Version eintragen"); return; }
+      const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug: b.studentId, bookingPk: b._pk, front, back, note });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      state.errorCards.push(r.data.card); renderSession(); const again=$(f); if(again) again.focus();
+    };
+    if($("#vcAdd")) $("#vcAdd").onclick=()=>addCard("vocab", "#vcFront", "#vcBack", "#vcNote");
+    if($("#ecAdd")) $("#ecAdd").onclick=()=>addCard("error", "#ecFront", "#ecBack", "#ecNote");
+    if($("#vocabPractice")) $("#vocabPractice").onclick=()=>openFlashcards(vocab.filter(c=>c.status==="open"), tutor ? "review" : "practice");
+    if($("#errsPractice")) $("#errsPractice").onclick=()=>openFlashcards(errs.filter(c=>c.status==="open"), tutor ? "review" : "practice");
+    bindCardActions(el, renderSession);
+    const upload=(input)=>{ if(!input) return; input.onchange=async ()=>{
+      const file=input.files[0]; if(!file) return;
+      if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); input.value=""; return; }
+      toast("Wird hochgeladen…");
+      const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
+      if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
+      b.files=[...(b.files||[]), r.file]; renderSession(); toast("Hochgeladen");
+    }; };
+    upload($("#sheetUpload")); upload($("#hwUpload"));
+    el.querySelectorAll("[data-delfile]").forEach(btn=> btn.onclick=async ()=>{
+      if(!window.confirm("Diese Datei entfernen?")) return;
+      const id=+btn.dataset.delfile, r=await apiResult('DELETE', `/api/session-files/${id}/`);
+      if(!r.ok){ toast("Entfernen fehlgeschlagen"); return; }
+      b.files=(b.files||[]).filter(x=>x.id!==id); renderSession();
+    });
   }
-  function quizQuestion(){
-    const gs=gameState, it=gs.items[gs.i];
-    $("#gameProgress").innerHTML = quizProgress();
-    const stage=$("#gameStage");
-    const sentence = it.s.replace("{}", '<span class="q-blank"></span>');
-    if(gs.mode==="input"){
-      stage.innerHTML = `<div class="q-sentence">${sentence}</div>
-        <div class="q-hint">Verb: <b>${it.verb}</b></div>
-        <div class="q-input-row"><input class="bf-input q-input" id="qInput" placeholder="Vergangenheitsform…" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="qCheck"><span class="grainbtn"></span>Prüfen</button></div>
-        <div class="q-feedback" id="qFeedback"></div>`;
-      const inp=$("#qInput"); inp.focus();
-      inp.addEventListener("keydown", e=>{ if(e.key==="Enter") quizCheckInput(); });
-      $("#qCheck").onclick = quizCheckInput;
-    } else {
-      stage.innerHTML = `<div class="q-sentence">${sentence}</div>
-        <div class="q-options" id="qOptions"></div>
-        <div class="q-feedback" id="qFeedback"></div>`;
-      const wrap=$("#qOptions");
-      shuffleArr(it.opts).forEach(o=>{ const b=document.createElement("button"); b.className="q-opt"; b.textContent=o; b.onclick=()=>quizCheckChoice(b,o); wrap.appendChild(b); });
-    }
+
+  // ----- Training (student): mistakes and vocabulary decks -----
+  function deckHtml(kind, cards){
+    const d=DECKS[kind], open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
+    return `<div class="section-h" style="margin-top:30px;"><h2>${d.title}</h2>${open.length ? `<button class="btn" data-practice="${kind}" style="width:auto;margin:0;padding:9px 18px;"><span class="grainbtn"></span>Üben · ${open.length}</button>` : ""}</div>
+      <div class="err-stats" style="margin-top:0;">
+        <div class="panel err-stat open"><div class="n">${open.length}</div><div class="l">offen</div></div>
+        <div class="panel err-stat done"><div class="n">${done.length}</div><div class="l">gemeistert</div></div>
+      </div>
+      <div class="panel" style="padding:10px 18px;margin-top:12px;">${open.length
+        ? groupByLesson(open).map(g=>`<div class="ld-block" style="margin-top:10px;"><h4>${g.pk ? `<a class="lnk" href="#stunde-${g.pk}" data-gosession="${g.pk}">${esc(g.label)}</a>` : esc(g.label)}</h4>${g.cards.map(c=>ecardHtml(c)).join("")}</div>`).join("")
+        : `<div class="empty-list">${cards.length ? "Alles gemeistert — stark!" : (kind==="vocab" ? "Noch keine Wörter eingetragen." : "Noch keine Fehler eingetragen.")}</div>`}</div>
+      ${done.length ? `<details style="margin-top:12px;"><summary class="lnk" style="cursor:pointer;">Gemeistert (${done.length})</summary><div class="panel" style="padding:10px 18px;margin-top:10px;">${done.map(c=>ecardHtml(c)).join("")}</div></details>` : ""}`;
   }
-  function quizCheckInput(){
-    const it=gameState.items[gameState.i], val=norm($("#qInput").value); if(!val) return;
-    const ok = it.a.some(a=>norm(a)===val);
-    const inp=$("#qInput"); inp.disabled=true; inp.classList.add(ok?"correct":"wrong");
-    const c=$("#qCheck"); if(c) c.style.display="none";
-    quizReveal(ok, it.a[0]);
+  function renderErrors(){
+    const el=$("#errorsContent"); if(!el) return;
+    const mine=state.errorCards.filter(c=>c.studentId===state.currentUser);
+    el.innerHTML = deckHtml("error", mine.filter(c=>cardKind(c)==="error")) + deckHtml("vocab", mine.filter(c=>cardKind(c)==="vocab"));
+    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(mine.filter(c=>cardKind(c)===btn.dataset.practice && c.status==="open"), "practice"));
+    el.querySelectorAll("[data-gosession]").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); openSession(+a.dataset.gosession); });
   }
-  function quizCheckChoice(btn,o){
-    const it=gameState.items[gameState.i], ok = o===it.a;
-    $("#qOptions").querySelectorAll(".q-opt").forEach(b=>{ b.disabled=true; if(b.textContent===it.a) b.classList.add("correct"); });
-    if(!ok) btn.classList.add("wrong");
-    quizReveal(ok, it.a);
+
+  // Flashcards. "practice": the student checks themselves; nothing is saved and
+  // cards they didn't know come back at the end. "review": the tutor goes through
+  // them with the student — "Gemeistert" closes a card, "Noch nicht" keeps it open.
+  function openFlashcards(cards, mode, onDone){
+    if(!cards.length) return;
+    const deck=cards.slice().sort(()=>Math.random()-0.5);
+    let i=0, known=0, again=0;
+    const m=$("#lessonModal");
+    const finish=()=>{ closeLessonModal(); if(onDone) onDone(); };
+    const show=()=>{
+      if(i>=deck.length){
+        m.innerHTML=`<div class="modal-card" id="flashWrap"><div class="flash-card">
+          <div class="flash-lab">Geschafft</div>
+          <div class="flash-front" style="color:var(--ink);">${mode==="review" ? `${known} gemeistert · ${again} ${again===1?"bleibt":"bleiben"} offen` : `${known} ${known===1?"Karte":"Karten"} geübt`}</div>
+          ${mode==="practice" ? `<p class="micro" style="margin-top:14px;">Als gemeistert hakt dein Tutor die Karten in eurer nächsten Stunde ab.</p>` : ""}
+          <button class="btn" id="flashClose" style="margin-top:22px;"><span class="grainbtn"></span>Schließen</button></div></div>`;
+        $("#flashWrap").onclick=e=>e.stopPropagation();
+        $("#flashClose").onclick=finish;
+        return;
+      }
+      const c=deck[i], vocab=cardKind(c)==="vocab";
+      m.innerHTML=`<div class="modal-card" id="flashWrap"><button class="modal-x" id="flashX" aria-label="Schließen">×</button><div class="flash-card">
+        <div class="flash-prog">Karte ${i+1} von ${deck.length}${mode==="review" ? " · gemeinsam wiederholen" : ""}</div>
+        <div class="flash-lab">${vocab ? "Was bedeutet …" : "Was ist hier falsch?"}</div>
+        <div class="flash-front" ${vocab ? 'style="color:var(--ink);"' : ""}>${esc(c.front)}</div>
+        <div class="flash-back" id="flashBack" hidden><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
+        <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen</button></div>
+        <div class="flash-actions" id="flashRate" hidden>
+          <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}</button>
+          <button class="btn" id="flashKnown"><span class="grainbtn"></span>${mode==="review" ? "Gemeistert ✓" : "Gewusst"}</button>
+        </div></div></div>`;
+      m.hidden=false;
+      $("#flashWrap").onclick=e=>e.stopPropagation();
+      $("#flashX").onclick=finish;
+      $("#flashShow").onclick=()=>{ $("#flashBack").hidden=false; $("#flashReveal").hidden=true; $("#flashRate").hidden=false; };
+      const rate=async (result)=>{
+        if(mode==="review"){
+          const r=await apiResult('POST', `/api/error-cards/${c.id}/review/`, { result });
+          if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
+          Object.assign(c, r.data.card);
+        }
+        if(result==="known") known++;
+        else { again++; if(mode==="practice") deck.push(c); }
+        i++; show();
+      };
+      $("#flashAgain").onclick=()=>rate("again");
+      $("#flashKnown").onclick=()=>rate("known");
+    };
+    show();
   }
-  function quizReveal(ok, correct){
-    const gs=gameState; if(ok) gs.score++;
-    const last = gs.i+1>=gs.items.length;
-    $("#qFeedback").innerHTML = (ok?'<div class="fb ok">✓ Richtig!</div>':'<div class="fb no">Nicht ganz — die Antwort ist <b>'+correct+'</b></div>')
-      + `<button class="btn" id="qNext"><span class="grainbtn"></span>${last?"Ergebnis":"Nächste Frage"}</button>`;
-    $("#qNext").onclick=()=>{ gs.i++; if(gs.i<gs.items.length) quizQuestion(); else quizEnd(); };
+
+  // ----- Tutor: training + lessons inside the student view -----
+  function errorTrainingMgrHtml(s){
+    const cards=state.errorCards.filter(c=>c.studentId===s.id);
+    return ["error","vocab"].map(kind=>{
+      const d=DECKS[kind], cs=cards.filter(c=>cardKind(c)===kind), open=cs.filter(c=>c.status==="open");
+      return `<div class="ld-block" style="margin-top:8px;"><h4>${d.title} <span style="font-weight:400;color:var(--faint);">· ${open.length} offen · ${cs.length-open.length} gemeistert</span></h4>
+        ${open.length ? `<button class="btn" data-review="${kind}" style="margin:6px 0 4px;"><span class="grainbtn"></span>Gemeinsam wiederholen · ${open.length} ${open.length===1?d.one:d.many}</button>` : `<div class="ld-empty">Nichts offen.</div>`}</div>`;
+    }).join("");
   }
-  function startScramble(){ gameState={ gameId:"order", items:shuffleArr(SCRAMBLE).slice(0,6), i:0, score:0 }; scrambleQuestion(); }
-  function scrambleQuestion(){
-    const gs=gameState, it=gs.items[gs.i];
-    gs.scoredThis=false;
-    let pool = shuffleArr(it.tokens.map((w,idx)=>({w,idx})));
-    if(pool.every((t,idx)=>t.idx===idx) && pool.length>1){ const x=pool.shift(); pool.push(x); }
-    gs.pool=pool; gs.built=[];
-    $("#gameProgress").innerHTML = quizProgress();
-    $("#gameStage").innerHTML = `<div class="q-hint" style="margin-top:0;">Tippe die Wörter in der richtigen Reihenfolge an.</div>
-      <div class="scramble-answer" id="scrAns"></div>
-      <div class="scramble-pool" id="scrPool"></div>
-      <div class="q-feedback" id="qFeedback"></div>`;
-    scrambleRender();
-  }
-  function scrambleRender(){
-    const gs=gameState, ansEl=$("#scrAns"), poolEl=$("#scrPool"); ansEl.innerHTML=""; poolEl.innerHTML="";
-    gs.built.forEach((t,pos)=>{ const b=document.createElement("button"); b.className="word-chip in"; b.textContent=t.w; b.onclick=()=>{ if(gs.scoredThis) return; gs.built.splice(pos,1); gs.pool.push(t); scrambleRender(); }; ansEl.appendChild(b); });
-    gs.pool.forEach((t,pos)=>{ const b=document.createElement("button"); b.className="word-chip"; b.textContent=t.w; b.onclick=()=>{ gs.pool.splice(pos,1); gs.built.push(t); scrambleRender(); }; poolEl.appendChild(b); });
-    const fb=$("#qFeedback");
-    if(gs.pool.length===0){
-      const it=gs.items[gs.i], ok = gs.built.every((t,idx)=> t.w===it.tokens[idx]);
-      if(ok && !gs.scoredThis){ gs.score++; gs.scoredThis=true; }
-      const last = gs.i+1>=gs.items.length;
-      fb.innerHTML = (ok?'<div class="fb ok">✓ Perfekt!</div>':'<div class="fb no">Nicht ganz — richtig: <b>'+it.tokens.join(" ")+'</b></div>')
-        + `<button class="btn" id="qNext"><span class="grainbtn"></span>${last?"Ergebnis":"Nächster Satz"}</button>`;
-      $("#qNext").onclick=()=>{ gs.i++; if(gs.i<gs.items.length) scrambleQuestion(); else quizEnd(); };
-    } else { fb.innerHTML=""; }
-  }
-  function quizEnd(){
-    const gs=gameState, pct=Math.round(gs.score/gs.items.length*100);
-    state.gameBest=state.gameBest||{}; if(state.gameBest[gs.gameId]==null || pct>state.gameBest[gs.gameId]) state.gameBest[gs.gameId]=pct;
-    $("#gameProgress").innerHTML="";
-    $("#gameStage").innerHTML = `<div class="game-result">
-      <div class="gr-score">${gs.score}<span>/${gs.items.length}</span></div>
-      <div class="gr-msg">${resultMsg(pct)}</div>
-      <div class="gr-actions"><button class="btn" id="grAgain"><span class="grainbtn"></span>Nochmal</button><button class="btn ghost" id="grMenu">Alle Spiele</button></div>
-    </div>`;
-    $("#grAgain").onclick=()=>launchGame(gs.gameId);
-    $("#grMenu").onclick=exitGame;
+  function studentLessonsHtml(s){
+    const ls=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
+      .sort((a,b)=>bookingStart(b)-bookingStart(a)).slice(0,10);
+    if(!ls.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
+    return ls.map(b=>{ const errs=lessonCards(b,"error"), open=errs.filter(c=>c.status==="open").length;
+      return `<button class="mini-btn" data-session="${b._pk}" style="display:flex;width:100%;justify-content:space-between;margin:4px 0;padding:9px 12px;font-size:13px;">
+        <span>${fmtAT(b.date)} · ${b.time}${lessonEnded(b) ? "" : " · geplant"}${b.summary ? " · ✎" : ""}</span><span>${errs.length ? `${open} Fehler offen` : "Stunde öffnen"} →</span></button>`; }).join("");
   }
 
   // ---------- View switching ----------
@@ -3393,8 +3690,12 @@
     if(v==="book") renderWeek();
     if(v==="teacher"){ renderTeacherWeek(); renderRoster(); }
     if(v==="admin") renderAdmin();
-    if(v==="games") renderGamesMenu();
+    if(v==="lessons") renderLessonHistory();
     if(v==="files") renderFiles();
+    if(v==="errors") renderErrors();
+    if(v==="session") renderSession();
+    // Leaving a session page drops its #stunde-… address.
+    if(v!=="session" && location.hash.startsWith("#stunde-")) history.replaceState(null, "", location.pathname + location.search);
     if(v==="students") renderRoster();
     document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
     document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
@@ -3420,7 +3721,7 @@
   function showTabsForRole(role){ const app=document.querySelector(".app"); if(app) app.dataset.role=role||""; }
   function resetTransient(){
     state.selected=null; state.managing=null; state.justBooked=null; state.justAction="booked";
-    gameState=null; state.studentQuery="";
+    state.studentQuery=""; state.activityAll=false;
     if($("#studentSearch")) $("#studentSearch").value="";
     state.rescheduling=null; state.teacherSel=null; state.teacherManage=null; state.teacherStudent=null; state.editAvail=false;
     state.weekOffset=0; state.tWeekOffset=0;
@@ -3462,9 +3763,18 @@
   function exitImpersonation(){ state.impersonating=false; updateImpBanner(); applyAdmin(); }
   function updateImpBanner(){ const b=$("#impBanner"); if(!b) return; if(state.impersonating){ b.hidden=false; $("#impName").textContent=state.impersonatedName||""; } else { b.hidden=true; } }
   document.querySelectorAll(".tab").forEach(b=> b.onclick = ()=>setView(b.dataset.view));
+  // Signed in, the logo leads home within the app (the role's calendar), not
+  // back to the public landing page.
+  $("#brandHome").onclick = (e)=>{
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;  // new-tab clicks keep the link
+    e.preventDefault(); closeStudentModalIfOpen();
+    if (state.role==="student") { state.managing=null; state.rescheduling=null; state.justBooked=null; }
+    setView(state.role==="admin" ? "admin" : state.role==="tutor" ? "teacher" : "book");
+    if (state.role==="student") { renderWeek(); renderSummary(); }
+    const m=document.querySelector("#main"); if(m) m.scrollTop=0; window.scrollTo(0,0);
+  };
   $("#creditsPill").onclick = ()=>setView("account");
   $("#goBook").onclick = ()=>setView("book");
-  $("#gameExit").onclick = exitGame;
   if($("#studentSearch")) $("#studentSearch").oninput = (e)=>{ state.studentQuery=e.target.value; renderRoster(); };
 
   $("#prevWeek").onclick = ()=>{ if(state.weekOffset>0){state.weekOffset--; renderWeek();} };
@@ -3485,6 +3795,7 @@
   };
 
   $("#studentModal").onclick = closeStudentModal;
+  $("#lessonModal").onclick = closeLessonModal;
   $("#receiptModal").onclick = closeReceipt;
   $("#buyModal").onclick = closeBuy;
   $("#settleModal").onclick = closeSettle;
@@ -3532,6 +3843,9 @@
     if (DJ.role === "admin") applyAdmin();
     else if (DJ.role === "tutor") applyTutor();
     else applyStudent(DJ.currentUserId);
+    // Deep link straight to a session page (#stunde-<pk>).
+    const deep = location.hash.match(/^#stunde-(\d+)$/);
+    if (deep && bookingByPk(+deep[1])) { state.sessionReturn = state.view; state.sessionPk = +deep[1]; setView("session"); }
   }
 })();
 </script>
