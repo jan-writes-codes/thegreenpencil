@@ -213,6 +213,10 @@
     mix-blend-mode: overlay; }
   .mark img { width: 18px; height: auto; position: relative; transform: translateY(-1px); filter: brightness(0) invert(1); }
   .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; }
+  /* Cursive wordmark (templates/_logo.html). Height tracks the wordmark font-size
+     so existing responsive font-size rules keep scaling it. */
+  .wordmark .gp-logo { display: block; height: 1.9em; width: auto; aspect-ratio: 987.3 / 273; color: #277a42; overflow: visible; }
+  .wordmark .gp-logo + .sub, .wordmark noscript + .sub { margin-top: 2px; }
   .wordmark span { color: var(--accent); }
   .wordmark .sub { display: block; font-family: var(--font-body); font-size: 10px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
   .top-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
@@ -421,7 +425,7 @@
     <div class="wrap top-in">
       <a class="brand" href="#top">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <nav class="top-nav">
         <a class="navlink" href="#angebot">Angebot</a>
@@ -679,7 +683,7 @@
         <div>
           <a class="brand" href="#top" style="margin-bottom:14px;">
             <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-            <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+            <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
           </a>
           <div class="foot-legal">Englisch-Nachhilfe mit Davit Hovakimyan · Wien, Österreich</div>
           <div class="foot-legal" style="margin-top:8px;"><a href="{% url 'agb' %}" style="color:var(--c1);text-decoration:none;">AGB</a> · <a href="{% url 'widerruf' %}" style="color:var(--c1);text-decoration:none;">Widerruf</a> · <a href="{% url 'impressum' %}" style="color:var(--c1);text-decoration:none;">Impressum</a> · <a href="{% url 'datenschutz' %}" style="color:var(--c1);text-decoration:none;">Datenschutz</a> · <a href="#" onclick="openCookieSettings();return false;" style="color:var(--c1);text-decoration:none;">Cookie-Einstellungen</a></div>
