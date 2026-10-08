@@ -121,6 +121,8 @@ def serialize_booking(b):
         "notes": b.notes,
         "tutorNotes": b.tutor_notes,
         "callLink": b.call_link,
+        # "requested" until the tutor confirms a student's own booking.
+        "status": b.status,
         # Guest "intro" bookings have no student account; the tutor UI shows the
         # guest's name/e-mail from here instead of looking them up in the roster.
         "isIntro": b.is_intro,
@@ -781,6 +783,7 @@ def api_intro_booking(request):
     """
     if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
         return _intro_error(TOO_MANY, 429)
+    expire_booking_requests()  # expired requests free their slots
     data = parse_body(request)
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -868,7 +871,9 @@ def booking_cancel_view(request, token):
     booking = Booking.objects.filter(cancel_token=token).first() if token else None
     if not booking:
         return render(request, "intro_cancel.html", {"state": "gone"})
-    within_24h = (not booking.is_intro) and _booking_within_24h(booking)
+    # An unconfirmed request is always refunded — it was never a firm booking.
+    within_24h = (not booking.is_intro and not booking.is_requested
+                  and _booking_within_24h(booking))
     if request.method == "POST":
         when = emails.when(booking)
         refund_txn, _ = _cancel_booking(booking, forfeit=within_24h)
@@ -896,6 +901,7 @@ def app_view(request):
 
     user = request.user
     settings = get_settings()
+    expire_booking_requests()
 
     students = list(User.objects.filter(role="student").order_by("slug"))
     tutors = list(User.objects.filter(role="tutor").order_by("slug"))
@@ -1221,6 +1227,72 @@ def _cancel_booking(b, *, forfeit, label="Buchung storniert — Einheit erstatte
     return refund_txn, credits
 
 
+def decline_request(b, *, reason):
+    """Decline a student's booking request: free the slot, refund the credit and
+    tell the student why. ``reason`` is "declined" (tutor) or "expired"."""
+    snapshot = emails._cancel_snapshot(b, refunded=True)
+    label = ("Anfrage abgelehnt — Einheit erstattet" if reason == "declined"
+             else "Anfrage nicht bestätigt — Einheit erstattet")
+    _cancel_booking(b, forfeit=False, label=label, notify=False)
+    emails.queue_email(emails.send_lesson_request_declined, snapshot, reason)
+
+
+def expire_booking_requests(now=None):
+    """Auto-decline requests the tutor hasn't answered by their deadline
+    (Booking.request_deadline). Cheap and idempotent: runs whenever bookings are
+    read or written, and from the ``expire_booking_requests`` command for cron."""
+    now = now or timezone.now()
+    horizon = (now + Booking.REQUEST_EXPIRY + timedelta(days=1)).date()
+    expired = [
+        b for b in Booking.objects.filter(status=Booking.STATUS_REQUESTED, date__lte=horizon)
+        if b.request_deadline() <= now
+    ]
+    for b in expired:
+        decline_request(b, reason="expired")
+    return len(expired)
+
+
+def _tutor_may_answer(request, b):
+    """The booking's own tutor, or an admin, decides on a request."""
+    return request.user.role == "admin" or (
+        request.user.role == "tutor" and b.tutor_id == request.user.pk
+    )
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_booking_confirm(request, pk):
+    """Tutor confirms a student's booking request -> student gets the confirmation."""
+    with db_transaction.atomic():
+        b = Booking.objects.select_for_update().filter(pk=pk).first()
+        if not b:
+            return JsonResponse({"error": "not found"}, status=404)
+        if not _tutor_may_answer(request, b):
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if not b.is_requested:
+            return JsonResponse({"ok": True, "status": b.status})
+        b.status = Booking.STATUS_CONFIRMED
+        b.save(update_fields=["status"])
+    emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
+    return JsonResponse({"ok": True, "status": b.status})
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_booking_decline(request, pk):
+    """Tutor declines a request: slot freed, credit refunded, student informed."""
+    with db_transaction.atomic():
+        b = Booking.objects.select_for_update().filter(pk=pk).first()
+        if not b:
+            return JsonResponse({"error": "not found"}, status=404)
+        if not _tutor_may_answer(request, b):
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if not b.is_requested:
+            return JsonResponse({"error": "not_requested"}, status=400)
+        decline_request(b, reason="declined")
+    return JsonResponse({"ok": True})
+
+
 @require_http_methods(["POST"])
 @require_roles("student", "tutor", "admin")
 def api_bookings(request):
@@ -1250,7 +1322,9 @@ def api_bookings(request):
             )
 
     # The slot must be free and open — enforced here, not just in the UI, so the
-    # API can't be driven into a clash or onto a closed slot.
+    # API can't be driven into a clash or onto a closed slot. Expired requests are
+    # cleared first so they don't hold a slot past their deadline.
+    expire_booking_requests()
     conflict = _slot_unavailable(tutor, booking_date, time_str)
     if conflict:
         return JsonResponse({"error": conflict}, status=409)
@@ -1278,16 +1352,25 @@ def api_bookings(request):
             date=booking_date,
             time=time_str,
             title=title,
+            # A student's own booking is a request the tutor confirms first
+            # (slot reserved, credit charged now); tutor/admin bookings are final.
+            status=Booking.STATUS_REQUESTED if is_self else Booking.STATUS_CONFIRMED,
+            requested_at=timezone.now() if is_self else None,
             # Capability token for the cancel links in the confirmation e-mails.
             cancel_token=secrets.token_urlsafe(24),
         )
         # Booking.save() charged the credit on the locked instance; read it back.
         new_credits = locked.credits
 
-    # Confirm to the student (with a cancel link) and notify the tutor.
-    emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
-    emails.queue_email(emails.send_lesson_tutor_notification, b.pk)
-    return JsonResponse({"pk": b.pk, "credits": new_credits})
+    if is_self:
+        # Tell the student the request is in; ask the tutor to confirm it.
+        emails.queue_email(emails.send_lesson_request_student, b.pk)
+        emails.queue_email(emails.send_lesson_request_tutor, b.pk)
+    else:
+        # Confirm to the student (with a cancel link) and notify the tutor.
+        emails.queue_email(emails.send_lesson_student_confirmation, b.pk)
+        emails.queue_email(emails.send_lesson_tutor_notification, b.pk)
+    return JsonResponse({"pk": b.pk, "credits": new_credits, "status": b.status})
 
 
 @require_http_methods(["PUT", "DELETE"])
@@ -1319,8 +1402,9 @@ def api_booking_detail(request, pk):
             sub = f"{b.ledger_sub()} · von {actor}"
         # A tutor/admin removal always returns the credit; a student cancelling
         # inside the 24h window forfeits it (mirrors the booking UI's policy).
+        # An unconfirmed request is always refunded — it was never a firm booking.
         refund_txn, credits = _cancel_booking(
-            b, forfeit=is_student and _booking_within_24h(b),
+            b, forfeit=is_student and not b.is_requested and _booking_within_24h(b),
             label=label, sub=sub, notify=not retroactive,
         )
         return JsonResponse({
@@ -1345,6 +1429,12 @@ def api_booking_detail(request, pk):
         conflict = _slot_unavailable(b.tutor, b.date, b.time, exclude_pk=b.pk)
         if conflict:
             return JsonResponse({"error": conflict}, status=409)
+    # A student moving their own booking needs the tutor's OK again for the new
+    # slot — otherwise rescheduling would bypass confirmation.
+    re_requested = is_student and (b.date, b.time) != old_slot
+    if re_requested:
+        b.status = Booking.STATUS_REQUESTED
+        b.requested_at = timezone.now()
     if "notes" in data:
         b.notes = data["notes"]
     # tutorNotes and callLink are tutor-owned fields — students can't set them.
@@ -1367,7 +1457,9 @@ def api_booking_detail(request, pk):
     # the new slot (best-effort, off-request) so the mailed link stays valid.
     if b.video_meeting_id and (b.date, b.time) != old_slot:
         emails.queue_email(video.move_meeting, b.pk)
-    return JsonResponse({"ok": True})
+    if re_requested:
+        emails.queue_email(emails.send_lesson_request_tutor, b.pk)
+    return JsonResponse({"ok": True, "status": b.status})
 
 
 # ---------------------------------------------------------------------------
@@ -2311,6 +2403,7 @@ def calendar_feed(request, token):
     tutor = User.objects.filter(role="tutor", calendar_token=token).first() if token else None
     if tutor is None:
         raise Http404
+    expire_booking_requests()
     # Everything upcoming plus a trailing window, so recently finished lessons
     # don't vanish from the tutor's calendar the morning after.
     since = timezone.localdate() - timedelta(days=60)

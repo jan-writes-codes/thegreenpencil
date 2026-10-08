@@ -1,0 +1,8 @@
+{{ heading }}
+
+Termin:  {{ when }}
+{{ who_label }}: {{ who }}
+{% for line in body %}
+{{ line }}{% endfor %}
+{% if cta_url %}
+{{ cta_label }}: {{ cta_url }}{% endif %}

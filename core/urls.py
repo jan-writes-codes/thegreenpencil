@@ -36,6 +36,8 @@ urlpatterns = [
     path('password/reset/<str:uidb64>/<str:token>/', views.password_reset_view, name='password_reset'),
     path('api/bookings/', views.api_bookings),
     path('api/bookings/<int:pk>/', views.api_booking_detail),
+    path('api/bookings/<int:pk>/confirm/', views.api_booking_confirm),
+    path('api/bookings/<int:pk>/decline/', views.api_booking_decline),
     path('api/credits/<str:slug>/', views.api_credits),
     path('api/transactions/<int:txn_id>/cancel/', views.api_cancel_transaction),
     path('api/receipts/<str:number>/pdf/', views.api_receipt_pdf),

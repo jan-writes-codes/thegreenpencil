@@ -1,4 +1,4 @@
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -79,10 +79,39 @@ class Booking(models.Model):
     # rescheduled. Empty for hand-pasted links.
     video_provider = models.CharField(max_length=10, blank=True, default='')
     video_meeting_id = models.CharField(max_length=128, blank=True, default='')
+    # A student's own booking starts as a *request* the tutor must confirm, so a
+    # tutor is never overbooked. The slot is reserved and the credit charged right
+    # away; declining (or the request expiring) frees the slot and refunds it.
+    # Bookings a tutor/admin makes, and free intros, are confirmed immediately.
+    STATUS_REQUESTED = 'requested'
+    STATUS_CONFIRMED = 'confirmed'
+    STATUS_CHOICES = [(STATUS_REQUESTED, 'Angefragt'), (STATUS_CONFIRMED, 'Bestätigt')]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_CONFIRMED,
+                              db_index=True)
+    # When the current request was made (a student reschedule re-requests).
+    requested_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['date', 'time']
+
+    # A request still unanswered this long before its start is declined
+    # automatically. Short-notice requests (made inside that window) get until
+    # REQUEST_SHORT_NOTICE before the start instead.
+    REQUEST_EXPIRY = timedelta(hours=24)
+    REQUEST_SHORT_NOTICE = timedelta(hours=1)
+
+    @property
+    def is_requested(self):
+        return self.status == self.STATUS_REQUESTED
+
+    def request_deadline(self):
+        """When an unanswered request is auto-declined."""
+        deadline = self.start - self.REQUEST_EXPIRY
+        asked = self.requested_at or self.created_at
+        if asked and asked > deadline:
+            deadline = self.start - self.REQUEST_SHORT_NOTICE
+        return deadline
 
     def save(self, *args, **kwargs):
         # Detect the initial INSERT *before* super().save() flips the flag, so the
