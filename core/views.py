@@ -183,6 +183,10 @@ def serialize_error_card(c):
         "lastResult": c.last_result,
         "created": timezone.localtime(c.created_at).strftime("%Y-%m-%d"),
         "mastered": timezone.localtime(c.mastered_at).strftime("%Y-%m-%d") if c.mastered_at else "",
+        # Highlight in a lesson worksheet, if the card was marked there.
+        "fileId": c.source_file_id,
+        "page": c.page,
+        "rects": c.rects or [],
     }
 
 
@@ -1543,18 +1547,40 @@ def _card_text(data, key, required):
     return value[:1000]
 
 
+MAX_CARD_RECTS = 60
+MAX_CARDS_PER_PASTE = 100
+
+
+def _card_rects(value):
+    """Highlight boxes from the worksheet viewer: up to MAX_CARD_RECTS lists of
+    four numbers [x, y, w, h], each a fraction of the page size."""
+    if not isinstance(value, list) or len(value) > MAX_CARD_RECTS:
+        raise ValueError("invalid highlight")
+    rects = []
+    for r in value:
+        if not (isinstance(r, list) and len(r) == 4
+                and all(isinstance(n, (int, float)) and not isinstance(n, bool) for n in r)):
+            raise ValueError("invalid highlight")
+        x, y, w, h = (round(float(n), 4) for n in r)
+        if not (-0.05 <= x <= 1.05 and -0.05 <= y <= 1.05 and 0 < w <= 1.1 and 0 < h <= 1.1):
+            raise ValueError("invalid highlight")
+        rects.append([x, y, w, h])
+    return rects
+
+
 @require_http_methods(["POST"])
 @require_roles("tutor", "admin")
 def api_error_cards(request):
-    """Tutor records a mistake from a lesson as a card in the student's error log."""
+    """Tutor records cards for a student: a mistake or a new word from a lesson.
+
+    One card per request, optionally anchored to a highlight in one of the
+    lesson's worksheets (fileId + page + rects) — or a pasted list as
+    ``items: [{front, back, note}]``, all of the same kind."""
     data = parse_body(request)
     try:
         student = User.objects.get(slug=data.get("studentSlug"), role="student")
-        front = _card_text(data, "front", True)
-        back = _card_text(data, "back", True)
-        note = _card_text(data, "note", False)
-    except (User.DoesNotExist, ValueError) as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "unknown student"}, status=400)
     booking = None
     if data.get("bookingPk"):
         booking = Booking.objects.filter(pk=data["bookingPk"], student=student).first()
@@ -1563,10 +1589,43 @@ def api_error_cards(request):
     kind = data.get("kind") or ErrorCard.KIND_ERROR
     if kind not in (ErrorCard.KIND_ERROR, ErrorCard.KIND_VOCAB):
         return JsonResponse({"error": "unknown kind"}, status=400)
-    card = ErrorCard.objects.create(
-        kind=kind, student=student, booking=booking, tutor=request.user,
-        front=front, back=back, note=note,
-    )
+    base = {"kind": kind, "student": student, "booking": booking, "tutor": request.user}
+
+    if "items" in data:
+        items = data["items"]
+        if not isinstance(items, list) or not 0 < len(items) <= MAX_CARDS_PER_PASTE:
+            return JsonResponse({"error": f"1–{MAX_CARDS_PER_PASTE} Einträge pro Liste."}, status=400)
+        try:
+            cards = [ErrorCard(**base, front=_card_text(it, "front", True), back=_card_text(it, "back", True),
+                               note=_card_text(it, "note", False))
+                     for it in items if isinstance(it, dict)]
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        if len(cards) != len(items):
+            return JsonResponse({"error": "invalid items"}, status=400)
+        with db_transaction.atomic():
+            for c in cards:
+                c.save()
+        return JsonResponse({"cards": [serialize_error_card(c) for c in cards]})
+
+    try:
+        front = _card_text(data, "front", True)
+        back = _card_text(data, "back", True)
+        note = _card_text(data, "note", False)
+        source_file, page, rects = None, None, []
+        if data.get("fileId"):
+            source_file = SessionFile.objects.defer("data").filter(
+                pk=data["fileId"], booking=booking, kind=SessionFile.KIND_WORKSHEET).first() if booking else None
+            if source_file is None:
+                raise ValueError("unknown worksheet")
+            page = data.get("page")
+            if not isinstance(page, int) or isinstance(page, bool) or not 1 <= page <= 2000:
+                raise ValueError("invalid page")
+            rects = _card_rects(data.get("rects") or [])
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    card = ErrorCard.objects.create(**base, front=front, back=back, note=note,
+                                    source_file=source_file, page=page, rects=rects)
     return JsonResponse({"card": serialize_error_card(card)})
 
 

@@ -363,38 +363,150 @@
   .ecard.mastered .ef { color: var(--faint); }
   .ec-form { display: grid; gap: 8px; margin-top: 10px; }
   .ec-form textarea { min-height: 54px; }
-  /* Session page: one lesson, scrollable sections, shared by tutor and student */
-  .sess-wrap { max-width: 880px; }
-  .sess-head { padding: 26px 28px 18px; }
-  .sess-title-in { width: 100%; font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 38px);
-    letter-spacing: -0.03em; color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px dashed var(--line);
-    padding: 4px 0; margin: 8px 0 6px; outline: none; }
-  .sess-title-in:focus { border-bottom-color: var(--c1); }
-  .sess-jump { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; position: sticky; top: 0; }
-  .sess-jump a { font-size: 12.5px; text-decoration: none; color: var(--muted); padding: 6px 11px; border-radius: 100px;
-    border: 1px solid var(--line); background: rgba(251,248,241,0.6); white-space: nowrap; }
-  .sess-jump a:hover { color: var(--ink); border-color: color-mix(in oklch, var(--c1) 45%, transparent); }
-  .sess-h { margin: 34px 2px 10px; scroll-margin-top: 16px; }
-  .sess-sec { padding: 18px 22px; }
-  .sess-sec .notes-ta { min-height: 96px; }
-  .sess-sub { font-family: var(--font-display); font-size: 14.5px; margin: 0 0 8px; }
-  .sess-saved { display: inline-block; font-size: 12px; color: var(--good); margin-top: 6px; }
-  .sess-saved[hidden] { display: none; }
-  .sess-ex { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
-  .sess-ex:last-of-type { border-bottom: 0; }
-  .sess-ex-body { flex: 1; min-width: 0; }
+  /* Session page: the lesson's worksheet (PDF) on the left, a side panel with
+     Wortschatz / Fehler / Übungen / Notizen on the right. Shared by tutor and student. */
   a.lnk { color: var(--c1); text-decoration: none; font-weight: 600; font-size: 13px; }
   a.lnk:hover { text-decoration: underline; }
-  .sess-ex-body .t { font-weight: 600; font-size: 14.5px; }
-  .sess-ex-body .s { font-size: 13.5px; color: var(--muted); margin-top: 3px; white-space: pre-wrap; }
-  .sess-ex.done .sess-ex-body .t { text-decoration: line-through; color: var(--muted); }
-  .sess-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--c1); cursor: pointer; }
-  .sess-check span { display: none; }
-  .sess-hw-done { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-top: 10px; color: var(--muted); }
+  .sx-wrap { max-width: 1500px; padding: 14px 24px 24px; }
+  .sx-bar { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-bottom: 12px; }
+  .sx-back { flex: 0 0 100%; width: auto; margin: 0 0 -8px; padding: 2px 0; text-align: left; font-size: 12.5px; }
+  .sx-ttl { flex: 1 1 260px; min-width: 0; }
+  .sx-ttl h1, .sess-title-in { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -0.025em; line-height: 1.15; color: var(--ink); }
+  .sess-title-in { width: 100%; max-width: 560px; background: transparent; border: 0; border-bottom: 1.5px dashed transparent; padding: 1px 0; outline: none; }
+  .sess-title-in:hover { border-bottom-color: var(--line); }
+  .sess-title-in:focus { border-bottom-color: var(--c1); }
+  .sx-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .sx-files { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+  .sx-chip { font-family: var(--font-body); font-size: 12.5px; padding: 6px 12px; border-radius: 100px; border: 1px solid var(--line);
+    background: var(--glass); color: var(--muted); cursor: pointer; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sx-chip:hover { color: var(--ink); }
+  .sx-chip.on { background: var(--c1); border-color: var(--c1); color: #fbf8f1; font-weight: 600; }
+  .sx-chip.add { border-style: dashed; color: var(--c1); font-weight: 600; }
+  .sx-main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; height: calc(100dvh - 186px); min-height: 520px; }
+  .sx-doc { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; background: color-mix(in oklch, var(--bg-2) 80%, #5c6b5c 8%); }
+  .sx-doc.drag { outline: 2px dashed var(--c1); outline-offset: -6px; }
+  .sx-tools { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; padding: 8px 14px; border-bottom: 1px solid var(--line-2);
+    background: var(--glass); font-size: 12.5px; color: var(--muted); }
+  .sx-tools .sp { flex: 1; }
+  .sx-tname { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+  .sx-pageno { font-variant-numeric: tabular-nums; min-width: 84px; }
+  .sx-zoom { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+  .sx-zoom span { min-width: 44px; text-align: center; }
+  .sx-tool { font-family: var(--font-body); font-size: 12.5px; color: var(--ink); background: transparent; border: 1px solid var(--line);
+    border-radius: 8px; padding: 3px 9px; cursor: pointer; text-decoration: none; line-height: 1.4; }
+  .sx-tool:hover { border-color: color-mix(in oklch, var(--c1) 50%, transparent); }
+  .sx-tool.danger { color: #a23a22; }
+  .sx-legend { display: inline-flex; align-items: center; gap: 5px; }
+  .sx-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: rgba(48,144,80,.4); margin-left: 4px; }
+  .sx-legend i.e { background: rgba(208,130,70,.55); }
+  .sx-pages { flex: 1; overflow: auto; padding: 16px; min-height: 0; overscroll-behavior: contain; }
+  .sx-page { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 12px rgba(31,45,33,.18); }
+  .sx-page canvas { display: block; width: 100%; height: 100%; }
+  .sx-hl { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .sx-hl i { position: absolute; border-radius: 2px; mix-blend-mode: multiply; background: rgba(48,144,80,.32); }
+  .sx-hl i.error { background: rgba(214,128,62,.45); }
+  .sx-hl i.pending { background: rgba(33,83,168,.22); outline: 1px dashed rgba(33,83,168,.6); }
+  .sx-hl i.pulse { animation: sxpulse 1.4s ease 2; }
+  @keyframes sxpulse { 50% { box-shadow: 0 0 0 5px rgba(48,144,80,.35); } }
+  .sx-img { display: block; max-width: 100%; margin: 0 auto; box-shadow: 0 2px 12px rgba(31,45,33,.18); background: #fff; }
+  .sx-loading { text-align: center; color: var(--muted); font-size: 13.5px; padding: 60px 0; }
+  .sx-drop { display: grid; gap: 6px; place-content: center; text-align: center; height: 100%; min-height: 260px; padding: 30px;
+    border: 1.5px dashed var(--line); border-radius: 14px; cursor: pointer; color: var(--muted); font-size: 13.5px; }
+  .sx-drop b { font-family: var(--font-display); font-size: 18px; color: var(--ink); }
+  .sx-drop span { max-width: 42ch; margin: 0 auto; }
+  .sx-drop:not(.static):hover { border-color: var(--c1); color: var(--ink); }
+  .sx-drop.static { cursor: default; border-style: solid; border-color: transparent; }
+  /* pdf.js text layer (from its viewer CSS): invisible text over the canvas, so it can be selected. */
+  .textLayer { position: absolute; text-align: initial; inset: 0; overflow: hidden; line-height: 1; text-size-adjust: none;
+    -webkit-text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 2; }
+  .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+  .textLayer span.markedContent { top: 0; height: 0; }
+  .textLayer ::selection { background: rgba(33,83,168,.28); }
+  .textLayer br::selection { background: transparent; }
+  .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }
+  .textLayer .endOfContent.active { top: 0; }
+  .app[data-role="student"] .textLayer span { cursor: default; }
+  /* Mark menu / form over the sheet */
+  .sx-pop { position: absolute; z-index: 20; background: #243528; color: #fbf8f1; border-radius: 12px; padding: 5px;
+    box-shadow: 0 14px 34px -10px rgba(0,0,0,.45); display: flex; gap: 4px; }
+  .sx-pop[hidden] { display: none; }
+  .sx-pop > button { font-family: var(--font-body); font-size: 13px; font-weight: 600; color: #fff; border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+  .sx-pop > button.v { background: #309050; } .sx-pop > button.e { background: #c2702f; }
+  .sx-pop > button:hover { filter: brightness(1.08); }
+  .sx-pop[data-mode="form"] { background: var(--bg); color: var(--ink); border: 1px solid var(--line); padding: 12px; width: 300px; max-width: calc(100% - 16px); }
+  .sx-mark { display: grid; gap: 7px; width: 100%; }
+  .sx-mark-h { font-family: var(--font-display); font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .sx-mark-h::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: #309050; }
+  .sx-mark.e .sx-mark-h::before { background: #c2702f; }
+  .sx-mark .bf-input { padding: 8px 10px; font-size: 13.5px; }
+  .sx-mark-f { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 2px; }
+  .sx-mark-f .btn-text { width: auto; margin: 0; }
+  .sx-mark-f .btn { width: auto; margin: 0; padding: 8px 16px; font-size: 13px; }
+  /* Side panel */
+  .sx-side { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--glass); overflow: hidden; }
+  .sx-tabs { display: flex; gap: 2px; padding: 6px; border-bottom: 1px solid var(--line-2); }
+  .sx-tabs button { flex: 1; font-family: var(--font-body); font-size: 12.5px; color: var(--muted); background: transparent; border: 0;
+    border-radius: 9px; padding: 8px 4px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+  .sx-tabs button:hover { color: var(--ink); }
+  .sx-tabs button.on { background: var(--bg); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .sx-tabs .c { font-size: 11px; font-weight: 700; min-width: 18px; padding: 1px 5px; border-radius: 100px; background: var(--line-2); color: var(--muted); }
+  .sx-tabs .vocab.on .c { background: rgba(48,144,80,.16); color: #23733f; }
+  .sx-tabs .error.on .c { background: rgba(194,112,47,.16); color: #8f4d1c; }
+  .sx-tabs .dot { width: 7px; height: 7px; border-radius: 50%; background: #c2552f; }
+  .sx-body { flex: 1; overflow: auto; padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .sx-lh { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); min-height: 20px; }
+  .sx-practice { font-family: var(--font-body); font-size: 12.5px; font-weight: 600; color: var(--c1); background: none; border: 0; cursor: pointer; padding: 0; }
+  .sx-list { display: grid; gap: 6px; }
+  .sx-item { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px 9px 12px; border-radius: 11px; background: rgba(251,248,241,.75);
+    border: 1px solid var(--line-2); border-left: 3px solid #309050; font-size: 13.5px; line-height: 1.4; }
+  .sx-item.e { border-left-color: #c2702f; }
+  .sx-item.mastered { opacity: .62; }
+  .sx-item.flash { animation: sxflash 1.6s ease; }
+  @keyframes sxflash { 0%, 40% { background: rgba(48,144,80,.16); } }
+  .sx-it { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .sx-it .g { color: var(--muted); }
+  .sx-it .w { color: #a23a22; text-decoration: line-through; text-decoration-color: rgba(194,85,47,.5); }
+  .sx-it .n { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .sx-it .t { font-weight: 600; }
+  .sx-it-meta { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .sx-ref { font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--muted); background: var(--line-2); border: 0;
+    border-radius: 6px; padding: 2px 6px; cursor: pointer; }
+  .sx-ref:hover { color: var(--ink); background: var(--line); }
+  .sx-x { font-family: var(--font-body); font-size: 15px; line-height: 1; color: var(--faint); background: none; border: 0; cursor: pointer;
+    width: 22px; height: 22px; border-radius: 6px; }
+  .sx-x:hover { color: #a23a22; background: rgba(194,85,47,.1); }
+  .sx-empty { font-size: 13px; color: var(--faint); font-style: italic; padding: 4px 0; }
+  .sx-add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-top: 4px; }
+  .sx-add.one { grid-template-columns: 1fr auto; }
+  .sx-add .bf-input, .sx-exlink { padding: 8px 10px; font-size: 13.5px; min-width: 0; }
+  .sx-add-btn { width: 36px; border-radius: 10px; border: 0; background: var(--c1); color: #fff; font-size: 19px; cursor: pointer; }
+  .sx-paste summary { font-size: 12.5px; font-weight: 600; color: var(--c1); cursor: pointer; padding: 2px 0; }
+  .sx-paste textarea { margin-top: 8px; min-height: 110px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; }
+  .sx-paste-f { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 11.5px; color: var(--faint); }
+  .sx-paste-f .btn { width: auto; margin: 0; padding: 7px 14px; font-size: 12.5px; flex-shrink: 0; }
+  .sx-ex { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border-radius: 11px; background: rgba(251,248,241,.75); border: 1px solid var(--line-2); font-size: 13.5px; }
+  .sx-ex input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--c1); cursor: pointer; flex-shrink: 0; }
+  .sx-ex.done .t { text-decoration: line-through; color: var(--muted); }
+  .sx-block { display: grid; gap: 7px; padding-bottom: 14px; border-bottom: 1px solid var(--line-2); }
+  .sx-block:last-child { border-bottom: 0; }
+  .sx-block h4 { font-family: var(--font-display); font-size: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .sx-block h4 span { font-family: var(--font-body); font-weight: 400; font-size: 11.5px; color: var(--faint); }
+  .sx-block .notes-ta { min-height: 80px; }
+  .sess-hw-done { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); }
   .sess-hw-done input { width: 17px; height: 17px; accent-color: var(--c1); }
-  .sess-upload { display: inline-flex; width: auto; margin-top: 12px; cursor: pointer; padding-left: 18px; padding-right: 18px; }
-  .sess-file { display: flex; align-items: center; gap: 10px; }
-  .sess-file > a { flex: 1; display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
+  .sx-file { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .sx-file a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+  .sx-file span { font-size: 11.5px; color: var(--faint); }
+  .sx-upload { font-size: 13px; font-weight: 600; color: var(--c1); cursor: pointer; padding: 8px 12px; border: 1.5px dashed var(--line); border-radius: 10px; text-align: center; }
+  @media (max-width: 1000px) {
+    .sx-wrap { padding: 12px 16px 30px; }
+    .sx-main { grid-template-columns: 1fr; height: auto; min-height: 0; }
+    .sx-doc { height: 72dvh; min-height: 420px; }
+    .sx-side { max-height: none; }
+    .sx-files { justify-content: flex-start; }
+  }
   .ecard.vocab .eb { font-size: 15px; }
   /* Flashcards (practice for students, review with the tutor) */
   .flash-card { padding: 30px 26px; text-align: center; }
@@ -1055,7 +1167,7 @@
 
       <!-- ===================== SESSION PAGE (one lesson) ===================== -->
       <section class="view" id="view-session" data-screen-label="Session">
-        <div class="wrap sess-wrap"><div id="sessionContent"></div></div>
+        <div class="wrap sx-wrap"><div id="sessionContent"></div></div>
       </section>
 
       <!-- ===================== LEARNING FILES ===================== -->
@@ -3435,7 +3547,10 @@
 
   // ----- Session page (tutor + student) -----
   // Each lesson has its own page at #stunde-<pk>, so it can be bookmarked,
-  // opened from the lists, and left with the browser's back button.
+  // opened from the lists, and left with the browser's back button. The page is
+  // built around the worksheet worked through in the lesson: the PDF fills the
+  // left, and the tutor marks words and mistakes right in it; a side panel holds
+  // the resulting Wortschatz / Fehler lists, the exercises and the notes.
   function openSession(pk){
     const b=bookingByPk(pk); if(!b) return;
     if(state.view!=="session") state.sessionReturn = state.view;
@@ -3460,137 +3575,461 @@
     if(!r.ok){ toast("Speichern fehlgeschlagen"); return false; }
     Object.assign(b, fields); return true;
   }
-  function fileRowHtml(f, canDelete){
-    return `<div class="file-row sess-file"><a href="${esc(f.url)}"><span class="file-ic doc">${fileIcon("doc")}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext)} · ${Math.max(1, Math.round(f.size/1024))} KB${f.by ? " · " + esc(f.by) : ""}</span></a>${canDelete ? `<button class="mini-btn danger" data-delfile="${f.id}">Entfernen</button>` : ""}</div>`;
+
+  // PDF.js is shipped with the site (no third-party CDN) and only loaded the
+  // first time a worksheet is opened.
+  const PDFJS_SRC = "{% static 'vendor/pdfjs/pdf.min.js' %}", PDFJS_WORKER = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
+  let pdfjsReady = null;
+  function loadPdfJs(){
+    if(!pdfjsReady) pdfjsReady = new Promise((res, rej)=>{
+      const s=document.createElement("script"); s.src=PDFJS_SRC;
+      s.onload=()=>{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; res(window.pdfjsLib); };
+      s.onerror=()=>{ pdfjsReady=null; rej(new Error("pdf.js")); };
+      document.head.appendChild(s);
+    });
+    return pdfjsReady;
   }
-  // A section heading with an anchor id for the jump bar.
-  function secHead(id, title, extra){ return `<div class="section-h sess-h" id="sess-${id}"><h2>${title}</h2>${extra||""}</div>`; }
+  const pdfDocs = new Map();  // worksheet id -> Promise<PDFDocumentProxy>
+  function openPdf(f){
+    if(!pdfDocs.has(f.id)) pdfDocs.set(f.id, (async ()=>{
+      const lib=await loadPdfJs(), r=await fetch(f.url);
+      if(!r.ok) throw new Error("download");
+      return lib.getDocument({ data: await r.arrayBuffer() }).promise;
+    })().catch(e=>{ pdfDocs.delete(f.id); throw e; }));
+    return pdfDocs.get(f.id);
+  }
+  const isPdf = f => /\.pdf$/i.test(f.name);
+  const isImage = f => /\.(png|jpe?g|gif|webp)$/i.test(f.name);
+  const worksheets = b => (b.files||[]).filter(f=>f.kind==="worksheet");
+  const ZOOMS = [0.6, 0.8, 1, 1.25, 1.5, 2];
 
   function renderSession(){
     const el=$("#sessionContent"); if(!el) return;
     const b=bookingByPk(state.sessionPk);
-    if(!b){ el.innerHTML=`<div class="empty-list">Diese Stunde gibt es nicht mehr.</div>`; return; }
-    const tutor = state.role !== "student";
-    const s = bookingStudent(b), t = tutorById(b.tutorId) || { name:"Tutor" };
-    const first = esc(s.name.split(" ")[0]);
-    const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
-    const sheets=(b.files||[]).filter(f=>f.kind==="worksheet"), handins=(b.files||[]).filter(f=>f.kind==="homework");
-    const exercises=b.exercises||[];
-    const upcoming=!lessonEnded(b);
-    const ta=(id, val, ph, cls)=>`<textarea class="notes-ta ${cls||""}" id="${id}" placeholder="${ph}">${esc(val||"")}</textarea>`;
-    const saved=`<span class="sess-saved" hidden>gespeichert ✓</span>`;
-
-    el.innerHTML = `
-      <button class="btn-text" id="sessBack" style="margin:0 0 14px;">← ${tutor ? "Zurück" : "Alle Stunden"}</button>
-      <div class="panel sess-head">
-        <div class="eyebrow" style="margin:0;">${upcoming ? "Geplante Stunde" : "Stunde"} · ${fmtLong(b.date)} · ${b.time}–${endTime(b.time)}</div>
-        ${tutor ? `<input class="sess-title-in" id="sessTitle" value="${esc(b.title)}" aria-label="Thema der Stunde">` : `<h1 class="title" style="margin:6px 0 4px;">${esc(b.title)}</h1>`}
-        <div class="sub" style="margin:0;">${tutor ? `mit ${esc(s.name)}` : `mit ${esc(t.name)}`}${b.status==="requested" ? ' <span class="req-chip">Angefragt</span>' : ""}</div>
-        <nav class="sess-jump">
-          <a href="#sess-summary">Zusammenfassung</a><a href="#sess-exercises">Übungen${exercises.length?` · ${exercises.length}`:""}</a><a href="#sess-vocab">Wortschatz${vocab.length?` · ${vocab.length}`:""}</a><a href="#sess-errors">Fehler${errs.length?` · ${errs.length}`:""}</a><a href="#sess-sheets">Arbeitsblätter${sheets.length?` · ${sheets.length}`:""}</a><a href="#sess-homework">Hausaufgabe</a><a href="#sess-notes">Notizen</a>
-        </nav>
-      </div>
-
-      ${secHead("summary", "Was wir gemacht haben", tutor ? `<span class="micro" style="margin:0;">sieht ${first}</span>` : "")}
-      <div class="panel sess-sec">${tutor
-        ? `${ta("sessSummary", b.summary, "Themen, Schwerpunkte, wie es gelaufen ist…")}${saved}`
-        : (b.summary ? `<div class="ld-text">${esc(b.summary)}</div>` : `<div class="ld-empty">Dein Tutor hat noch keine Zusammenfassung eingetragen.</div>`)}</div>
-
-      ${secHead("exercises", "Übungen")}
-      <div class="panel sess-sec">
-        ${exercises.length ? exercises.map(e=>`<div class="sess-ex ${e.done?"done":""}">
-            <label class="sess-check"><input type="checkbox" data-exdone="${e.id}" ${e.done?"checked":""}><span></span></label>
-            <div class="sess-ex-body"><div class="t">${esc(e.title)}</div>${e.description ? `<div class="s">${esc(e.description)}</div>` : ""}${e.link ? `<a class="lnk" href="${esc(e.link)}" target="_blank" rel="noopener">Link öffnen ↗</a>` : ""}</div>
-            ${tutor ? `<button class="mini-btn danger" data-delex="${e.id}">Löschen</button>` : ""}
-          </div>`).join("") : `<div class="ld-empty">${tutor ? "Noch keine Übungen eingetragen." : "Keine Übungen zu dieser Stunde."}</div>`}
-        ${tutor ? `<div class="ec-form"><input class="bf-input" id="exTitle" placeholder="Übung, z. B. „Gap fill: present perfect“"><textarea class="bf-input" id="exDesc" placeholder="Beschreibung / Seite (optional)"></textarea><input class="bf-input" id="exLink" placeholder="Link (optional), https://…"><button class="btn ghost" id="exAdd">+ Übung hinzufügen</button></div>` : ""}
-      </div>
-
-      ${secHead("vocab", "Neuer Wortschatz", vocab.some(c=>c.status==="open") ? `<span class="lnk" id="vocabPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
-      <div class="panel sess-sec">
-        ${vocab.length ? vocab.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Wörter eingetragen." : "Keine neuen Wörter zu dieser Stunde."}</div>`}
-        ${tutor ? `<div class="ec-form"><div class="bf-grid"><input class="bf-input" id="vcFront" placeholder="Wort / Ausdruck, z. B. „to put off“"><input class="bf-input" id="vcBack" placeholder="Bedeutung, z. B. „verschieben“"></div><input class="bf-input" id="vcNote" placeholder="Beispielsatz (optional)"><button class="btn ghost" id="vcAdd">+ Wort hinzufügen</button></div>` : ""}
-      </div>
-
-      ${secHead("errors", "Fehler", errs.some(c=>c.status==="open") ? `<span class="lnk" id="errsPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
-      <div class="panel sess-sec">
-        ${errs.length ? errs.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Fehler eingetragen." : "Keine Fehler zu dieser Stunde."}</div>`}
-        ${tutor ? `<div class="ec-form"><textarea class="bf-input" id="ecFront" placeholder="Was ${first} gesagt/geschrieben hat, z. B. „I have seen him yesterday.“"></textarea><textarea class="bf-input" id="ecBack" placeholder="Richtig: „I saw him yesterday.“"></textarea><input class="bf-input" id="ecNote" placeholder="Erklärung (optional), z. B. abgeschlossene Zeit → Past Simple"><button class="btn ghost" id="ecAdd">+ Fehler hinzufügen</button></div>` : ""}
-      </div>
-
-      ${secHead("sheets", "Arbeitsblätter")}
-      <div class="panel sess-sec">
-        ${sheets.length ? sheets.map(f=>fileRowHtml(f, tutor)).join("") : `<div class="ld-empty">${tutor ? "Noch keine Arbeitsblätter hochgeladen." : "Keine Arbeitsblätter zu dieser Stunde."}</div>`}
-        ${tutor ? `<label class="btn ghost sess-upload">+ Arbeitsblatt hochladen<input type="file" id="sheetUpload" hidden></label><div class="micro" style="text-align:left;margin:6px 2px 0;">PDF, Office, Bilder, Audio · max. 10 MB</div>` : ""}
-      </div>
-
-      ${secHead("homework", "Hausaufgabe")}
-      <div class="panel sess-sec">
-        ${tutor ? `${ta("sessHomework", b.homework, "Was soll bis zur nächsten Stunde erledigt werden?")}${saved}` : (b.homework ? `<div class="ld-text">${esc(b.homework)}</div>` : `<div class="ld-empty">Keine Hausaufgabe.</div>`)}
-        ${b.homework ? `<label class="sess-hw-done"><input type="checkbox" id="hwDone" ${b.homeworkDone?"checked":""} ${tutor?"disabled":""}> ${b.homeworkDone ? "Erledigt" : (tutor ? `${first} hat sie noch nicht als erledigt markiert` : "Als erledigt markieren")}</label>` : ""}
-        <div class="ld-block"><h4>${tutor ? `Abgaben von ${first}` : "Deine Abgabe"}</h4>
-          ${handins.length ? handins.map(f=>fileRowHtml(f, true)).join("") : `<div class="ld-empty">${tutor ? "Noch nichts abgegeben." : "Lade hier deine Hausaufgabe hoch, z. B. ein Foto oder PDF."}</div>`}
-          ${!tutor ? `<label class="btn ghost sess-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : ""}
+    if(!b){ el.dataset.shell=""; el.innerHTML=`<div class="empty-list">Diese Stunde gibt es nicht mehr.</div>`; return; }
+    let sx=state.sx;
+    if(!sx || sx.pk!==b._pk) sx = state.sx = { pk:b._pk, fileId:null, tab:"vocab", zoom:1, token:0 };
+    const sheets=worksheets(b);
+    if(!sheets.some(f=>f.id===sx.fileId)) sx.fileId = sheets.length ? sheets[0].id : null;
+    // The worksheet itself only re-renders when the lesson or sheet changes;
+    // edits elsewhere just refresh the bar, the panel and the highlights.
+    const key=`${b._pk}:${sx.fileId}`;
+    if(el.dataset.shell!==key){
+      el.dataset.shell=key;
+      el.innerHTML=`<div class="sx">
+        <div class="sx-bar" id="sxBar"></div>
+        <div class="sx-main">
+          <section class="sx-doc" id="sxDoc" aria-label="Arbeitsblatt">
+            <div class="sx-tools" id="sxTools"></div>
+            <div class="sx-pages" id="sxPages"></div>
+            <div class="sx-pop" id="sxPop" hidden></div>
+          </section>
+          <aside class="sx-side" id="sxSide"></aside>
         </div>
-      </div>
-
-      ${secHead("notes", "Notizen")}
-      <div class="panel sess-sec">
-        <h4 class="sess-sub">${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
-        ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="ld-empty">${first} hat keine Notizen.</div>`) : `${ta("sessNotes", b.notes, "Deine eigenen Notizen zu dieser Stunde…")}${saved}`}
-        ${tutor ? `<h4 class="sess-sub" style="margin-top:18px;">Private Notizen <span style="font-weight:400;color:var(--faint);">· nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…", "private")}${saved}` : ""}
       </div>`;
+      bindSheetEvents(b, sx);
+      renderSheet(b, sx);
+    }
+    renderSessionBar(b, sx);
+    renderSidePanel(b, sx);
+    drawHighlights(b, sx);
+  }
+
+  function renderSessionBar(b, sx){
+    const bar=$("#sxBar"); if(!bar) return;
+    const tutor=state.role!=="student", s=bookingStudent(b), t=tutorById(b.tutorId)||{ name:"Tutor" };
+    bar.innerHTML=`
+      <button class="btn-text sx-back" id="sessBack">← ${tutor ? "Zurück" : "Stunden"}</button>
+      <div class="sx-ttl">
+        ${tutor ? `<input class="sess-title-in" id="sessTitle" value="${esc(b.title)}" aria-label="Thema der Stunde">` : `<h1>${esc(b.title)}</h1>`}
+        <div class="sx-meta">${lessonEnded(b) ? "" : "Geplant · "}${fmtLong(b.date)} · ${b.time}–${endTime(b.time)} · mit ${esc(tutor ? s.name : t.name)}${b.status==="requested" ? ' <span class="req-chip">Angefragt</span>' : ""}</div>
+      </div>
+      <div class="sx-files">
+        ${worksheets(b).map(f=>`<button class="sx-chip ${f.id===sx.fileId?"on":""}" data-sheet="${f.id}" title="${esc(f.name)}">${esc(f.name.replace(/\.[^.]+$/, ""))}</button>`).join("")}
+        ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label>` : ""}
+      </div>`;
+    $("#sessBack").onclick=leaveSession;
+    if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
+    bar.querySelectorAll("[data-sheet]").forEach(c=> c.onclick=()=>{ sx.fileId=+c.dataset.sheet; closeSxPop(); renderSession(); });
+    bindSheetUpload(b, sx, $("#sheetUpload"));
+  }
+
+  async function uploadSheet(b, sx, file){
+    if(!file) return;
+    if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); return; }
+    toast("Wird hochgeladen…");
+    const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
+    if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
+    b.files=[...(b.files||[]), r.file];
+    if(r.file.kind==="worksheet") sx.fileId=r.file.id;
+    renderSession(); toast("Hochgeladen");
+  }
+  function bindSheetUpload(b, sx, input){ if(input) input.onchange=()=>{ uploadSheet(b, sx, input.files[0]); input.value=""; }; }
+
+  // ----- the worksheet viewer -----
+  async function renderSheet(b, sx){
+    const pages=$("#sxPages"), tools=$("#sxTools"); if(!pages) return;
+    const tutor=state.role!=="student";
+    const f=worksheets(b).find(x=>x.id===sx.fileId);
+    const token=++sx.token;
+    const dl = f ? `<a class="sx-tool" href="${esc(f.url)}">Herunterladen</a>` : "";
+    const del = f && tutor ? `<button class="sx-tool danger" id="sxDelSheet">Entfernen</button>` : "";
+    if(!f){
+      tools.innerHTML=`<span class="sx-tname">Arbeitsblatt</span>`;
+      pages.innerHTML = tutor
+        ? `<label class="sx-drop"><input type="file" id="sxDropInput" hidden><b>PDF hier ablegen oder auswählen</b><span>Das Arbeitsblatt, das ihr in der Stunde durchgeht. Darin markierst du dann Wörter und Fehler.</span></label>`
+        : `<div class="sx-drop static"><b>Kein Arbeitsblatt</b><span>Zu dieser Stunde wurde kein Arbeitsblatt hochgeladen.</span></div>`;
+      bindSheetUpload(b, sx, $("#sxDropInput"));
+      return;
+    }
+    if(!isPdf(f)){
+      tools.innerHTML=`<span class="sx-tname">${esc(f.name)}</span><span class="sp"></span>${dl}${del}`;
+      pages.innerHTML = isImage(f)
+        ? `<img class="sx-img" src="${esc(f.url)}" alt="${esc(f.name)}">`
+        : `<div class="sx-drop static"><b>${esc(f.name)}</b><span>Diese Datei kann hier nicht angezeigt werden.</span><a class="btn ghost" style="width:auto;margin-top:12px;" href="${esc(f.url)}">Herunterladen</a></div>`;
+      bindDelSheet(b, sx, f);
+      return;
+    }
+    const mark = tutor ? `<span class="sx-legend"><i class="v"></i>Text markieren → Wortschatz oder <i class="e"></i>Fehler</span>` : `<span class="sx-legend"><i class="v"></i>Wortschatz <i class="e"></i>Fehler</span>`;
+    tools.innerHTML=`<span class="sx-pageno" id="sxPageNo">Seite 1</span>
+      <span class="sx-zoom"><button class="sx-tool" data-zoom="-1" aria-label="Verkleinern">−</button><span id="sxZoomVal">${Math.round(sx.zoom*100)} %</span><button class="sx-tool" data-zoom="1" aria-label="Vergrößern">+</button></span>
+      ${mark}<span class="sp"></span>${dl}${del}`;
+    tools.querySelectorAll("[data-zoom]").forEach(z=> z.onclick=()=>{
+      const i=ZOOMS.indexOf(sx.zoom), n=Math.max(0, Math.min(ZOOMS.length-1, (i<0?2:i)+(+z.dataset.zoom)));
+      if(ZOOMS[n]!==sx.zoom){ sx.zoom=ZOOMS[n]; closeSxPop(); renderSheet(b, sx); }
+    });
+    bindDelSheet(b, sx, f);
+
+    const ratio = pages.scrollHeight ? pages.scrollTop / pages.scrollHeight : 0;
+    if(!pages.querySelector(".sx-page")) pages.innerHTML=`<div class="sx-loading">Arbeitsblatt wird geladen…</div>`;
+    let doc;
+    try { doc=await openPdf(f); }
+    catch(e){ if(token===sx.token) pages.innerHTML=`<div class="sx-drop static"><b>Das PDF konnte nicht geladen werden.</b><a class="btn ghost" style="width:auto;margin-top:12px;" href="${esc(f.url)}">Herunterladen</a></div>`; return; }
+    if(token!==sx.token) return;
+    const first=await doc.getPage(1); if(token!==sx.token) return;
+    const avail=Math.max(260, pages.clientWidth - 32);
+    const scale=Math.min(avail / first.getViewport({ scale:1 }).width, 1.5) * sx.zoom;
+    sx.renderedWidth=pages.clientWidth;
+    // Lay out every page at its final size first (so scrolling and the page
+    // counter work at once), then draw them in order.
+    const list=[];
+    for(let i=1;i<=doc.numPages;i++){
+      const page = i===1 ? first : await doc.getPage(i); if(token!==sx.token) return;
+      list.push({ page, vp: page.getViewport({ scale }) });
+    }
+    pages.innerHTML="";
+    list.forEach(({ vp }, i)=>{
+      const div=document.createElement("div"); div.className="sx-page"; div.dataset.page=i+1;
+      div.style.width=vp.width+"px"; div.style.height=vp.height+"px";
+      div.innerHTML=`<canvas></canvas><div class="sx-hl"></div><div class="textLayer"></div>`;
+      pages.appendChild(div);
+    });
+    pages.scrollTop = ratio * pages.scrollHeight;
+    $("#sxPageNo").textContent=`Seite ${currentSheetPage()} / ${doc.numPages}`;
+    pages.onscroll=()=>{ const n=$("#sxPageNo"); if(n) n.textContent=`Seite ${currentSheetPage()} / ${doc.numPages}`; };
+    drawHighlights(b, sx);
+    const dpr=Math.min(window.devicePixelRatio||1, 2);
+    for(let i=0;i<list.length;i++){
+      const { page, vp }=list[i], div=pages.children[i];
+      const canvas=div.querySelector("canvas"), tl=div.querySelector(".textLayer");
+      canvas.width=Math.floor(vp.width*dpr); canvas.height=Math.floor(vp.height*dpr);
+      tl.style.setProperty("--scale-factor", vp.scale);
+      try {
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp, transform: dpr!==1 ? [dpr,0,0,dpr,0,0] : null }).promise;
+        if(token!==sx.token) return;
+        await window.pdfjsLib.renderTextLayer({ textContentSource: page.streamTextContent(), container: tl, viewport: vp, textDivs: [] }).promise;
+      } catch(e){ if(token!==sx.token) return; }
+      if(token!==sx.token) return;
+    }
+    if(sx.gotoCard) gotoCard(b, sx, sx.gotoCard);
+  }
+  function currentSheetPage(){
+    const pages=$("#sxPages"); if(!pages) return 1;
+    const mid=pages.scrollTop + pages.clientHeight/3;
+    let n=1; pages.querySelectorAll(".sx-page").forEach(p=>{ if(p.offsetTop <= mid) n=+p.dataset.page; });
+    return n;
+  }
+  function bindDelSheet(b, sx, f){
+    const btn=$("#sxDelSheet"); if(!btn) return;
+    btn.onclick=async ()=>{
+      if(!window.confirm(`„${f.name}“ entfernen? Markierte Wörter und Fehler bleiben erhalten, nur ohne Markierung im Blatt.`)) return;
+      const r=await apiResult('DELETE', `/api/session-files/${f.id}/`);
+      if(!r.ok){ toast("Entfernen fehlgeschlagen"); return; }
+      b.files=(b.files||[]).filter(x=>x.id!==f.id); pdfDocs.delete(f.id);
+      state.errorCards.forEach(c=>{ if(c.fileId===f.id){ c.fileId=null; c.page=null; c.rects=[]; } });
+      sx.fileId=null; renderSession();
+    };
+  }
+  // Marked words/mistakes, drawn over the page as boxes the size of the text.
+  function drawHighlights(b, sx){
+    const pages=$("#sxPages"); if(!pages) return;
+    const cards=lessonCards(b).filter(c=>c.fileId && c.fileId===sx.fileId);
+    pages.querySelectorAll(".sx-page").forEach(div=>{
+      const n=+div.dataset.page;
+      div.querySelector(".sx-hl").innerHTML = cards.filter(c=>c.page===n).map(c=>(c.rects||[]).map(r=>
+        `<i class="${cardKind(c)}" data-hl="${c.id}" style="left:${r[0]*100}%;top:${r[1]*100}%;width:${r[2]*100}%;height:${r[3]*100}%"></i>`).join("")).join("")
+        + (sx.pending && sx.pending.page===n ? sx.pending.rects.map(r=>`<i class="pending" style="left:${r[0]*100}%;top:${r[1]*100}%;width:${r[2]*100}%;height:${r[3]*100}%"></i>`).join("") : "");
+    });
+  }
+  // Scroll the sheet to a card's highlight (switching worksheet if needed).
+  function gotoCard(b, sx, id){
+    const c=state.errorCards.find(x=>x.id===id); if(!c || !c.fileId || !c.page) return;
+    if(c.fileId!==sx.fileId){ sx.fileId=c.fileId; sx.gotoCard=id; renderSession(); return; }
+    const pages=$("#sxPages"), pg=pages && pages.querySelector(`.sx-page[data-page="${c.page}"]`);
+    if(!pg){ sx.gotoCard=id; return; }
+    sx.gotoCard=null;
+    const r=(c.rects||[])[0]||[0,0,0,0];
+    pages.scrollTo({ top: pg.offsetTop + r[1]*pg.offsetHeight - pages.clientHeight/3, behavior:"smooth" });
+    pages.querySelectorAll(`[data-hl="${id}"]`).forEach(h=>{ h.classList.remove("pulse"); void h.offsetWidth; h.classList.add("pulse"); });
+  }
+
+  // ----- marking text in the worksheet (tutor) -----
+  // The selection becomes boxes relative to its page ([x, y, w, h] as fractions),
+  // merged per line, so the highlight redraws at any zoom.
+  function sheetSelection(){
+    const sel=window.getSelection(); if(!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const text=sel.toString().replace(/\s+/g, " ").trim(); if(!text || text.length>300) return null;
+    const range=sel.getRangeAt(0);
+    const start=range.startContainer.nodeType===1 ? range.startContainer : range.startContainer.parentElement;
+    const pageEl=start && start.closest && start.closest("#sxPages .sx-page"); if(!pageEl) return null;
+    const box=pageEl.getBoundingClientRect();
+    const raw=[...range.getClientRects()].filter(r=>r.width>1 && r.height>2 && r.top>=box.top-2 && r.bottom<=box.bottom+2)
+      .map(r=>({ l:r.left-box.left, t:r.top-box.top, r:r.right-box.left, b:r.bottom-box.top }))
+      .sort((a, c)=>a.t-c.t || a.l-c.l);
+    const lines=[];
+    raw.forEach(r=>{
+      const ln=lines.find(x=>Math.abs(x.t-r.t) < (x.b-x.t)*0.6 && r.l <= x.r+6);
+      if(ln){ ln.l=Math.min(ln.l, r.l); ln.r=Math.max(ln.r, r.r); ln.t=Math.min(ln.t, r.t); ln.b=Math.max(ln.b, r.b); }
+      else lines.push({ ...r });
+    });
+    if(!lines.length) return null;
+    const rd=n=>Math.round(n*10000)/10000;
+    const rects=lines.slice(0, 60).map(x=>[rd(x.l/box.width), rd(x.t/box.height), rd((x.r-x.l)/box.width), rd((x.b-x.t)/box.height)]);
+    const last=lines[lines.length-1];
+    return { text, page:+pageEl.dataset.page, rects, anchor:{ x: box.left+last.l, y: box.top+last.b } };
+  }
+  function closeSxPop(){
+    const pop=$("#sxPop"); if(pop){ pop.hidden=true; pop.innerHTML=""; pop.dataset.mode=""; }
+    if(state.sx && state.sx.pending){ state.sx.pending=null; const b=bookingByPk(state.sx.pk); if(b) drawHighlights(b, state.sx); }
+  }
+  function placeSxPop(pop, anchor){
+    const doc=$("#sxDoc").getBoundingClientRect();
+    pop.hidden=false;
+    const w=pop.offsetWidth;
+    pop.style.left=Math.max(8, Math.min(anchor.x - doc.left, doc.width - w - 8))+"px";
+    pop.style.top=Math.min(anchor.y - doc.top + 8, doc.height - pop.offsetHeight - 8)+"px";
+  }
+  function showMarkMenu(b, sx){
+    const pop=$("#sxPop"); if(!pop || pop.dataset.mode==="form") return;
+    const p=sheetSelection();
+    if(!p){ if(pop.dataset.mode==="menu") closeSxPop(); return; }
+    sx.selection=p;
+    pop.dataset.mode="menu";
+    pop.innerHTML=`<button class="v" data-mark="vocab">+ Wortschatz</button><button class="e" data-mark="error">+ Fehler</button>`;
+    placeSxPop(pop, p.anchor);
+    pop.querySelectorAll("[data-mark]").forEach(btn=> btn.onclick=()=>showMarkForm(b, sx, btn.dataset.mark));
+  }
+  function showMarkForm(b, sx, kind){
+    const pop=$("#sxPop"), p=sx.selection; if(!pop || !p) return;
+    sx.pending=p; drawHighlights(b, sx);
+    window.getSelection().removeAllRanges();
+    const vocab=kind==="vocab";
+    pop.dataset.mode="form";
+    pop.innerHTML=`<form class="sx-mark ${vocab?"v":"e"}" id="sxMarkForm">
+      <div class="sx-mark-h">${vocab ? "Neues Wort" : "Fehler"}</div>
+      <input class="bf-input" id="mkFront" value="${esc(p.text)}" aria-label="${vocab ? "Wort" : "Fehler"}">
+      <input class="bf-input" id="mkBack" placeholder="${vocab ? "Bedeutung, z. B. verschieben" : "Richtig: …"}" aria-label="${vocab ? "Bedeutung" : "Richtige Version"}">
+      <input class="bf-input" id="mkNote" placeholder="${vocab ? "Beispielsatz (optional)" : "Erklärung (optional)"}" aria-label="Notiz">
+      <div class="sx-mark-f"><button type="button" class="btn-text" id="mkCancel">Abbrechen</button><button class="btn" type="submit"><span class="grainbtn"></span>Speichern</button></div>
+    </form>`;
+    placeSxPop(pop, p.anchor);
+    $("#mkBack").focus();
+    $("#mkCancel").onclick=closeSxPop;
+    $("#sxMarkForm").onsubmit=async (e)=>{
+      e.preventDefault();
+      const front=$("#mkFront").value.trim(), back=$("#mkBack").value.trim(), note=$("#mkNote").value.trim();
+      if(!front || !back){ toast(vocab ? "Bitte die Bedeutung eintragen" : "Bitte die richtige Version eintragen"); return; }
+      const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug:b.studentId, bookingPk:b._pk, front, back, note, fileId:sx.fileId, page:p.page, rects:p.rects });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      state.errorCards.push(r.data.card);
+      sx.tab=kind; sx.flash=r.data.card.id; sx.pending=null;
+      closeSxPop(); renderSidePanel(b, sx); drawHighlights(b, sx);
+    };
+    pop.onkeydown=(e)=>{ if(e.key==="Escape") closeSxPop(); };
+  }
+  // Selection tracking is global (registered once) and acts on the open lesson.
+  let sxDown=false, sxSelTimer=null;
+  function sxCurrent(){ const sx=state.sx; return state.view==="session" && state.role!=="student" && sx ? [bookingByPk(sx.pk), sx] : [null, null]; }
+  window.addEventListener("pointerup", ()=>{ if(!sxDown) return; sxDown=false;
+    setTimeout(()=>{ const [b, sx]=sxCurrent(); if(b) showMarkMenu(b, sx); }, 10); });
+  // Touch: selection handles move without pointer events on the page.
+  document.addEventListener("selectionchange", ()=>{
+    if(sxDown) return;
+    clearTimeout(sxSelTimer); sxSelTimer=setTimeout(()=>{ const [b, sx]=sxCurrent(); if(b) showMarkMenu(b, sx); }, 450);
+  });
+  function bindSheetEvents(b, sx){
+    if(state.role==="student") return;
+    const pages=$("#sxPages"), doc=$("#sxDoc"), pop=$("#sxPop");
+    pages.addEventListener("pointerdown", ()=>{ sxDown=true; if(pop.dataset.mode==="menu") closeSxPop(); });
+    // Keep the selection when tapping the menu.
+    pop.addEventListener("pointerdown", (e)=>{ if(pop.dataset.mode==="menu") e.preventDefault(); });
+    // Drop a file onto the sheet area to upload it.
+    doc.addEventListener("dragover", (e)=>{ if(e.dataTransfer && [...e.dataTransfer.types].includes("Files")){ e.preventDefault(); doc.classList.add("drag"); } });
+    doc.addEventListener("dragleave", (e)=>{ if(!doc.contains(e.relatedTarget)) doc.classList.remove("drag"); });
+    doc.addEventListener("drop", (e)=>{ e.preventDefault(); doc.classList.remove("drag"); const f=e.dataTransfer.files[0]; if(f) uploadSheet(b, sx, f); });
+  }
+  // Re-fit the sheet when the window width changes noticeably.
+  let sxResize=null;
+  window.addEventListener("resize", ()=>{ clearTimeout(sxResize); sxResize=setTimeout(()=>{
+    const sx=state.sx, pages=$("#sxPages");
+    if(state.view!=="session" || !sx || !pages || !sx.renderedWidth || Math.abs(pages.clientWidth - sx.renderedWidth) < 40) return;
+    const b=bookingByPk(sx.pk); if(b) renderSheet(b, sx);
+  }, 250); });
+
+  // ----- side panel: Wortschatz · Fehler · Übungen · Notizen -----
+  // Pasted lists: one entry per line. Vocabulary "word = meaning", mistakes
+  // "wrong → right"; anything after " | " becomes the example / explanation.
+  function parseCardList(text, kind){
+    const sep = kind==="vocab" ? /\s*(?:=|\t|\s[–—-]\s|:)\s*/ : /\s*(?:→|->|=>|\t|=)\s*/;
+    const items=[], bad=[];
+    text.split("\n").map(l=>l.trim()).filter(Boolean).forEach(line=>{
+      const [main, ...rest]=line.split(/\s+\|\s+|\s*\|\s*$/);
+      const m=main.match(sep);
+      if(!m){ bad.push(line); return; }
+      const front=main.slice(0, m.index).trim(), back=main.slice(m.index+m[0].length).trim();
+      if(!front || !back){ bad.push(line); return; }
+      items.push({ front, back, note: rest.join(" ").trim() });
+    });
+    return { items, bad };
+  }
+  function sxItemHtml(c, sx, tutor){
+    const vocab=cardKind(c)==="vocab";
+    const main = vocab
+      ? `<div><b>${esc(c.front)}</b> <span class="g">— ${esc(c.back)}</span></div>${c.note ? `<div class="n">„${esc(c.note)}“</div>` : ""}`
+      : `<div class="w">${esc(c.front)}</div><div><b>→ ${esc(c.back)}</b></div>${c.note ? `<div class="n">${esc(c.note)}</div>` : ""}`;
+    const ref = c.fileId && c.page ? `<button class="sx-ref" data-goto="${c.id}" title="Im Arbeitsblatt zeigen">S. ${c.page}</button>` : "";
+    return `<div class="sx-item ${vocab?"v":"e"} ${c.status}${sx.flash===c.id?" flash":""}" data-card="${c.id}">
+      <div class="sx-it">${main}</div>
+      <div class="sx-it-meta">${ref}${c.status==="mastered" ? `<span class="lh-pill done">✓</span>` : ""}${tutor ? (c.status==="mastered" ? `<button class="sx-x" data-reopen="${c.id}" title="Wieder öffnen">↺</button>` : "") + `<button class="sx-x" data-delcard="${c.id}" title="Löschen" aria-label="Löschen">×</button>` : ""}</div>
+    </div>`;
+  }
+  function renderSidePanel(b, sx){
+    const side=$("#sxSide"); if(!side) return;
+    const tutor=state.role!=="student", first=esc(bookingStudent(b).name.split(" ")[0]);
+    const vocab=lessonCards(b,"vocab"), errs=lessonCards(b,"error"), ex=b.exercises||[];
+    const hwOpen = b.homework && !b.homeworkDone;
+    const tabs=[["vocab","Wortschatz",vocab.length],["error","Fehler",errs.length],["ex","Übungen",ex.length],["notes","Notizen",0]];
+    let body="";
+    if(sx.tab==="vocab" || sx.tab==="error"){
+      const kind=sx.tab, cards=kind==="vocab" ? vocab : errs, open=cards.filter(c=>c.status==="open");
+      const hasPdf=worksheets(b).some(isPdf);
+      body=`<div class="sx-lh"><span>${cards.length ? `${open.length} offen · ${cards.length-open.length} gemeistert` : ""}</span>${open.length ? `<button class="sx-practice" id="sxPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</button>` : ""}</div>
+        <div class="sx-list">${cards.length ? cards.map(c=>sxItemHtml(c, sx, tutor)).join("")
+          : `<div class="sx-empty">${tutor
+              ? (hasPdf ? `Markiere im Arbeitsblatt ${kind==="vocab" ? "ein Wort" : "einen Fehler"}, oder trag ${kind==="vocab" ? "es" : "ihn"} unten ein.` : `Noch ${kind==="vocab" ? "keine Wörter" : "keine Fehler"}. Trag sie unten ein oder lade ein Arbeitsblatt hoch.`)
+              : (kind==="vocab" ? "Keine neuen Wörter zu dieser Stunde." : "Keine Fehler zu dieser Stunde.")}</div>`}</div>
+        ${tutor ? `<form class="sx-add" id="sxAdd">
+            <input class="bf-input" id="sxAddFront" placeholder="${kind==="vocab" ? "Wort" : "Falsch"}" aria-label="${kind==="vocab" ? "Wort" : "Fehler"}">
+            <input class="bf-input" id="sxAddBack" placeholder="${kind==="vocab" ? "Bedeutung" : "Richtig"}" aria-label="${kind==="vocab" ? "Bedeutung" : "Richtig"}">
+            <button class="sx-add-btn" type="submit" aria-label="Hinzufügen">+</button>
+          </form>
+          <details class="sx-paste" ${sx.pasteOpen?"open":""}><summary>Liste einfügen</summary>
+            <textarea class="notes-ta" id="sxPasteTa" placeholder="${kind==="vocab" ? "to put off = verschieben\nbypass = Umfahrung | We took the bypass.\nreluctantly = widerwillig" : "I have seen him yesterday → I saw him yesterday | yesterday → Past Simple\nHe go to school → He goes to school"}">${esc(sx.pasteDraft||"")}</textarea>
+            <div class="sx-paste-f"><span id="sxPasteInfo">${kind==="vocab" ? "Pro Zeile: Wort = Bedeutung" : "Pro Zeile: falsch → richtig"} · optional „| Notiz“</span><button class="btn ghost" type="button" id="sxPasteGo">Hinzufügen</button></div>
+          </details>` : ""}`;
+    } else if(sx.tab==="ex"){
+      body=`<div class="sx-list">${ex.length ? ex.map(e=>`<div class="sx-ex ${e.done?"done":""}">
+          <input type="checkbox" data-exdone="${e.id}" ${e.done?"checked":""} aria-label="Erledigt">
+          <div class="sx-it"><div class="t">${esc(e.title)}</div>${e.description ? `<div class="n">${esc(e.description)}</div>` : ""}${e.link ? `<a class="lnk" href="${esc(e.link)}" target="_blank" rel="noopener">Link öffnen ↗</a>` : ""}</div>
+          ${tutor ? `<button class="sx-x" data-delex="${e.id}" title="Löschen" aria-label="Löschen">×</button>` : ""}
+        </div>`).join("") : `<div class="sx-empty">${tutor ? "Noch keine Übungen. Was habt ihr gemacht, was ist noch offen?" : "Keine Übungen zu dieser Stunde."}</div>`}</div>
+        ${tutor ? `<form class="sx-add one" id="sxExAdd"><input class="bf-input" id="exTitle" placeholder="z. B. Unit 7, Ex 2 (S. 1)" aria-label="Übung"><button class="sx-add-btn" type="submit" aria-label="Hinzufügen">+</button></form>
+          <input class="bf-input sx-exlink" id="exLink" placeholder="Link (optional), https://…" aria-label="Link">` : ""}`;
+    } else {
+      const handins=(b.files||[]).filter(f=>f.kind==="homework");
+      const ta=(id, val, ph)=>`<textarea class="notes-ta" id="${id}" placeholder="${ph}">${esc(val||"")}</textarea>`;
+      body=`<div class="sx-block"><h4>Zusammenfassung${tutor ? ` <span>sieht ${first}</span>` : ""}</h4>
+          ${tutor ? ta("sessSummary", b.summary, "Was ihr gemacht habt, wie es gelaufen ist…") : (b.summary ? `<div class="ld-text">${esc(b.summary)}</div>` : `<div class="sx-empty">Noch keine Zusammenfassung.</div>`)}</div>
+        <div class="sx-block"><h4>Hausaufgabe</h4>
+          ${tutor ? ta("sessHomework", b.homework, "Bis zur nächsten Stunde…") : (b.homework ? `<div class="ld-text">${esc(b.homework)}</div>` : `<div class="sx-empty">Keine Hausaufgabe.</div>`)}
+          ${b.homework ? `<label class="sess-hw-done"><input type="checkbox" id="hwDone" ${b.homeworkDone?"checked":""} ${tutor?"disabled":""}> ${b.homeworkDone ? "Erledigt" : (tutor ? `${first} hat sie noch nicht abgehakt` : "Als erledigt markieren")}</label>` : ""}
+          ${handins.map(f=>`<div class="sx-file"><a href="${esc(f.url)}">${esc(f.name)}</a><span>${Math.max(1, Math.round(f.size/1024))} KB</span><button class="sx-x" data-delfile="${f.id}" title="Entfernen" aria-label="Entfernen">×</button></div>`).join("")}
+          ${!tutor ? `<label class="sx-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : (handins.length ? "" : `<div class="sx-empty">${first} hat noch nichts abgegeben.</div>`)}
+        </div>
+        <div class="sx-block"><h4>${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
+          ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="sx-empty">Keine.</div>`) : ta("sessNotes", b.notes, "Deine eigenen Notizen…")}</div>
+        ${tutor ? `<div class="sx-block"><h4>Privat <span>nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…")}</div>` : ""}`;
+    }
+    side.innerHTML=`<div class="sx-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" aria-selected="${sx.tab===k}" class="${sx.tab===k?"on":""} ${k}" data-tab="${k}">${l}${n ? `<span class="c">${n}</span>` : ""}${k==="notes" && hwOpen && !tutor ? `<span class="dot" title="Hausaufgabe offen"></span>` : ""}</button>`).join("")}</div>
+      <div class="sx-body" id="sxBody">${body}</div>`;
+    sx.flash=null;
 
     // ----- handlers -----
-    $("#sessBack").onclick=leaveSession;
-    el.querySelectorAll(".sess-jump a").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); const tgt=$(a.getAttribute("href")); if(tgt) tgt.scrollIntoView({ behavior:"smooth", block:"start" }); });
-    const autosave=(id, field)=>{ const x=$("#"+id); if(!x) return; x.onchange=async ()=>{ if(await saveBooking(b, { [field]: x.value })){ const ok=x.nextElementSibling; if(ok && ok.classList.contains("sess-saved")){ ok.hidden=false; setTimeout(()=>ok.hidden=true, 1600); } } }; };
-    autosave("sessSummary","summary"); autosave("sessHomework","homework"); autosave("sessPrivate","tutorNotes"); autosave("sessNotes","notes");
-    if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
-    if($("#hwDone")) $("#hwDone").onchange=async (e)=>{ if(await saveBooking(b, { homeworkDone: e.target.checked })) renderSession(); };
-    el.querySelectorAll("[data-exdone]").forEach(cb=> cb.onchange=async ()=>{
+    side.querySelectorAll("[data-tab]").forEach(t=> t.onclick=()=>{ sx.tab=t.dataset.tab; renderSidePanel(b, sx); });
+    side.querySelectorAll("[data-goto]").forEach(g=> g.onclick=()=>gotoCard(b, sx, +g.dataset.goto));
+    bindCardActions(side, ()=>{ renderSidePanel(b, sx); drawHighlights(b, sx); });
+    if($("#sxPractice")){ const kind=sx.tab; $("#sxPractice").onclick=()=>openFlashcards(lessonCards(b, kind).filter(c=>c.status==="open"), tutor ? "review" : "practice"); }
+    if($("#sxAdd")) $("#sxAdd").onsubmit=async (e)=>{
+      e.preventDefault();
+      const kind=sx.tab, front=$("#sxAddFront").value.trim(), back=$("#sxAddBack").value.trim();
+      if(!front || !back){ toast(kind==="vocab" ? "Bitte Wort und Bedeutung eintragen" : "Bitte falsch und richtig eintragen"); return; }
+      const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug:b.studentId, bookingPk:b._pk, front, back });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      state.errorCards.push(r.data.card); sx.flash=r.data.card.id; renderSidePanel(b, sx); $("#sxAddFront").focus();
+    };
+    const pasteTa=$("#sxPasteTa");
+    if(pasteTa){
+      const det=side.querySelector(".sx-paste"); det.ontoggle=()=>{ sx.pasteOpen=det.open; };
+      const info=()=>{ const { items, bad }=parseCardList(pasteTa.value, sx.tab); sx.pasteDraft=pasteTa.value;
+        $("#sxPasteInfo").textContent = pasteTa.value.trim() ? `${items.length} ${sx.tab==="vocab" ? (items.length===1?"Wort":"Wörter") : "Fehler"} erkannt${bad.length ? ` · ${bad.length} Zeile${bad.length===1?"":"n"} ohne ${sx.tab==="vocab" ? "„=“" : "„→“"}` : ""}` : (sx.tab==="vocab" ? "Pro Zeile: Wort = Bedeutung" : "Pro Zeile: falsch → richtig") + " · optional „| Notiz“"; };
+      pasteTa.oninput=info; if(pasteTa.value) info();
+      $("#sxPasteGo").onclick=async ()=>{
+        const kind=sx.tab, { items, bad }=parseCardList(pasteTa.value, kind);
+        if(!items.length){ toast(kind==="vocab" ? "Keine Zeile mit „Wort = Bedeutung“ gefunden" : "Keine Zeile mit „falsch → richtig“ gefunden"); return; }
+        const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug:b.studentId, bookingPk:b._pk, items });
+        if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+        state.errorCards.push(...r.data.cards);
+        sx.pasteDraft = bad.join("\n"); sx.pasteOpen = !!bad.length;
+        renderSidePanel(b, sx);
+        toast(`${r.data.cards.length} hinzugefügt${bad.length ? ` · ${bad.length} Zeile${bad.length===1?"":"n"} übrig` : ""}`);
+      };
+    }
+    // Exercises
+    side.querySelectorAll("[data-exdone]").forEach(cb=> cb.onchange=async ()=>{
       const id=+cb.dataset.exdone, r=await apiResult('PUT', `/api/exercises/${id}/`, { done: cb.checked });
       if(!r.ok){ toast("Speichern fehlgeschlagen"); cb.checked=!cb.checked; return; }
-      Object.assign(exercises.find(x=>x.id===id), r.data.exercise); renderSession();
+      Object.assign(ex.find(x=>x.id===id), r.data.exercise); renderSidePanel(b, sx);
     });
-    el.querySelectorAll("[data-delex]").forEach(btn=> btn.onclick=async ()=>{
+    side.querySelectorAll("[data-delex]").forEach(btn=> btn.onclick=async ()=>{
       if(!window.confirm("Diese Übung löschen?")) return;
       const id=+btn.dataset.delex, r=await apiResult('DELETE', `/api/exercises/${id}/`);
       if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
-      b.exercises=exercises.filter(x=>x.id!==id); renderSession();
+      b.exercises=ex.filter(x=>x.id!==id); renderSidePanel(b, sx);
     });
-    if($("#exAdd")) $("#exAdd").onclick=async ()=>{
-      const title=$("#exTitle").value.trim(); if(!title){ toast("Bitte einen Titel eintragen"); return; }
-      const r=await apiResult('POST', `/api/bookings/${b._pk}/exercises/`, { title, description: $("#exDesc").value.trim(), link: $("#exLink").value.trim() });
+    if($("#sxExAdd")) $("#sxExAdd").onsubmit=async (e)=>{
+      e.preventDefault();
+      const title=$("#exTitle").value.trim(); if(!title){ toast("Bitte die Übung eintragen"); return; }
+      const r=await apiResult('POST', `/api/bookings/${b._pk}/exercises/`, { title, link: $("#exLink").value.trim() });
       if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
-      b.exercises=[...exercises, r.data.exercise]; renderSession();
+      b.exercises=[...ex, r.data.exercise]; renderSidePanel(b, sx); $("#exTitle").focus();
     };
-    const addCard=async (kind, f, bk, n)=>{
-      const front=$(f).value.trim(), back=$(bk).value.trim(), note=$(n).value.trim();
-      if(!front || !back){ toast(kind==="vocab" ? "Bitte Wort und Bedeutung eintragen" : "Bitte Fehler und richtige Version eintragen"); return; }
-      const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug: b.studentId, bookingPk: b._pk, front, back, note });
-      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
-      state.errorCards.push(r.data.card); renderSession(); const again=$(f); if(again) again.focus();
-    };
-    if($("#vcAdd")) $("#vcAdd").onclick=()=>addCard("vocab", "#vcFront", "#vcBack", "#vcNote");
-    if($("#ecAdd")) $("#ecAdd").onclick=()=>addCard("error", "#ecFront", "#ecBack", "#ecNote");
-    if($("#vocabPractice")) $("#vocabPractice").onclick=()=>openFlashcards(vocab.filter(c=>c.status==="open"), tutor ? "review" : "practice");
-    if($("#errsPractice")) $("#errsPractice").onclick=()=>openFlashcards(errs.filter(c=>c.status==="open"), tutor ? "review" : "practice");
-    bindCardActions(el, renderSession);
-    const upload=(input)=>{ if(!input) return; input.onchange=async ()=>{
-      const file=input.files[0]; if(!file) return;
-      if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); input.value=""; return; }
+    // Notes
+    const autosave=(id, field)=>{ const x=$("#"+id); if(x) x.onchange=async ()=>{ if(await saveBooking(b, { [field]: x.value })) toast("Gespeichert"); }; };
+    autosave("sessSummary","summary"); autosave("sessHomework","homework"); autosave("sessPrivate","tutorNotes"); autosave("sessNotes","notes");
+    if($("#hwDone")) $("#hwDone").onchange=async (e)=>{ if(await saveBooking(b, { homeworkDone: e.target.checked })) renderSidePanel(b, sx); };
+    const hw=$("#hwUpload"); if(hw) hw.onchange=async ()=>{
+      const file=hw.files[0]; if(!file) return;
+      if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); hw.value=""; return; }
       toast("Wird hochgeladen…");
       const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
       if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
-      b.files=[...(b.files||[]), r.file]; renderSession(); toast("Hochgeladen");
-    }; };
-    upload($("#sheetUpload")); upload($("#hwUpload"));
-    el.querySelectorAll("[data-delfile]").forEach(btn=> btn.onclick=async ()=>{
+      b.files=[...(b.files||[]), r.file]; renderSidePanel(b, sx); toast("Hochgeladen");
+    };
+    side.querySelectorAll("[data-delfile]").forEach(btn=> btn.onclick=async ()=>{
       if(!window.confirm("Diese Datei entfernen?")) return;
       const id=+btn.dataset.delfile, r=await apiResult('DELETE', `/api/session-files/${id}/`);
       if(!r.ok){ toast("Entfernen fehlgeschlagen"); return; }
-      b.files=(b.files||[]).filter(x=>x.id!==id); renderSession();
+      b.files=(b.files||[]).filter(x=>x.id!==id); renderSidePanel(b, sx);
     });
   }
 

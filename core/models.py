@@ -446,6 +446,13 @@ class ErrorCard(models.Model):
     last_result = models.CharField(max_length=10, blank=True)  # "known" / "again"
     last_reviewed_at = models.DateTimeField(null=True, blank=True)
     mastered_at = models.DateTimeField(null=True, blank=True)
+    # Where the card was marked in a lesson worksheet (PDF), if it was: the file,
+    # the 1-based page and the highlight boxes as [x, y, w, h] fractions of the
+    # page size, so they redraw at any zoom.
+    source_file = models.ForeignKey('SessionFile', on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='highlights')
+    page = models.PositiveSmallIntegerField(null=True, blank=True)
+    rects = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
