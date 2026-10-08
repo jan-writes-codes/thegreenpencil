@@ -45,7 +45,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import (
     User, Booking, Receipt, CreditTransaction, ActiveLesson, LessonFile,
-    SiteSettings, AvailabilityOverride,
+    SiteSettings, AvailabilityOverride, ErrorCard,
 )
 
 
@@ -1095,7 +1095,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
 
 class DomRoleTests(_DomProbeBase):
     EXPECTED = {
-        "maya":  ("Maya Karlsson", {"book", "account", "games", "files"}),
+        "maya":  ("Maya Karlsson", {"book", "account", "lessons", "files", "errors"}),
         "davit": ("Davit Petrosyan", {"teacher", "students"}),
         "admin": ("Studio Admin", {"admin"}),
     }
@@ -3440,3 +3440,106 @@ class BookingRequestTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         feed = build_tutor_feed(self.davit, Booking.objects.filter(tutor=self.davit))
         self.assertIn("STATUS:TENTATIVE", feed)
         self.assertIn("SUMMARY:Anfrage:", feed)
+
+
+# --------------------------------------------------------------------------- #
+# Lesson summaries + Fehler-Training (error cards)
+# --------------------------------------------------------------------------- #
+class LessonSummaryTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def test_tutor_sets_summary_student_sees_it_but_not_private_notes(self):
+        self.client.force_login(self.davit)
+        self.client.put(f"/api/bookings/{self.b.pk}/", data=json.dumps({
+            "summary": "Present perfect vs. past simple", "tutorNotes": "PRIVATE: tired today",
+        }), content_type="application/json")
+        self.client.force_login(self.maya)
+        html = self.client.get(reverse("app")).content.decode()
+        payload = extract_payload(html)
+        mine = [b for b in payload["bookings"] if b.get("pk") == self.b.pk][0]
+        self.assertEqual(mine["summary"], "Present perfect vs. past simple")
+        self.assertNotIn("tutorNotes", mine)
+        self.assertNotIn("PRIVATE: tired today", html)
+
+    def test_student_cannot_set_summary(self):
+        self.client.force_login(self.maya)
+        self.client.put(f"/api/bookings/{self.b.pk}/", data=json.dumps({"summary": "hack"}),
+                        content_type="application/json")
+        self.b.refresh_from_db()
+        self.assertEqual(self.b.summary, "")
+
+
+class ErrorCardTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def _add(self, actor=None, **extra):
+        self.client.force_login(actor or self.davit)
+        body = {"studentSlug": "maya", "bookingPk": self.b.pk,
+                "front": "I have seen him yesterday.", "back": "I saw him yesterday.",
+                "note": "Finished time -> past simple"}
+        body.update(extra)
+        return self.client.post("/api/error-cards/", data=json.dumps(body),
+                                content_type="application/json")
+
+    def test_tutor_adds_card_linked_to_lesson(self):
+        resp = self._add()
+        self.assertEqual(resp.status_code, 200)
+        card = resp.json()["card"]
+        self.assertEqual((card["status"], card["bookingPk"]), ("open", self.b.pk))
+
+    def test_students_cannot_add_or_review(self):
+        self.assertEqual(self._add(actor=self.maya).status_code, 403)
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.maya)
+        resp = self.client.post(f"/api/error-cards/{card_id}/review/",
+                                data=json.dumps({"result": "known"}), content_type="application/json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_validation(self):
+        self.assertEqual(self._add(front="").status_code, 400)
+        self.assertEqual(self._add(studentSlug="nobody").status_code, 400)
+        other = Booking.objects.create(student=self.ines, tutor=self.davit,
+                                       date=date(2026, 5, 29), time="09:00")
+        self.assertEqual(self._add(bookingPk=other.pk).status_code, 400)  # not maya's lesson
+
+    def test_review_again_keeps_open_known_masters(self):
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.davit)
+        r = self.client.post(f"/api/error-cards/{card_id}/review/",
+                             data=json.dumps({"result": "again"}), content_type="application/json")
+        self.assertEqual((r.json()["card"]["status"], r.json()["card"]["reviews"]), ("open", 1))
+        r = self.client.post(f"/api/error-cards/{card_id}/review/",
+                             data=json.dumps({"result": "known"}), content_type="application/json")
+        self.assertEqual((r.json()["card"]["status"], r.json()["card"]["reviews"]), ("mastered", 2))
+        self.assertTrue(r.json()["card"]["mastered"])
+        # Reopen.
+        r = self.client.put(f"/api/error-cards/{card_id}/", data=json.dumps({"status": "open"}),
+                            content_type="application/json")
+        self.assertEqual(r.json()["card"]["status"], "open")
+
+    def test_edit_and_delete(self):
+        card_id = self._add().json()["card"]["id"]
+        self.client.force_login(self.davit)
+        r = self.client.put(f"/api/error-cards/{card_id}/", data=json.dumps({"back": "I saw him."}),
+                            content_type="application/json")
+        self.assertEqual(r.json()["card"]["back"], "I saw him.")
+        self.assertEqual(self.client.delete(f"/api/error-cards/{card_id}/").status_code, 200)
+        self.assertFalse(ErrorCard.objects.filter(pk=card_id).exists())
+
+    def test_payload_scoping(self):
+        self._add()
+        ines_b = Booking.objects.create(student=self.ines, tutor=self.davit,
+                                        date=date(2026, 5, 29), time="10:00")
+        self._add(studentSlug="ines", bookingPk=ines_b.pk, front="He go.", back="He goes.")
+        self.client.force_login(self.maya)
+        cards = extract_payload(self.client.get(reverse("app")).content.decode())["errorCards"]
+        self.assertEqual({c["studentId"] for c in cards}, {"maya"})
+        self.client.force_login(self.davit)
+        cards = extract_payload(self.client.get(reverse("app")).content.decode())["errorCards"]
+        self.assertEqual({c["studentId"] for c in cards}, {"maya", "ines"})
