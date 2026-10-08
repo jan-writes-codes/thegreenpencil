@@ -38,10 +38,6 @@
     background: linear-gradient(120deg, #4cb56b 0%, var(--c1) 72%); box-shadow: 0 12px 26px -10px rgba(58,165,92,0.55); }
   .mark img { width: 18px; height: auto; filter: brightness(0) invert(1); transform: translateY(-1px); }
   .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; line-height: 1; }
-  /* Cursive wordmark (templates/_logo.html). Height tracks the wordmark font-size
-     so existing responsive font-size rules keep scaling it. */
-  .wordmark .gp-logo { display: block; height: 1.9em; width: auto; aspect-ratio: 987.3 / 273; color: #277a42; overflow: visible; }
-  .wordmark .gp-logo + .sub, .wordmark noscript + .sub { margin-top: 2px; }
   .wordmark span { color: var(--accent); }
   .wordmark .sub { display: block; font-family: var(--font-body); font-size: 10px; font-weight: 400;
     letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
@@ -74,7 +70,7 @@
     <div class="wrap top-in">
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
       </a>
     </div>
   </header>
