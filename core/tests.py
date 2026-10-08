@@ -3229,3 +3229,36 @@ class SelfEmailUpdateTests(FluentDataMixin, TestCase):
         self.assertEqual(resp.status_code, 400)
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.email, "maya@fluent.at")
+
+
+class FirstLoginCsrfTests(FluentDataMixin, TestCase):
+    """First login with a handed-over password, with CSRF enforced as in prod.
+    Logging in rotates the CSRF token, so the token the login page was rendered
+    with is stale: the forced password change must use a freshly rendered page
+    (the login page reloads to /login/ for exactly this)."""
+
+    def _token(self, client):
+        html = client.get("/login/").content.decode()
+        return re.search(r'name="csrf-token" content="([^"]+)"', html).group(1)
+
+    def test_set_password_after_first_login(self):
+        self.maya.must_change_password = True
+        self.maya.save()
+        c = Client(enforce_csrf_checks=True)
+        old = self._token(c)
+        resp = c.post("/api/login/", data=json.dumps({"email": self.maya.email, "password": "password"}),
+                      content_type="application/json", HTTP_X_CSRFTOKEN=old)
+        self.assertTrue(resp.json().get("mustChangePassword"))
+        # The pre-login token no longer works — the bug users hit.
+        stale = c.post("/api/password/change/", data=json.dumps({"password": "a-new-pass-123"}),
+                       content_type="application/json", HTTP_X_CSRFTOKEN=old)
+        self.assertEqual(stale.status_code, 403)
+        # Reloaded /login/ renders the forced-change form with a fresh token.
+        html = c.get("/login/").content.decode()
+        self.assertIn('id="setpassForm"', html)
+        fresh = re.search(r'name="csrf-token" content="([^"]+)"', html).group(1)
+        ok = c.post("/api/password/change/", data=json.dumps({"password": "a-new-pass-123"}),
+                    content_type="application/json", HTTP_X_CSRFTOKEN=fresh)
+        self.assertEqual(ok.status_code, 200)
+        self.maya.refresh_from_db()
+        self.assertFalse(self.maya.must_change_password)

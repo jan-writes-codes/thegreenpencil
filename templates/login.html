@@ -260,11 +260,10 @@
     if (r.error) { authErr(r.error); return; }
     if (r.mustChangePassword) {
       // First login with the handed-over password: pick an own one before the app.
-      forceChange = true;
-      $("#setpassSub").textContent = "Bevor es losgeht: Bitte ersetze das Passwort, das du bekommen hast, durch ein eigenes.";
-      $("#setpassLogout").hidden = false;
-      showCard("setpassForm");
-      $("#newPass").focus();
+      // Reload instead of swapping cards in place: logging in rotates the CSRF
+      // token, so this page's token is stale and the next POST would get a 403.
+      // /login/ re-renders straight into the "set your password" form.
+      window.location.href = "/login/";
       return;
     }
     // Success — land on the app.
