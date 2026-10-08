@@ -3613,6 +3613,39 @@ class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.assertEqual(self.client.delete(f"/api/session-files/{fid}/").status_code, 403)
         self.assertEqual(self.client.delete(f"/api/session-files/{hw['id']}/").status_code, 200)
 
+    def test_card_highlight_in_worksheet(self):
+        fid = self._upload(self.davit).json()["file"]["id"]
+        base = {"kind": "vocab", "studentSlug": self.maya.slug, "bookingPk": self.b.pk,
+                "front": "put off", "back": "verschieben"}
+        r = self._json("post", "/api/error-cards/",
+                       {**base, "fileId": fid, "page": 2, "rects": [[0.1, 0.2, 0.15, 0.02]]})
+        card = r.json()["card"]
+        self.assertEqual((card["fileId"], card["page"], card["rects"]), (fid, 2, [[0.1, 0.2, 0.15, 0.02]]))
+        # Bad anchors are refused: wrong page, malformed boxes, a homework upload.
+        for extra in ({"fileId": fid, "page": 0, "rects": []},
+                      {"fileId": fid, "page": 1, "rects": [[0.1, 0.2, "x", 0.1]]},
+                      {"fileId": fid, "page": 1, "rects": [[0.1, 0.2, 0.1, 0.1]] * 61}):
+            self.assertEqual(self._json("post", "/api/error-cards/", {**base, **extra}).status_code, 400)
+        hw = self._upload(self.maya, name="hw.pdf").json()["file"]["id"]
+        self.assertEqual(self._json("post", "/api/error-cards/",
+                                    {**base, "fileId": hw, "page": 1}).status_code, 400)
+        # Removing the worksheet keeps the card, just without its highlight.
+        self._json("delete", f"/api/session-files/{fid}/")
+        self.assertIsNone(ErrorCard.objects.get(pk=card["id"]).source_file_id)
+
+    def test_pasted_list_creates_cards(self):
+        base = {"kind": "error", "studentSlug": self.maya.slug, "bookingPk": self.b.pk}
+        r = self._json("post", "/api/error-cards/", {**base, "items": [
+            {"front": "He go", "back": "He goes"}, {"front": "I have seen him yesterday", "back": "I saw him",
+                                                   "note": "yesterday → past simple"}]})
+        self.assertEqual([c["back"] for c in r.json()["cards"]], ["He goes", "I saw him"])
+        # All or nothing: one bad line saves none.
+        r = self._json("post", "/api/error-cards/", {**base, "items": [{"front": "a", "back": "b"}, {"front": "x"}]})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(ErrorCard.objects.filter(student=self.maya).count(), 2)
+        self.assertEqual(self._json("post", "/api/error-cards/", {**base, "items": [{"front": "a", "back": "b"}]},
+                                    actor=self.maya).status_code, 403)
+
     def test_file_type_and_size_limits(self):
         self.assertEqual(self._upload(self.davit, name="x.exe").status_code, 400)
         big = b"0" * (10 * 1024 * 1024 + 1)
