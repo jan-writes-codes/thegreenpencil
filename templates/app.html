@@ -363,6 +363,39 @@
   .ecard.mastered .ef { color: var(--faint); }
   .ec-form { display: grid; gap: 8px; margin-top: 10px; }
   .ec-form textarea { min-height: 54px; }
+  /* Session page: one lesson, scrollable sections, shared by tutor and student */
+  .sess-wrap { max-width: 880px; }
+  .sess-head { padding: 26px 28px 18px; }
+  .sess-title-in { width: 100%; font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 38px);
+    letter-spacing: -0.03em; color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px dashed var(--line);
+    padding: 4px 0; margin: 8px 0 6px; outline: none; }
+  .sess-title-in:focus { border-bottom-color: var(--c1); }
+  .sess-jump { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; position: sticky; top: 0; }
+  .sess-jump a { font-size: 12.5px; text-decoration: none; color: var(--muted); padding: 6px 11px; border-radius: 100px;
+    border: 1px solid var(--line); background: rgba(251,248,241,0.6); white-space: nowrap; }
+  .sess-jump a:hover { color: var(--ink); border-color: color-mix(in oklch, var(--c1) 45%, transparent); }
+  .sess-h { margin: 34px 2px 10px; scroll-margin-top: 16px; }
+  .sess-sec { padding: 18px 22px; }
+  .sess-sec .notes-ta { min-height: 96px; }
+  .sess-sub { font-family: var(--font-display); font-size: 14.5px; margin: 0 0 8px; }
+  .sess-saved { display: inline-block; font-size: 12px; color: var(--good); margin-top: 6px; }
+  .sess-saved[hidden] { display: none; }
+  .sess-ex { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+  .sess-ex:last-of-type { border-bottom: 0; }
+  .sess-ex-body { flex: 1; min-width: 0; }
+  a.lnk { color: var(--c1); text-decoration: none; font-weight: 600; font-size: 13px; }
+  a.lnk:hover { text-decoration: underline; }
+  .sess-ex-body .t { font-weight: 600; font-size: 14.5px; }
+  .sess-ex-body .s { font-size: 13.5px; color: var(--muted); margin-top: 3px; white-space: pre-wrap; }
+  .sess-ex.done .sess-ex-body .t { text-decoration: line-through; color: var(--muted); }
+  .sess-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--c1); cursor: pointer; }
+  .sess-check span { display: none; }
+  .sess-hw-done { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-top: 10px; color: var(--muted); }
+  .sess-hw-done input { width: 17px; height: 17px; accent-color: var(--c1); }
+  .sess-upload { display: inline-flex; width: auto; margin-top: 12px; cursor: pointer; padding-left: 18px; padding-right: 18px; }
+  .sess-file { display: flex; align-items: center; gap: 10px; }
+  .sess-file > a { flex: 1; display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
+  .ecard.vocab .eb { font-size: 15px; }
   /* Flashcards (practice for students, review with the tutor) */
   .flash-card { padding: 30px 26px; text-align: center; }
   .flash-prog { font-size: 12.5px; color: var(--faint); margin-bottom: 16px; }
@@ -840,7 +873,7 @@
       <button id="impExit">Zurück zum Admin</button>
     </div>
     <header class="top">
-      <a class="brand" href="/">
+      <a class="brand" href="/app/" id="brandHome" title="Zu meinem Kalender">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
         <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
       </a>
@@ -869,7 +902,7 @@
           </button>
           <button class="tab" data-view="errors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3.5" width="13" height="17" rx="2"/><path d="M8 8.5h5M8 12.5h5"/><path d="M19.5 7v13.5H8"/></svg>
-            Fehler-Training
+            Training
           </button>
         </div>
         <button class="tab" data-view="teacher">
@@ -1013,11 +1046,16 @@
       <!-- ===================== FEHLER-TRAINING ===================== -->
       <section class="view" id="view-errors" data-screen-label="Error training">
         <div class="wrap">
-          <div class="eyebrow">Lernen · Fehler-Training</div>
-          <h1 class="title">Aus Fehlern lernen.</h1>
-          <p class="sub">Die Fehler aus deinen Stunden als Lernkarten. Übe sie jederzeit — in der nächsten Stunde geht ihr sie gemeinsam durch, und was sitzt, hakt dein Tutor als gemeistert ab.</p>
+          <div class="eyebrow">Lernen · Training</div>
+          <h1 class="title">Wiederholen, bis es sitzt.</h1>
+          <p class="sub">Deine Fehler und neuen Wörter aus den Stunden als Lernkarten. Übe sie jederzeit — in der nächsten Stunde geht ihr sie gemeinsam durch, und was sitzt, hakt dein Tutor als gemeistert ab.</p>
           <div id="errorsContent"></div>
         </div>
+      </section>
+
+      <!-- ===================== SESSION PAGE (one lesson) ===================== -->
+      <section class="view" id="view-session" data-screen-label="Session">
+        <div class="wrap sess-wrap"><div id="sessionContent"></div></div>
       </section>
 
       <!-- ===================== LEARNING FILES ===================== -->
@@ -2182,7 +2220,18 @@
     root.querySelectorAll("[data-cancel-txn]").forEach(btn=>
       btn.onclick=(e)=>{ e.stopPropagation(); cancelPurchaseTxn(+btn.dataset.cancelTxn, btn, btn.dataset.cancelType); });
   }
-  function renderActivity() { $("#activityList").innerHTML = txnHtml(meLog()); bindReceiptLinks($("#activityList")); }
+  // Show the latest few movements; the rest sit behind "Mehr anzeigen".
+  const ACTIVITY_SHOWN = 6;
+  function renderActivity() {
+    const el=$("#activityList"), log=meLog(), all=state.activityAll;
+    const rows = (all || log.length <= ACTIVITY_SHOWN) ? log : log.slice(0, ACTIVITY_SHOWN);
+    let more = "";
+    if (log.length > ACTIVITY_SHOWN)
+      more = `<button class="btn-text act-more" id="activityMore">${all ? "Weniger anzeigen" : `Mehr anzeigen (${log.length-ACTIVITY_SHOWN})`}</button>`;
+    el.innerHTML = txnHtml(rows) + more;
+    bindReceiptLinks(el);
+    const b=$("#activityMore"); if(b) b.onclick=()=>{ state.activityAll=!state.activityAll; renderActivity(); };
+  }
   // Consolidated credit ledger in the Admin view: every student's movements, with
   // the student name shown and purchases cancellable in place.
   // A "buy" row is a real credit purchase only when it carries a receipt; booking
@@ -2483,7 +2532,7 @@
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
         <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
-        ${(!bk.isIntro && bk._pk && bk.status!=="requested") ? `<button class="btn ghost" id="tLessonEdit" style="margin-top:10px;">Zusammenfassung &amp; Fehler</button>` : ""}
+        ${(!bk.isIntro && bk._pk && bk.status!=="requested") ? `<button class="btn ghost" id="tLessonEdit" style="margin-top:10px;">Stunde öffnen · Zusammenfassung, Übungen, Fehler</button>` : ""}
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
@@ -2507,7 +2556,7 @@
         renderTeacherWeek(); renderTutorLists(); renderAccount(); renderWeek(); renderTeacherSummary();
       };
       $("#tRemove").onclick=()=>teacherRemove(bk);
-      if($("#tLessonEdit")) $("#tLessonEdit").onclick=()=>openLessonEditor(bk);
+      if($("#tLessonEdit")) $("#tLessonEdit").onclick=()=>openSession(bk._pk);
       if($("#tReqConfirm")) $("#tReqConfirm").onclick=()=>answerRequest(bk._pk, true);
       if($("#tReqDecline")) $("#tReqDecline").onclick=()=>{ state.teacherManage=null; answerRequest(bk._pk, false); };
       $("#tBack").onclick=()=>{ state.teacherManage=null; renderTeacherSummary(); };
@@ -2647,9 +2696,9 @@
           <button class="mini-btn" id="settleLinkBtn" style="white-space:nowrap;">Zahlungslink</button>
         </div>
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
-        <div class="section-h" style="margin:20px 2px 6px;"><h2>Fehler-Training</h2></div>
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
         ${errorTrainingMgrHtml(s)}
-        <div class="section-h" style="margin:20px 2px 6px;"><h2>Stunden</h2><span class="micro" style="margin:0;">Zusammenfassung &amp; Fehler eintragen</span></div>
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Stunden</h2><span class="micro" style="margin:0;">jede Stunde hat ihre eigene Seite</span></div>
         ${studentLessonsHtml(s)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
@@ -2668,9 +2717,8 @@
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
-    if($("#errReview")) $("#errReview").onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && c.status==="open"), "review");
-    $("#studentModal").querySelectorAll("[data-editlesson]").forEach(btn=> btn.onclick=()=>{ const b=state.bookings.find(x=>x._pk===+btn.dataset.editlesson); if(b) openLessonEditor(b); });
-    if($("#errMgrList")) bindCardActions($("#errMgrList"), renderStudentModal);
+    $("#studentModal").querySelectorAll("[data-review]").forEach(btn=> btn.onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && cardKind(c)===btn.dataset.review && c.status==="open"), "review"));
+    $("#studentModal").querySelectorAll("[data-session]").forEach(btn=> btn.onclick=()=>openSession(+btn.dataset.session));
     $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
@@ -2745,7 +2793,7 @@
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
       <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
       <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip">Anfrage</span>':""}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
-      <div class="tail">${(!b.isIntro && b.status!=="requested" && b._pk)?`<button class="mini-btn" data-editlesson="${b._pk}" title="Zusammenfassung, Notizen & Fehler">Notizen &amp; Fehler</button>`:""}${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
+      <div class="tail">${(!b.isIntro && b.status!=="requested" && b._pk)?`<button class="mini-btn" data-session="${b._pk}" title="Zusammenfassung, Übungen, Wortschatz, Fehler, Arbeitsblätter">Stunde öffnen</button>`:""}${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
   }
   function updateRequestBadge(n){
@@ -2782,9 +2830,6 @@
     const rp=$("#tutorRequests"), rs=$("#tutorRequestsSec");
     if (rp && rs) { rs.hidden = !reqs.length; rp.innerHTML = reqs.map(b=>tutorRow(b,false)).join(""); }
     updateRequestBadge(reqs.length);
-    document.querySelectorAll("#tutorUpcoming [data-editlesson], #tutorCompleted [data-editlesson]").forEach(btn=>{
-      btn.onclick=(e)=>{ e.stopPropagation(); const b=state.bookings.find(x=>x._pk===+btn.dataset.editlesson); if(b) openLessonEditor(b); };
-    });
     document.querySelectorAll("#tutorUpcoming [data-confirm], #tutorRequests [data-confirm]").forEach(btn=>{
       btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.confirm, true); };
     });
@@ -2792,6 +2837,9 @@
       btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.decline, false); };
     });
     done.innerHTML = past.length ? past.map(b=>tutorRow(b,true)).join("") : `<div class="empty-list">Noch keine abgeschlossenen Stunden.</div>`;
+    document.querySelectorAll("#tutorUpcoming [data-session], #tutorCompleted [data-session]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); openSession(+btn.dataset.session); };
+    });
     // Admin-only: retroactively undo a completed lesson (see openUndoCompleted).
     done.querySelectorAll("[data-undo]").forEach(btn=>{
       btn.onclick=(e)=>{ e.stopPropagation(); openUndoCompleted(+btn.dataset.undo); };
@@ -3311,31 +3359,39 @@
     }).join("");
   }
 
-  // ---------- Stunden (lesson history) & Fehler-Training ----------
+  // ---------- Stunden, session pages & Training ----------
   // A lesson counts as "had" once it has ended; unconfirmed requests never do.
   function lessonEnded(b){ return bookingStart(b).getTime() + lessonMins(b)*60000 <= Date.now(); }
-  function lessonCards(b){ return b && b._pk ? state.errorCards.filter(c=>c.bookingPk===b._pk) : []; }
-  function lessonLabel(pk){ const b=state.bookings.find(x=>x._pk===pk); return b ? `Stunde vom ${fmtAT(b.date)}` : "Weitere Fehler"; }
+  function bookingByPk(pk){ return state.bookings.find(x=>x._pk===pk); }
+  // Cards (mistakes or vocabulary) recorded in one lesson.
+  function lessonCards(b, kind){ return b && b._pk ? state.errorCards.filter(c=>c.bookingPk===b._pk && (!kind || (c.kind||"error")===kind)) : []; }
+  function cardKind(c){ return c.kind || "error"; }
+  const DECKS = { error: { title:"Fehler", one:"Fehler", many:"Fehler" }, vocab: { title:"Wortschatz", one:"Wort", many:"Wörter" } };
+  function lessonLabel(pk){ const b=bookingByPk(pk); return b ? `Stunde vom ${fmtAT(b.date)}` : "Weitere"; }
   function groupByLesson(cards){
     const groups=new Map();
     cards.forEach(c=>{ const k=c.bookingPk||0; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
-    return [...groups.entries()].map(([k, cs])=>({ label: lessonLabel(+k), cards: cs }));
+    return [...groups.entries()].map(([k, cs])=>({ pk:+k, label: lessonLabel(+k), cards: cs }));
   }
-  // One error card. Tutors get status actions (reopen / delete); students read-only.
+  // One card. Mistakes: crossed-out wrong version -> correct one. Vocabulary:
+  // word -> meaning, example underneath. Tutors get reopen / delete actions.
   function ecardHtml(c, opts){
-    const tutor = opts && opts.tutor;
+    const tutor = opts && opts.tutor, vocab = cardKind(c)==="vocab";
     const status = c.status==="mastered"
       ? `<span class="lh-pill done">✓ gemeistert</span>`
       : `<span class="lh-pill open">offen${c.reviews ? ` · ${c.reviews}× wiederholt` : ""}</span>`;
     const acts = tutor
       ? `${c.status==="mastered" ? `<button class="mini-btn" data-reopen="${c.id}">Wieder öffnen</button>` : ""}<button class="mini-btn danger" data-delcard="${c.id}">Löschen</button>`
       : "";
-    return `<div class="ecard ${c.status}"><div class="ef">${esc(c.front)}</div><div class="eb">→ ${esc(c.back)}</div>${c.note ? `<div class="en">${esc(c.note)}</div>` : ""}<div class="eact">${status}${acts}</div></div>`;
+    const body = vocab
+      ? `<div class="eb">${esc(c.front)} <span style="font-weight:400;color:var(--muted);">— ${esc(c.back)}</span></div>${c.note ? `<div class="en">„${esc(c.note)}“</div>` : ""}`
+      : `<div class="ef">${esc(c.front)}</div><div class="eb">→ ${esc(c.back)}</div>${c.note ? `<div class="en">${esc(c.note)}</div>` : ""}`;
+    return `<div class="ecard ${c.status} ${vocab ? "vocab" : ""}">${body}<div class="eact">${status}${acts}</div></div>`;
   }
   // Wire the tutor's reopen / delete buttons inside ``root``; ``after`` re-renders.
   function bindCardActions(root, after){
     root.querySelectorAll("[data-delcard]").forEach(btn=> btn.onclick=async ()=>{
-      if(!window.confirm("Diese Fehlerkarte löschen?")) return;
+      if(!window.confirm("Diese Karte löschen?")) return;
       const id=+btn.dataset.delcard, r=await apiResult('DELETE', `/api/error-cards/${id}/`);
       if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
       state.errorCards = state.errorCards.filter(c=>c.id!==id); after();
@@ -3346,70 +3402,217 @@
       Object.assign(state.errorCards.find(c=>c.id===id), r.data.card); after();
     });
   }
-  function closeLessonModal(){
-    const m=$("#lessonModal"); m.hidden=true; m.innerHTML="";
-    // Counts in the open student modal / lists may have changed.
+  function rerenderLearning(){
     if(state.teacherStudent) renderStudentModal();
     if(state.view==="lessons") renderLessonHistory();
     if(state.view==="errors") renderErrors();
-    if(state.view==="teacher") renderTutorLists();
+    if(state.view==="session") renderSession();
   }
+  function closeLessonModal(){ const m=$("#lessonModal"); m.hidden=true; m.innerHTML=""; rerenderLearning(); }
 
+  // ----- Stunden list (student) -----
   function renderLessonHistory(){
     const el=$("#lessonHistory"); if(!el) return;
     const mine = state.bookings
-      .filter(b=>b.studentId===state.currentUser && !b.isIntro && b.status!=="requested" && lessonEnded(b))
+      .filter(b=>b.studentId===state.currentUser && !b.isIntro && b.status!=="requested" && b._pk && lessonEnded(b))
       .sort((a,b)=>bookingStart(b)-bookingStart(a));
     if(!mine.length){ el.innerHTML=`<div class="empty-list">Noch keine Stunden — nach deiner ersten Stunde findest du sie hier.</div>`; return; }
-    el.innerHTML = mine.map((b,i)=>{
+    el.innerHTML = mine.map(b=>{
       const t=tutorById(b.tutorId)||{ name:"Tutor", i:"T" };
-      const cs=lessonCards(b), open=cs.filter(c=>c.status==="open").length, done=cs.length-open;
-      return `<div class="li" data-li="${i}">
+      const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
+      const open=errs.filter(c=>c.status==="open").length;
+      return `<div class="li" data-session="${b._pk}">
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
         <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${esc(t.i)}</div>
         <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>
           ${b.summary ? `<div class="note-line">${esc(b.summary.split("\n")[0])}</div>` : ""}
-          <div class="lh-meta">${open ? `<span class="lh-pill open">${open} Fehler offen</span>` : ""}${done ? `<span class="lh-pill done">${done} gemeistert</span>` : ""}</div></div>
+          <div class="lh-meta">${open ? `<span class="lh-pill open">${open} Fehler offen</span>` : ""}${vocab.length ? `<span class="lh-pill">${vocab.length} ${vocab.length===1?"neues Wort":"neue Wörter"}</span>` : ""}${(b.exercises||[]).length ? `<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>` : ""}${b.homework ? `<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>` : ""}</div></div>
+        <div class="tail"><span class="lnk">Öffnen →</span></div>
       </div>`;
     }).join("");
-    el.querySelectorAll("[data-li]").forEach(r=> r.onclick=()=>openLessonDetail(mine[+r.dataset.li]));
+    el.querySelectorAll("[data-session]").forEach(r=> r.onclick=()=>openSession(+r.dataset.session));
   }
 
-  // Student: read-only view of one lesson — recap, own notes, the mistakes found.
-  function openLessonDetail(b){
-    const m=$("#lessonModal"), t=tutorById(b.tutorId)||{ name:"Tutor" }, cs=lessonCards(b);
-    m.innerHTML=`<div class="modal-card" id="lessonCard">
-      <button class="modal-x" id="lessonX" aria-label="Schließen">×</button>
-      <div class="manage-eyebrow">Stunde · ${fmtLong(b.date)} · ${b.time}</div>
-      <h3 class="buy-h" style="text-align:left;">${esc(b.title)}</h3>
-      <div class="micro" style="text-align:left;margin:0;">mit ${esc(t.name)}</div>
-      <div class="ld-block"><h4>Was wir gemacht haben</h4>${b.summary ? `<div class="ld-text">${esc(b.summary)}</div>` : `<div class="ld-empty">Dein Tutor hat noch keine Zusammenfassung eingetragen.</div>`}</div>
-      ${b.notes ? `<div class="ld-block"><h4>Deine Notizen</h4><div class="ld-text">${esc(b.notes)}</div></div>` : ""}
-      <div class="ld-block"><h4>Fehler aus dieser Stunde</h4>${cs.length ? cs.map(c=>ecardHtml(c)).join("") : `<div class="ld-empty">Keine Fehler eingetragen.</div>`}</div>
-      ${cs.some(c=>c.status==="open") ? `<button class="btn" id="lessonPractice" style="margin-top:16px;"><span class="grainbtn"></span>Diese Fehler üben</button>` : ""}
-    </div>`;
-    m.hidden=false;
-    $("#lessonCard").onclick=e=>e.stopPropagation();
-    $("#lessonX").onclick=closeLessonModal;
-    if($("#lessonPractice")) $("#lessonPractice").onclick=()=>openFlashcards(cs.filter(c=>c.status==="open"), "practice");
+  // ----- Session page (tutor + student) -----
+  // Each lesson has its own page at #stunde-<pk>, so it can be bookmarked,
+  // opened from the lists, and left with the browser's back button.
+  function openSession(pk){
+    const b=bookingByPk(pk); if(!b) return;
+    if(state.view!=="session") state.sessionReturn = state.view;
+    state.sessionPk = pk;
+    if(location.hash !== "#stunde-"+pk) history.pushState(null, "", "#stunde-"+pk);
+    closeStudentModalIfOpen();
+    setView("session");
+  }
+  function closeStudentModalIfOpen(){ if(state.teacherStudent){ state.teacherStudent=null; $("#studentModal").hidden=true; } }
+  function leaveSession(){
+    if(location.hash.startsWith("#stunde-")) history.pushState(null, "", location.pathname + location.search);
+    setView(state.sessionReturn || (state.role==="student" ? "lessons" : "teacher"));
+  }
+  window.addEventListener("popstate", ()=>{
+    const m=location.hash.match(/^#stunde-(\d+)$/);
+    if(m && bookingByPk(+m[1])){ state.sessionPk=+m[1]; setView("session"); }
+    else if(state.view==="session") setView(state.sessionReturn || (state.role==="student" ? "lessons" : "teacher"));
+  });
+
+  async function saveBooking(b, fields){
+    const r=await apiResult('PUT', `/api/bookings/${b._pk}/`, fields);
+    if(!r.ok){ toast("Speichern fehlgeschlagen"); return false; }
+    Object.assign(b, fields); return true;
+  }
+  function fileRowHtml(f, canDelete){
+    return `<div class="file-row sess-file"><a href="${esc(f.url)}"><span class="file-ic doc">${fileIcon("doc")}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext)} · ${Math.max(1, Math.round(f.size/1024))} KB${f.by ? " · " + esc(f.by) : ""}</span></a>${canDelete ? `<button class="mini-btn danger" data-delfile="${f.id}">Entfernen</button>` : ""}</div>`;
+  }
+  // A section heading with an anchor id for the jump bar.
+  function secHead(id, title, extra){ return `<div class="section-h sess-h" id="sess-${id}"><h2>${title}</h2>${extra||""}</div>`; }
+
+  function renderSession(){
+    const el=$("#sessionContent"); if(!el) return;
+    const b=bookingByPk(state.sessionPk);
+    if(!b){ el.innerHTML=`<div class="empty-list">Diese Stunde gibt es nicht mehr.</div>`; return; }
+    const tutor = state.role !== "student";
+    const s = bookingStudent(b), t = tutorById(b.tutorId) || { name:"Tutor" };
+    const first = esc(s.name.split(" ")[0]);
+    const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
+    const sheets=(b.files||[]).filter(f=>f.kind==="worksheet"), handins=(b.files||[]).filter(f=>f.kind==="homework");
+    const exercises=b.exercises||[];
+    const upcoming=!lessonEnded(b);
+    const ta=(id, val, ph, cls)=>`<textarea class="notes-ta ${cls||""}" id="${id}" placeholder="${ph}">${esc(val||"")}</textarea>`;
+    const saved=`<span class="sess-saved" hidden>gespeichert ✓</span>`;
+
+    el.innerHTML = `
+      <button class="btn-text" id="sessBack" style="margin:0 0 14px;">← ${tutor ? "Zurück" : "Alle Stunden"}</button>
+      <div class="panel sess-head">
+        <div class="eyebrow" style="margin:0;">${upcoming ? "Geplante Stunde" : "Stunde"} · ${fmtLong(b.date)} · ${b.time}–${endTime(b.time)}</div>
+        ${tutor ? `<input class="sess-title-in" id="sessTitle" value="${esc(b.title)}" aria-label="Thema der Stunde">` : `<h1 class="title" style="margin:6px 0 4px;">${esc(b.title)}</h1>`}
+        <div class="sub" style="margin:0;">${tutor ? `mit ${esc(s.name)}` : `mit ${esc(t.name)}`}${b.status==="requested" ? ' <span class="req-chip">Angefragt</span>' : ""}</div>
+        <nav class="sess-jump">
+          <a href="#sess-summary">Zusammenfassung</a><a href="#sess-exercises">Übungen${exercises.length?` · ${exercises.length}`:""}</a><a href="#sess-vocab">Wortschatz${vocab.length?` · ${vocab.length}`:""}</a><a href="#sess-errors">Fehler${errs.length?` · ${errs.length}`:""}</a><a href="#sess-sheets">Arbeitsblätter${sheets.length?` · ${sheets.length}`:""}</a><a href="#sess-homework">Hausaufgabe</a><a href="#sess-notes">Notizen</a>
+        </nav>
+      </div>
+
+      ${secHead("summary", "Was wir gemacht haben", tutor ? `<span class="micro" style="margin:0;">sieht ${first}</span>` : "")}
+      <div class="panel sess-sec">${tutor
+        ? `${ta("sessSummary", b.summary, "Themen, Schwerpunkte, wie es gelaufen ist…")}${saved}`
+        : (b.summary ? `<div class="ld-text">${esc(b.summary)}</div>` : `<div class="ld-empty">Dein Tutor hat noch keine Zusammenfassung eingetragen.</div>`)}</div>
+
+      ${secHead("exercises", "Übungen")}
+      <div class="panel sess-sec">
+        ${exercises.length ? exercises.map(e=>`<div class="sess-ex ${e.done?"done":""}">
+            <label class="sess-check"><input type="checkbox" data-exdone="${e.id}" ${e.done?"checked":""}><span></span></label>
+            <div class="sess-ex-body"><div class="t">${esc(e.title)}</div>${e.description ? `<div class="s">${esc(e.description)}</div>` : ""}${e.link ? `<a class="lnk" href="${esc(e.link)}" target="_blank" rel="noopener">Link öffnen ↗</a>` : ""}</div>
+            ${tutor ? `<button class="mini-btn danger" data-delex="${e.id}">Löschen</button>` : ""}
+          </div>`).join("") : `<div class="ld-empty">${tutor ? "Noch keine Übungen eingetragen." : "Keine Übungen zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><input class="bf-input" id="exTitle" placeholder="Übung, z. B. „Gap fill: present perfect“"><textarea class="bf-input" id="exDesc" placeholder="Beschreibung / Seite (optional)"></textarea><input class="bf-input" id="exLink" placeholder="Link (optional), https://…"><button class="btn ghost" id="exAdd">+ Übung hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("vocab", "Neuer Wortschatz", vocab.some(c=>c.status==="open") ? `<span class="lnk" id="vocabPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
+      <div class="panel sess-sec">
+        ${vocab.length ? vocab.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Wörter eingetragen." : "Keine neuen Wörter zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><div class="bf-grid"><input class="bf-input" id="vcFront" placeholder="Wort / Ausdruck, z. B. „to put off“"><input class="bf-input" id="vcBack" placeholder="Bedeutung, z. B. „verschieben“"></div><input class="bf-input" id="vcNote" placeholder="Beispielsatz (optional)"><button class="btn ghost" id="vcAdd">+ Wort hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("errors", "Fehler", errs.some(c=>c.status==="open") ? `<span class="lnk" id="errsPractice">${tutor ? "Gemeinsam wiederholen" : "Üben"} →</span>` : "")}
+      <div class="panel sess-sec">
+        ${errs.length ? errs.map(c=>ecardHtml(c, { tutor })).join("") : `<div class="ld-empty">${tutor ? "Noch keine Fehler eingetragen." : "Keine Fehler zu dieser Stunde."}</div>`}
+        ${tutor ? `<div class="ec-form"><textarea class="bf-input" id="ecFront" placeholder="Was ${first} gesagt/geschrieben hat, z. B. „I have seen him yesterday.“"></textarea><textarea class="bf-input" id="ecBack" placeholder="Richtig: „I saw him yesterday.“"></textarea><input class="bf-input" id="ecNote" placeholder="Erklärung (optional), z. B. abgeschlossene Zeit → Past Simple"><button class="btn ghost" id="ecAdd">+ Fehler hinzufügen</button></div>` : ""}
+      </div>
+
+      ${secHead("sheets", "Arbeitsblätter")}
+      <div class="panel sess-sec">
+        ${sheets.length ? sheets.map(f=>fileRowHtml(f, tutor)).join("") : `<div class="ld-empty">${tutor ? "Noch keine Arbeitsblätter hochgeladen." : "Keine Arbeitsblätter zu dieser Stunde."}</div>`}
+        ${tutor ? `<label class="btn ghost sess-upload">+ Arbeitsblatt hochladen<input type="file" id="sheetUpload" hidden></label><div class="micro" style="text-align:left;margin:6px 2px 0;">PDF, Office, Bilder, Audio · max. 10 MB</div>` : ""}
+      </div>
+
+      ${secHead("homework", "Hausaufgabe")}
+      <div class="panel sess-sec">
+        ${tutor ? `${ta("sessHomework", b.homework, "Was soll bis zur nächsten Stunde erledigt werden?")}${saved}` : (b.homework ? `<div class="ld-text">${esc(b.homework)}</div>` : `<div class="ld-empty">Keine Hausaufgabe.</div>`)}
+        ${b.homework ? `<label class="sess-hw-done"><input type="checkbox" id="hwDone" ${b.homeworkDone?"checked":""} ${tutor?"disabled":""}> ${b.homeworkDone ? "Erledigt" : (tutor ? `${first} hat sie noch nicht als erledigt markiert` : "Als erledigt markieren")}</label>` : ""}
+        <div class="ld-block"><h4>${tutor ? `Abgaben von ${first}` : "Deine Abgabe"}</h4>
+          ${handins.length ? handins.map(f=>fileRowHtml(f, true)).join("") : `<div class="ld-empty">${tutor ? "Noch nichts abgegeben." : "Lade hier deine Hausaufgabe hoch, z. B. ein Foto oder PDF."}</div>`}
+          ${!tutor ? `<label class="btn ghost sess-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : ""}
+        </div>
+      </div>
+
+      ${secHead("notes", "Notizen")}
+      <div class="panel sess-sec">
+        <h4 class="sess-sub">${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
+        ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="ld-empty">${first} hat keine Notizen.</div>`) : `${ta("sessNotes", b.notes, "Deine eigenen Notizen zu dieser Stunde…")}${saved}`}
+        ${tutor ? `<h4 class="sess-sub" style="margin-top:18px;">Private Notizen <span style="font-weight:400;color:var(--faint);">· nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…", "private")}${saved}` : ""}
+      </div>`;
+
+    // ----- handlers -----
+    $("#sessBack").onclick=leaveSession;
+    el.querySelectorAll(".sess-jump a").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); const tgt=$(a.getAttribute("href")); if(tgt) tgt.scrollIntoView({ behavior:"smooth", block:"start" }); });
+    const autosave=(id, field)=>{ const x=$("#"+id); if(!x) return; x.onchange=async ()=>{ if(await saveBooking(b, { [field]: x.value })){ const ok=x.nextElementSibling; if(ok && ok.classList.contains("sess-saved")){ ok.hidden=false; setTimeout(()=>ok.hidden=true, 1600); } } }; };
+    autosave("sessSummary","summary"); autosave("sessHomework","homework"); autosave("sessPrivate","tutorNotes"); autosave("sessNotes","notes");
+    if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
+    if($("#hwDone")) $("#hwDone").onchange=async (e)=>{ if(await saveBooking(b, { homeworkDone: e.target.checked })) renderSession(); };
+    el.querySelectorAll("[data-exdone]").forEach(cb=> cb.onchange=async ()=>{
+      const id=+cb.dataset.exdone, r=await apiResult('PUT', `/api/exercises/${id}/`, { done: cb.checked });
+      if(!r.ok){ toast("Speichern fehlgeschlagen"); cb.checked=!cb.checked; return; }
+      Object.assign(exercises.find(x=>x.id===id), r.data.exercise); renderSession();
+    });
+    el.querySelectorAll("[data-delex]").forEach(btn=> btn.onclick=async ()=>{
+      if(!window.confirm("Diese Übung löschen?")) return;
+      const id=+btn.dataset.delex, r=await apiResult('DELETE', `/api/exercises/${id}/`);
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      b.exercises=exercises.filter(x=>x.id!==id); renderSession();
+    });
+    if($("#exAdd")) $("#exAdd").onclick=async ()=>{
+      const title=$("#exTitle").value.trim(); if(!title){ toast("Bitte einen Titel eintragen"); return; }
+      const r=await apiResult('POST', `/api/bookings/${b._pk}/exercises/`, { title, description: $("#exDesc").value.trim(), link: $("#exLink").value.trim() });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      b.exercises=[...exercises, r.data.exercise]; renderSession();
+    };
+    const addCard=async (kind, f, bk, n)=>{
+      const front=$(f).value.trim(), back=$(bk).value.trim(), note=$(n).value.trim();
+      if(!front || !back){ toast(kind==="vocab" ? "Bitte Wort und Bedeutung eintragen" : "Bitte Fehler und richtige Version eintragen"); return; }
+      const r=await apiResult('POST', '/api/error-cards/', { kind, studentSlug: b.studentId, bookingPk: b._pk, front, back, note });
+      if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
+      state.errorCards.push(r.data.card); renderSession(); const again=$(f); if(again) again.focus();
+    };
+    if($("#vcAdd")) $("#vcAdd").onclick=()=>addCard("vocab", "#vcFront", "#vcBack", "#vcNote");
+    if($("#ecAdd")) $("#ecAdd").onclick=()=>addCard("error", "#ecFront", "#ecBack", "#ecNote");
+    if($("#vocabPractice")) $("#vocabPractice").onclick=()=>openFlashcards(vocab.filter(c=>c.status==="open"), tutor ? "review" : "practice");
+    if($("#errsPractice")) $("#errsPractice").onclick=()=>openFlashcards(errs.filter(c=>c.status==="open"), tutor ? "review" : "practice");
+    bindCardActions(el, renderSession);
+    const upload=(input)=>{ if(!input) return; input.onchange=async ()=>{
+      const file=input.files[0]; if(!file) return;
+      if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); input.value=""; return; }
+      toast("Wird hochgeladen…");
+      const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
+      if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
+      b.files=[...(b.files||[]), r.file]; renderSession(); toast("Hochgeladen");
+    }; };
+    upload($("#sheetUpload")); upload($("#hwUpload"));
+    el.querySelectorAll("[data-delfile]").forEach(btn=> btn.onclick=async ()=>{
+      if(!window.confirm("Diese Datei entfernen?")) return;
+      const id=+btn.dataset.delfile, r=await apiResult('DELETE', `/api/session-files/${id}/`);
+      if(!r.ok){ toast("Entfernen fehlgeschlagen"); return; }
+      b.files=(b.files||[]).filter(x=>x.id!==id); renderSession();
+    });
   }
 
-  // Student: the error log — open cards by lesson, practice, mastered archive.
+  // ----- Training (student): mistakes and vocabulary decks -----
+  function deckHtml(kind, cards){
+    const d=DECKS[kind], open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
+    return `<div class="section-h" style="margin-top:30px;"><h2>${d.title}</h2>${open.length ? `<button class="btn" data-practice="${kind}" style="width:auto;margin:0;padding:9px 18px;"><span class="grainbtn"></span>Üben · ${open.length}</button>` : ""}</div>
+      <div class="err-stats" style="margin-top:0;">
+        <div class="panel err-stat open"><div class="n">${open.length}</div><div class="l">offen</div></div>
+        <div class="panel err-stat done"><div class="n">${done.length}</div><div class="l">gemeistert</div></div>
+      </div>
+      <div class="panel" style="padding:10px 18px;margin-top:12px;">${open.length
+        ? groupByLesson(open).map(g=>`<div class="ld-block" style="margin-top:10px;"><h4>${g.pk ? `<a class="lnk" href="#stunde-${g.pk}" data-gosession="${g.pk}">${esc(g.label)}</a>` : esc(g.label)}</h4>${g.cards.map(c=>ecardHtml(c)).join("")}</div>`).join("")
+        : `<div class="empty-list">${cards.length ? "Alles gemeistert — stark!" : (kind==="vocab" ? "Noch keine Wörter eingetragen." : "Noch keine Fehler eingetragen.")}</div>`}</div>
+      ${done.length ? `<details style="margin-top:12px;"><summary class="lnk" style="cursor:pointer;">Gemeistert (${done.length})</summary><div class="panel" style="padding:10px 18px;margin-top:10px;">${done.map(c=>ecardHtml(c)).join("")}</div></details>` : ""}`;
+  }
   function renderErrors(){
     const el=$("#errorsContent"); if(!el) return;
     const mine=state.errorCards.filter(c=>c.studentId===state.currentUser);
-    const open=mine.filter(c=>c.status==="open"), done=mine.filter(c=>c.status==="mastered");
-    el.innerHTML = `<div class="err-stats">
-        <div class="panel err-stat open"><div class="n">${open.length}</div><div class="l">offene Fehler</div></div>
-        <div class="panel err-stat done"><div class="n">${done.length}</div><div class="l">gemeistert</div></div>
-      </div>
-      ${open.length ? `<button class="btn" id="errPractice" style="margin-top:18px;max-width:340px;"><span class="grainbtn"></span>Jetzt üben · ${open.length} ${open.length===1?"Karte":"Karten"}</button>` : ""}
-      <div class="section-h" style="margin-top:30px;"><h2>Offene Fehler</h2></div>
-      <div class="panel" style="padding:10px 18px;">${open.length
-        ? groupByLesson(open).map(g=>`<div class="ld-block" style="margin-top:10px;"><h4>${esc(g.label)}</h4>${g.cards.map(c=>ecardHtml(c)).join("")}</div>`).join("")
-        : `<div class="empty-list">${mine.length ? "Alles gemeistert — stark!" : "Noch keine Fehler eingetragen. Dein Tutor hält sie nach euren Stunden hier fest."}</div>`}</div>
-      ${done.length ? `<details style="margin-top:22px;"><summary class="lnk" style="cursor:pointer;">Gemeistert (${done.length})</summary><div class="panel" style="padding:10px 18px;margin-top:10px;">${done.map(c=>ecardHtml(c)).join("")}</div></details>` : ""}`;
-    if($("#errPractice")) $("#errPractice").onclick=()=>openFlashcards(open, "practice");
+    el.innerHTML = deckHtml("error", mine.filter(c=>cardKind(c)==="error")) + deckHtml("vocab", mine.filter(c=>cardKind(c)==="vocab"));
+    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(mine.filter(c=>cardKind(c)===btn.dataset.practice && c.status==="open"), "practice"));
+    el.querySelectorAll("[data-gosession]").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); openSession(+a.dataset.gosession); });
   }
 
   // Flashcards. "practice": the student checks themselves; nothing is saved and
@@ -3432,12 +3635,12 @@
         $("#flashClose").onclick=finish;
         return;
       }
-      const c=deck[i];
+      const c=deck[i], vocab=cardKind(c)==="vocab";
       m.innerHTML=`<div class="modal-card" id="flashWrap"><button class="modal-x" id="flashX" aria-label="Schließen">×</button><div class="flash-card">
         <div class="flash-prog">Karte ${i+1} von ${deck.length}${mode==="review" ? " · gemeinsam wiederholen" : ""}</div>
-        <div class="flash-lab">Was ist hier falsch?</div>
-        <div class="flash-front">${esc(c.front)}</div>
-        <div class="flash-back" id="flashBack" hidden><div class="flash-lab">Richtig</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${esc(c.note)}</div>` : ""}</div>
+        <div class="flash-lab">${vocab ? "Was bedeutet …" : "Was ist hier falsch?"}</div>
+        <div class="flash-front" ${vocab ? 'style="color:var(--ink);"' : ""}>${esc(c.front)}</div>
+        <div class="flash-back" id="flashBack" hidden><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
         <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen</button></div>
         <div class="flash-actions" id="flashRate" hidden>
           <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}</button>
@@ -3463,67 +3666,22 @@
     show();
   }
 
-  // Tutor: one lesson's recap (shared), private notes and its error cards.
-  function openLessonEditor(b){
-    const m=$("#lessonModal"), s=bookingStudent(b), first=esc(s.name.split(" ")[0]);
-    const render=()=>{
-      const cs=lessonCards(b);
-      m.innerHTML=`<div class="modal-card" id="lessonCard">
-        <button class="modal-x" id="lessonX" aria-label="Schließen">×</button>
-        <div class="manage-eyebrow">Stunde · ${fmtLong(b.date)} · ${b.time}</div>
-        <h3 class="buy-h" style="text-align:left;">${esc(s.name)}</h3>
-        <label class="field-label">Zusammenfassung für ${first} <span style="font-weight:400;color:var(--faint);">· sieht ${first} unter „Stunden“</span></label>
-        <textarea class="notes-ta" id="leSummary" placeholder="Was habt ihr gemacht? Themen, Übungen, Hausaufgabe…">${esc(b.summary||"")}</textarea>
-        <label class="field-label">Private Notizen <span style="font-weight:400;color:var(--faint);">· nur für dich</span></label>
-        <textarea class="notes-ta private" id="lePriv" placeholder="Nur für dich…">${esc(b.tutorNotes||"")}</textarea>
-        <button class="btn" id="leSave" style="margin-top:10px;"><span class="grainbtn"></span>Speichern</button>
-        <div class="ld-block"><h4>Fehler aus dieser Stunde</h4>
-          ${cs.length ? cs.map(c=>ecardHtml(c, { tutor:true })).join("") : `<div class="ld-empty">Noch keine Fehler eingetragen.</div>`}
-          <div class="ec-form">
-            <textarea class="bf-input" id="ecFront" placeholder="Was ${first} gesagt/geschrieben hat, z. B. „I have seen him yesterday.“"></textarea>
-            <textarea class="bf-input" id="ecBack" placeholder="Richtig: „I saw him yesterday.“"></textarea>
-            <input class="bf-input" id="ecNote" placeholder="Erklärung (optional), z. B. abgeschlossene Zeit → Past Simple">
-            <button class="btn ghost" id="ecAdd">+ Fehler hinzufügen</button>
-          </div>
-        </div>
-      </div>`;
-      $("#lessonCard").onclick=e=>e.stopPropagation();
-      $("#lessonX").onclick=closeLessonModal;
-      $("#leSave").onclick=async ()=>{
-        const summary=$("#leSummary").value, tutorNotes=$("#lePriv").value;
-        const r=await apiResult('PUT', `/api/bookings/${b._pk}/`, { summary, tutorNotes });
-        if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
-        b.summary=summary; b.tutorNotes=tutorNotes; toast("Gespeichert");
-      };
-      $("#ecAdd").onclick=async ()=>{
-        const front=$("#ecFront").value.trim(), back=$("#ecBack").value.trim(), note=$("#ecNote").value.trim();
-        if(!front || !back){ toast("Bitte Fehler und richtige Version eintragen"); return; }
-        const r=await apiResult('POST', '/api/error-cards/', { studentSlug: b.studentId, bookingPk: b._pk, front, back, note });
-        if(!r.ok){ toast((r.data && r.data.error) || "Speichern fehlgeschlagen"); return; }
-        state.errorCards.push(r.data.card); render();
-        $("#ecFront").focus();
-      };
-      bindCardActions(m, render);
-    };
-    render(); m.hidden=false;
-  }
-
-  // Tutor (student modal): the student's error log + review together.
+  // ----- Tutor: training + lessons inside the student view -----
   function errorTrainingMgrHtml(s){
     const cards=state.errorCards.filter(c=>c.studentId===s.id);
-    const open=cards.filter(c=>c.status==="open"), done=cards.length-open.length;
-    return `<div class="micro" style="text-align:left;margin:0 2px 10px;">${open.length} offen · ${done} gemeistert</div>
-      ${open.length ? `<button class="btn" id="errReview" style="margin-bottom:10px;"><span class="grainbtn"></span>Gemeinsam wiederholen · ${open.length} ${open.length===1?"Karte":"Karten"}</button>` : ""}
-      <div id="errMgrList">${open.length ? groupByLesson(open).map(g=>`<div class="ld-block" style="margin-top:8px;"><h4>${esc(g.label)}</h4>${g.cards.map(c=>ecardHtml(c, { tutor:true })).join("")}</div>`).join("") : `<div class="ld-empty">Keine offenen Fehler.</div>`}</div>`;
+    return ["error","vocab"].map(kind=>{
+      const d=DECKS[kind], cs=cards.filter(c=>cardKind(c)===kind), open=cs.filter(c=>c.status==="open");
+      return `<div class="ld-block" style="margin-top:8px;"><h4>${d.title} <span style="font-weight:400;color:var(--faint);">· ${open.length} offen · ${cs.length-open.length} gemeistert</span></h4>
+        ${open.length ? `<button class="btn" data-review="${kind}" style="margin:6px 0 4px;"><span class="grainbtn"></span>Gemeinsam wiederholen · ${open.length} ${open.length===1?d.one:d.many}</button>` : `<div class="ld-empty">Nichts offen.</div>`}</div>`;
+    }).join("");
   }
-  // Tutor (student modal): recent lessons, each opening the lesson editor.
   function studentLessonsHtml(s){
-    const ls=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && lessonEnded(b))
-      .sort((a,b)=>bookingStart(b)-bookingStart(a)).slice(0,8);
+    const ls=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
+      .sort((a,b)=>bookingStart(b)-bookingStart(a)).slice(0,10);
     if(!ls.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
-    return ls.map(b=>{ const cs=lessonCards(b), open=cs.filter(c=>c.status==="open").length;
-      return `<button class="mini-btn" data-editlesson="${b._pk}" style="display:flex;width:100%;justify-content:space-between;margin:4px 0;padding:9px 12px;font-size:13px;">
-        <span>${fmtAT(b.date)} · ${b.time}${b.summary ? " · ✎" : ""}</span><span>${cs.length ? `${open} offen / ${cs.length}` : "Notizen & Fehler"}</span></button>`; }).join("");
+    return ls.map(b=>{ const errs=lessonCards(b,"error"), open=errs.filter(c=>c.status==="open").length;
+      return `<button class="mini-btn" data-session="${b._pk}" style="display:flex;width:100%;justify-content:space-between;margin:4px 0;padding:9px 12px;font-size:13px;">
+        <span>${fmtAT(b.date)} · ${b.time}${lessonEnded(b) ? "" : " · geplant"}${b.summary ? " · ✎" : ""}</span><span>${errs.length ? `${open} Fehler offen` : "Stunde öffnen"} →</span></button>`; }).join("");
   }
 
   // ---------- View switching ----------
@@ -3535,6 +3693,9 @@
     if(v==="lessons") renderLessonHistory();
     if(v==="files") renderFiles();
     if(v==="errors") renderErrors();
+    if(v==="session") renderSession();
+    // Leaving a session page drops its #stunde-… address.
+    if(v!=="session" && location.hash.startsWith("#stunde-")) history.replaceState(null, "", location.pathname + location.search);
     if(v==="students") renderRoster();
     document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
     document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
@@ -3560,7 +3721,7 @@
   function showTabsForRole(role){ const app=document.querySelector(".app"); if(app) app.dataset.role=role||""; }
   function resetTransient(){
     state.selected=null; state.managing=null; state.justBooked=null; state.justAction="booked";
-    state.studentQuery="";
+    state.studentQuery=""; state.activityAll=false;
     if($("#studentSearch")) $("#studentSearch").value="";
     state.rescheduling=null; state.teacherSel=null; state.teacherManage=null; state.teacherStudent=null; state.editAvail=false;
     state.weekOffset=0; state.tWeekOffset=0;
@@ -3602,6 +3763,16 @@
   function exitImpersonation(){ state.impersonating=false; updateImpBanner(); applyAdmin(); }
   function updateImpBanner(){ const b=$("#impBanner"); if(!b) return; if(state.impersonating){ b.hidden=false; $("#impName").textContent=state.impersonatedName||""; } else { b.hidden=true; } }
   document.querySelectorAll(".tab").forEach(b=> b.onclick = ()=>setView(b.dataset.view));
+  // Signed in, the logo leads home within the app (the role's calendar), not
+  // back to the public landing page.
+  $("#brandHome").onclick = (e)=>{
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;  // new-tab clicks keep the link
+    e.preventDefault(); closeStudentModalIfOpen();
+    if (state.role==="student") { state.managing=null; state.rescheduling=null; state.justBooked=null; }
+    setView(state.role==="admin" ? "admin" : state.role==="tutor" ? "teacher" : "book");
+    if (state.role==="student") { renderWeek(); renderSummary(); }
+    const m=document.querySelector("#main"); if(m) m.scrollTop=0; window.scrollTo(0,0);
+  };
   $("#creditsPill").onclick = ()=>setView("account");
   $("#goBook").onclick = ()=>setView("book");
   if($("#studentSearch")) $("#studentSearch").oninput = (e)=>{ state.studentQuery=e.target.value; renderRoster(); };
@@ -3672,6 +3843,9 @@
     if (DJ.role === "admin") applyAdmin();
     else if (DJ.role === "tutor") applyTutor();
     else applyStudent(DJ.currentUserId);
+    // Deep link straight to a session page (#stunde-<pk>).
+    const deep = location.hash.match(/^#stunde-(\d+)$/);
+    if (deep && bookingByPk(+deep[1])) { state.sessionReturn = state.view; state.sessionPk = +deep[1]; setView("session"); }
   }
 })();
 </script>

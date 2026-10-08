@@ -45,7 +45,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import (
     User, Booking, Receipt, CreditTransaction, ActiveLesson, LessonFile,
-    SiteSettings, AvailabilityOverride, ErrorCard,
+    SiteSettings, AvailabilityOverride, ErrorCard, SessionExercise, SessionFile,
 )
 
 
@@ -3543,3 +3543,106 @@ class ErrorCardTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.client.force_login(self.davit)
         cards = extract_payload(self.client.get(reverse("app")).content.decode())["errorCards"]
         self.assertEqual({c["studentId"] for c in cards}, {"maya", "ines"})
+
+
+# --------------------------------------------------------------------------- #
+# Session page: homework, exercises, vocabulary deck, files in the database
+# --------------------------------------------------------------------------- #
+class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                        date=date(2026, 5, 28), time="09:00")
+
+    def _json(self, method, url, body=None, actor=None):
+        self.client.force_login(actor or self.davit)
+        return getattr(self.client, method)(url, data=json.dumps(body or {}),
+                                            content_type="application/json")
+
+    def _upload(self, actor, name="sheet.pdf", content=b"%PDF-1.4 x", pk=None):
+        self.client.force_login(actor)
+        return self.client.post(f"/api/bookings/{pk or self.b.pk}/files/",
+                                {"file": SimpleUploadedFile(name, content)})
+
+    def _payload_booking(self, actor):
+        self.client.force_login(actor)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        return [x for x in payload["bookings"] if x.get("pk") == self.b.pk][0]
+
+    def test_homework_set_by_tutor_ticked_by_student(self):
+        self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "Workbook p. 34"})
+        self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "hack", "homeworkDone": True},
+                   actor=self.maya)
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.homework, self.b.homework_done), ("Workbook p. 34", True))
+
+    def test_exercises(self):
+        r = self._json("post", f"/api/bookings/{self.b.pk}/exercises/",
+                       {"title": "Gap fill", "description": "p. 12", "link": "https://example.com/x"})
+        ex_id = r.json()["exercise"]["id"]
+        self.assertEqual(self._json("post", f"/api/bookings/{self.b.pk}/exercises/",
+                                    {"title": "x", "link": "javascript:alert(1)"}).status_code, 400)
+        # Student: may tick done, nothing else; may not add or delete.
+        r = self._json("put", f"/api/exercises/{ex_id}/", {"done": True, "title": "hack"}, actor=self.maya)
+        self.assertEqual((r.json()["exercise"]["done"], r.json()["exercise"]["title"]), (True, "Gap fill"))
+        self.assertEqual(self._json("post", f"/api/bookings/{self.b.pk}/exercises/", {"title": "x"},
+                                    actor=self.maya).status_code, 403)
+        self.assertEqual(self._json("delete", f"/api/exercises/{ex_id}/", actor=self.maya).status_code, 403)
+        # Another student can't touch it.
+        self.assertEqual(self._json("put", f"/api/exercises/{ex_id}/", {"done": False},
+                                    actor=self.ines).status_code, 404)
+        self.assertEqual(self._json("delete", f"/api/exercises/{ex_id}/").status_code, 200)
+
+    def test_files_stored_in_db_and_access_controlled(self):
+        r = self._upload(self.davit)
+        self.assertEqual(r.json()["file"]["kind"], "worksheet")
+        fid = r.json()["file"]["id"]
+        self.assertEqual(bytes(SessionFile.objects.get(pk=fid).data), b"%PDF-1.4 x")
+        hw = self._upload(self.maya, name="homework.jpg", content=b"jpgdata").json()["file"]
+        self.assertEqual(hw["kind"], "homework")
+        # Download: own student + tutor yes, other student no.
+        self.client.force_login(self.maya)
+        resp = self.client.get(f"/api/session-files/{fid}/")
+        self.assertEqual(resp.content, b"%PDF-1.4 x")
+        self.assertIn("attachment", resp["Content-Disposition"])
+        self.client.force_login(self.ines)
+        self.assertEqual(self.client.get(f"/api/session-files/{fid}/").status_code, 404)
+        self.assertEqual(self._upload(self.ines).status_code, 404)
+        # Student may delete only their own upload.
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.delete(f"/api/session-files/{fid}/").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/session-files/{hw['id']}/").status_code, 200)
+
+    def test_file_type_and_size_limits(self):
+        self.assertEqual(self._upload(self.davit, name="x.exe").status_code, 400)
+        big = b"0" * (10 * 1024 * 1024 + 1)
+        self.assertEqual(self._upload(self.davit, name="big.pdf", content=big).status_code, 400)
+
+    def test_payload_carries_session_content_without_file_bytes(self):
+        self._json("post", f"/api/bookings/{self.b.pk}/exercises/", {"title": "Gap fill"})
+        self._upload(self.davit)
+        mine = self._payload_booking(self.maya)
+        self.assertEqual([e["title"] for e in mine["exercises"]], ["Gap fill"])
+        self.assertEqual(mine["files"][0]["name"], "sheet.pdf")
+        self.assertNotIn("data", mine["files"][0])
+
+    def test_vocab_cards(self):
+        r = self._json("post", "/api/error-cards/", {
+            "studentSlug": "maya", "bookingPk": self.b.pk, "kind": "vocab",
+            "front": "to put off", "back": "verschieben", "note": "We put off the meeting.",
+        })
+        self.assertEqual(r.json()["card"]["kind"], "vocab")
+        self.assertEqual(self._json("post", "/api/error-cards/", {
+            "studentSlug": "maya", "kind": "nope", "front": "a", "back": "b"}).status_code, 400)
+
+    def test_lesson_materials_stored_in_db(self):
+        self.client.force_login(self.davit)
+        r = self.client.post("/api/lesson-files/a1-1/",
+                             {"file": SimpleUploadedFile("unit1.pdf", b"%PDF unit1")})
+        fid = r.json()["id"]
+        lf = LessonFile.objects.get(pk=fid)
+        self.assertEqual(bytes(lf.data), b"%PDF unit1")
+        self.assertFalse(lf.file)
+        ActiveLesson.objects.create(student=self.maya, lesson_id="a1-1")
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.get(f"/api/lesson-files/download/{fid}/").content, b"%PDF unit1")

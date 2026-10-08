@@ -24,8 +24,9 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
-    VideoConnection, ErrorCard,
+    VideoConnection, ErrorCard, SessionExercise, SessionFile,
 )
+from django.db.models import Prefetch
 from . import emails, video
 from .ical import build_tutor_feed
 from .receipts_pdf import render_receipt_pdf
@@ -43,8 +44,9 @@ except ImportError:  # pragma: no cover - exercised only where stripe isn't inst
 # How many days back a tutor/admin may log a "forgotten" (retroactive) session.
 BACKDATE_LIMIT_DAYS = 30
 
-# Uploaded lesson materials: an allowed type, reasonably sized.
-MAX_LESSON_FILE_BYTES = 25 * 1024 * 1024  # 25 MB
+# Uploaded files (Materialien, worksheets, homework) are stored in the database
+# so they survive deploys — the database is small (1 GB), so cap each file.
+MAX_LESSON_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 AUDIO_EXTS = {"mp3", "m4a", "wav", "ogg"}
 IMAGE_EXTS = {"png", "jpg", "jpeg", "gif", "webp"}
 DOC_EXTS = {"pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "rtf"}
@@ -121,6 +123,8 @@ def serialize_booking(b, *, private=True):
         "title": b.title,
         "notes": b.notes,
         "summary": b.summary,
+        "homework": b.homework,
+        "homeworkDone": b.homework_done,
         "callLink": b.call_link,
         # "requested" until the tutor confirms a student's own booking.
         "status": b.status,
@@ -133,12 +137,42 @@ def serialize_booking(b, *, private=True):
     }
     if private:
         data["tutorNotes"] = b.tutor_notes
+    # Session page content, when the caller prefetched it (see SESSION_PREFETCH).
+    cache = getattr(b, "_prefetched_objects_cache", {})
+    if "exercises" in cache:
+        data["exercises"] = [serialize_exercise(e) for e in b.exercises.all()]
+    if "files" in cache:
+        data["files"] = [serialize_session_file(f) for f in b.files.all()]
     return data
+
+
+# Exercises + file metadata for the session pages, without the file bytes.
+SESSION_PREFETCH = (
+    "exercises",
+    Prefetch("files", queryset=SessionFile.objects.defer("data").select_related("uploaded_by")),
+)
+
+
+def serialize_exercise(e):
+    return {"id": e.pk, "title": e.title, "description": e.description, "link": e.link, "done": e.done}
+
+
+def serialize_session_file(f):
+    return {
+        "id": f.pk,
+        "kind": f.kind,
+        "name": f.name,
+        "ext": file_ext(f.name).upper() or "FILE",
+        "size": f.size,
+        "by": (f.uploaded_by.get_full_name() if f.uploaded_by_id and f.uploaded_by else ""),
+        "url": f"/api/session-files/{f.pk}/",
+    }
 
 
 def serialize_error_card(c):
     return {
         "id": c.pk,
+        "kind": c.kind,
         "studentId": c.student.slug if c.student_id else "",
         "bookingPk": c.booking_id,
         "front": c.front,
@@ -936,6 +970,7 @@ def app_view(request):
     if is_student:
         own_bookings = list(
             Booking.objects.filter(student=user).select_related("student", "tutor")
+            .prefetch_related(*SESSION_PREFETCH)
         )
         other_bookings = list(
             Booking.objects.filter(tutor__role="tutor")
@@ -950,6 +985,7 @@ def app_view(request):
         bookings_payload = [
             serialize_booking(b)
             for b in Booking.objects.all().select_related("student", "tutor")
+            .prefetch_related(*SESSION_PREFETCH)
         ]
 
     # Transactions: per visible student slug
@@ -1465,12 +1501,16 @@ def api_booking_detail(request, pk):
         b.requested_at = timezone.now()
     if "notes" in data:
         b.notes = data["notes"]
+    if "homeworkDone" in data:
+        b.homework_done = bool(data["homeworkDone"])
     # tutorNotes and callLink are tutor-owned fields — students can't set them.
     if not is_student:
         if "tutorNotes" in data:
             b.tutor_notes = data["tutorNotes"]
         if "summary" in data:
             b.summary = str(data["summary"] or "")[:5000]
+        if "homework" in data:
+            b.homework = str(data["homework"] or "")[:5000]
         if "callLink" in data and data["callLink"] != b.call_link:
             # A hand-edited link supersedes the auto-created meeting: remove
             # the orphan from the tutor's account and drop the reference so a
@@ -1520,8 +1560,11 @@ def api_error_cards(request):
         booking = Booking.objects.filter(pk=data["bookingPk"], student=student).first()
         if booking is None:
             return JsonResponse({"error": "unknown lesson"}, status=400)
+    kind = data.get("kind") or ErrorCard.KIND_ERROR
+    if kind not in (ErrorCard.KIND_ERROR, ErrorCard.KIND_VOCAB):
+        return JsonResponse({"error": "unknown kind"}, status=400)
     card = ErrorCard.objects.create(
-        student=student, booking=booking, tutor=request.user,
+        kind=kind, student=student, booking=booking, tutor=request.user,
         front=front, back=back, note=note,
     )
     return JsonResponse({"card": serialize_error_card(card)})
@@ -1571,6 +1614,116 @@ def api_error_card_review(request, pk):
         card.status, card.mastered_at = ErrorCard.STATUS_MASTERED, now
     card.save()
     return JsonResponse({"card": serialize_error_card(card)})
+
+
+# ---------------------------------------------------------------------------
+# Session page: exercises and files per lesson
+# ---------------------------------------------------------------------------
+
+def _session_booking(request, pk):
+    """The lesson behind a session-page request, or None if it doesn't exist or
+    the user may not see it (a student only ever sees their own lessons)."""
+    b = Booking.objects.filter(pk=pk).select_related("student").first()
+    if not b or b.is_intro:
+        return None
+    if request.user.role == "student" and b.student_id != request.user.pk:
+        return None
+    return b
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_session_exercises(request, pk):
+    """Tutor adds an exercise to a lesson."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    data = parse_body(request)
+    title = str(data.get("title") or "").strip()[:200]
+    if not title:
+        return JsonResponse({"error": "Titel fehlt."}, status=400)
+    link = str(data.get("link") or "").strip()[:500]
+    if link and not re.match(r"^https?://", link):
+        return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+    e = SessionExercise.objects.create(
+        booking=b, title=title, description=str(data.get("description") or "")[:3000], link=link,
+    )
+    return JsonResponse({"exercise": serialize_exercise(e)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_session_exercise_detail(request, ex_id):
+    """Tutor edits/deletes an exercise; the student may only tick it done."""
+    e = SessionExercise.objects.filter(pk=ex_id).select_related("booking").first()
+    if not e or not _session_booking(request, e.booking_id):
+        return JsonResponse({"error": "not found"}, status=404)
+    is_student = request.user.role == "student"
+    if request.method == "DELETE":
+        if is_student:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        e.delete()
+        return JsonResponse({"ok": True})
+    data = parse_body(request)
+    if "done" in data:
+        e.done = bool(data["done"])
+    if not is_student:
+        if "title" in data:
+            title = str(data["title"] or "").strip()[:200]
+            if not title:
+                return JsonResponse({"error": "Titel fehlt."}, status=400)
+            e.title = title
+        if "description" in data:
+            e.description = str(data["description"] or "")[:3000]
+        if "link" in data:
+            link = str(data["link"] or "").strip()[:500]
+            if link and not re.match(r"^https?://", link):
+                return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+            e.link = link
+    e.save()
+    return JsonResponse({"exercise": serialize_exercise(e)})
+
+
+@require_http_methods(["POST"])
+@require_roles("student", "tutor", "admin")
+def api_session_files(request, pk):
+    """Upload to a lesson: the tutor adds worksheets, the student hands in homework."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    f = request.FILES.get("file")
+    if not f:
+        return JsonResponse({"error": "Keine Datei hochgeladen."}, status=400)
+    name = (f.name or "datei")[:255]
+    if file_ext(name) not in ALLOWED_LESSON_EXTS:
+        return JsonResponse(
+            {"error": "Dateityp nicht unterstützt. Erlaubt: PDF, Office-Dokumente, Bilder, Audio, ZIP."},
+            status=400,
+        )
+    if f.size > MAX_LESSON_FILE_BYTES:
+        return JsonResponse({"error": "Datei zu groß (max. 10 MB)."}, status=400)
+    kind = SessionFile.KIND_HOMEWORK if request.user.role == "student" else SessionFile.KIND_WORKSHEET
+    sf = SessionFile.objects.create(
+        booking=b, kind=kind, name=name, size=f.size, data=f.read(),
+        content_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
+        uploaded_by=request.user,
+    )
+    return JsonResponse({"file": serialize_session_file(sf)})
+
+
+@require_http_methods(["GET", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_session_file_detail(request, file_id):
+    """Download a lesson file, or delete it (tutor/admin, or the student's own upload)."""
+    sf = SessionFile.objects.filter(pk=file_id).first()
+    if not sf or not _session_booking(request, sf.booking_id):
+        raise Http404
+    if request.method == "DELETE":
+        if request.user.role == "student" and sf.uploaded_by_id != request.user.pk:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        sf.delete()
+        return JsonResponse({"ok": True})
+    return _attachment(bytes(sf.data), sf.name, sf.content_type)
 
 
 # ---------------------------------------------------------------------------
@@ -2174,9 +2327,11 @@ def api_lesson_files(request, lesson_id):
             status=400,
         )
     if f.size > MAX_LESSON_FILE_BYTES:
-        return JsonResponse({"error": "Datei zu groß (max. 25 MB)."}, status=400)
+        return JsonResponse({"error": "Datei zu groß (max. 10 MB)."}, status=400)
     lf = LessonFile.objects.create(
-        lesson_id=lesson_id, file=f, original_name=name[:255], uploaded_by=request.user,
+        lesson_id=lesson_id, original_name=name[:255], uploaded_by=request.user,
+        data=f.read(), size=f.size,
+        content_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
     )
     return JsonResponse(serialize_lesson_file(lf))
 
@@ -2188,7 +2343,8 @@ def api_lesson_file_detail(request, file_id):
         lf = LessonFile.objects.get(pk=file_id)
     except LessonFile.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
-    lf.file.delete(save=False)  # remove the blob from storage too
+    if lf.file:
+        lf.file.delete(save=False)  # legacy on-disk upload
     lf.delete()
     return JsonResponse({"ok": True})
 
@@ -2206,15 +2362,28 @@ def api_lesson_file_download(request, file_id):
         student=request.user, lesson_id=lf.lesson_id
     ).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
+    if lf.data is not None:
+        return _attachment(bytes(lf.data), lf.original_name, lf.content_type)
+    # Legacy upload on the web server's disk (gone after a redeploy).
     ctype = mimetypes.guess_type(lf.original_name)[0] or "application/octet-stream"
     try:
         resp = FileResponse(lf.file.open("rb"), content_type=ctype)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         raise Http404
-    # Sanitize the user-supplied filename before putting it in a header. Served
-    # as an attachment (+ global nosniff) so nothing renders inline.
-    safe = lf.original_name.replace('"', "").replace("\r", "").replace("\n", "") or "lesson"
-    resp["Content-Disposition"] = f'attachment; filename="{safe}"'
+    resp["Content-Disposition"] = f'attachment; filename="{_safe_filename(lf.original_name)}"'
+    return resp
+
+
+def _safe_filename(name):
+    """User-supplied filename, sanitized for a Content-Disposition header."""
+    return (name or "").replace('"', "").replace("\r", "").replace("\n", "") or "datei"
+
+
+def _attachment(data, name, content_type):
+    """Serve stored bytes as a download. Always an attachment (+ global nosniff)
+    so nothing user-uploaded renders inline."""
+    resp = HttpResponse(data, content_type=content_type or "application/octet-stream")
+    resp["Content-Disposition"] = f'attachment; filename="{_safe_filename(name)}"'
     return resp
 
 
