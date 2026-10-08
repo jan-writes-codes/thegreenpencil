@@ -85,6 +85,10 @@
     mix-blend-mode: overlay; }
   .mark img { width: 18px; height: auto; position: relative; transform: translateY(-1px); filter: brightness(0) invert(1); }
   .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; }
+  /* Cursive wordmark (templates/_logo.html). Height tracks the wordmark font-size
+     so existing responsive font-size rules keep scaling it. */
+  .wordmark .gp-logo { display: block; height: 1.9em; width: auto; aspect-ratio: 987.3 / 273; color: #277a42; overflow: visible; }
+  .wordmark .gp-logo + .sub, .wordmark noscript + .sub { margin-top: 2px; }
   .wordmark span { color: var(--accent); }
   .wordmark .sub { display: block; font-family: var(--font-body); font-size: 10px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
 
@@ -138,7 +142,7 @@
     <form class="auth-card" id="authForm" novalidate {% if mode and mode != 'login' %}hidden{% endif %}>
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <h2 class="auth-h">Anmelden</h2>
       <p class="auth-sub">Melde dich an, um deine Stunden und deine Einheiten zu verwalten.</p>
@@ -155,7 +159,7 @@
     <form class="auth-card" id="forgotForm" novalidate hidden>
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <h2 class="auth-h">Passwort vergessen?</h2>
       <p class="auth-sub">Gib deine E-Mail-Adresse ein — wir schicken dir einen Link, mit dem du ein neues Passwort festlegen kannst.</p>
@@ -173,7 +177,7 @@
     <form class="auth-card" id="setpassForm" novalidate {% if mode != 'force' and mode != 'reset' %}hidden{% endif %}>
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <h2 class="auth-h">Neues Passwort festlegen</h2>
       <p class="auth-sub" id="setpassSub">{% if mode == 'reset' %}Wähle ein neues Passwort für dein Konto.{% else %}Bevor es losgeht: Bitte ersetze das Passwort, das du bekommen hast, durch ein eigenes.{% endif %}</p>
@@ -190,7 +194,7 @@
     <div class="auth-card" id="invalidCard" {% if mode != 'reset_invalid' %}hidden{% endif %}>
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <h2 class="auth-h">Link abgelaufen</h2>
       <p class="auth-sub">Dieser Link ist ungültig oder abgelaufen — er gilt 24 Stunden und kann nur einmal verwendet werden.</p>
@@ -202,7 +206,7 @@
     <div class="auth-card" id="doneCard" hidden>
       <a class="brand" href="/">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">{% include "_logo.html" %}<span class="sub">Englisch-Nachhilfe</span></div>
       </a>
       <h2 class="auth-h">Passwort geändert</h2>
       <p class="auth-sub">Dein neues Passwort ist gespeichert. Du kannst dich jetzt damit anmelden.</p>
@@ -260,11 +264,10 @@
     if (r.error) { authErr(r.error); return; }
     if (r.mustChangePassword) {
       // First login with the handed-over password: pick an own one before the app.
-      forceChange = true;
-      $("#setpassSub").textContent = "Bevor es losgeht: Bitte ersetze das Passwort, das du bekommen hast, durch ein eigenes.";
-      $("#setpassLogout").hidden = false;
-      showCard("setpassForm");
-      $("#newPass").focus();
+      // Reload instead of swapping cards in place: logging in rotates the CSRF
+      // token, so this page's token is stale and the next POST would get a 403.
+      // /login/ re-renders straight into the "set your password" form.
+      window.location.href = "/login/";
       return;
     }
     // Success — land on the app.

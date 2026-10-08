@@ -272,6 +272,24 @@ def settle_unit_euros(settings, n):
     return round(best[1] / best[0] if best else settings.credit_price)
 
 
+RECEIPT_SEQ_START = 1000
+
+
+def next_receipt_number(year):
+    """Next number in the studio's single, gapless receipt series for ``year``
+    (RE-2026-1001, RE-2026-1002, …) — one series across all students, as receipts
+    must be. Call inside a transaction: locking the settings row serialises
+    concurrent grants so two can't mint the same number."""
+    SiteSettings.objects.select_for_update().filter(pk=get_settings().pk).first()
+    prefix = f"RE-{year}-"
+    seqs = [
+        int(no[len(prefix):])
+        for no in Receipt.objects.filter(number__startswith=prefix).values_list("number", flat=True)
+        if no[len(prefix):].isdigit()
+    ]
+    return f"{prefix}{max(seqs, default=RECEIPT_SEQ_START) + 1:04d}"
+
+
 def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", unit_euros=None,
                   total_cents=None):
     """Add ``n`` credits to ``student`` and issue the matching receipt + ledger
@@ -290,16 +308,13 @@ def grant_credits(student, n, settings, *, label, sub, stripe_session_id="", uni
     """
 
     with db_transaction.atomic():
-        # Lock the student row so two concurrent grants can't both read the same
-        # receipt_seq and mint a duplicate receipt number.
         student = User.objects.select_for_update().get(pk=student.pk)
         student.credits += n
-        student.receipt_seq += 1
         student.save()
 
         now = timezone.localtime()
         date_str = now.strftime("%d.%m.%Y")
-        receipt_no = f"RE-{now.year}-{str(student.receipt_seq).zfill(4)}"
+        receipt_no = next_receipt_number(now.year)
         student_name = student.get_full_name() or student.username
 
         receipt = Receipt.objects.create(
