@@ -39,6 +39,7 @@ from unittest import mock
 
 from django.core.cache import cache
 from django.test import TestCase as _DjangoTestCase, Client, override_settings
+from django.utils import timezone
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -3262,3 +3263,32 @@ class FirstLoginCsrfTests(FluentDataMixin, TestCase):
         self.assertEqual(ok.status_code, 200)
         self.maya.refresh_from_db()
         self.assertFalse(self.maya.must_change_password)
+
+
+class ReceiptNumberingTests(FluentDataMixin, TestCase):
+    """Receipt numbers form one series across all students (they used to be
+    counted per student, so a second student's first receipt collided with the
+    first student's and the grant crashed)."""
+
+    def test_numbers_are_one_series_across_students(self):
+        self.client.force_login(self.davit)
+        nos = []
+        for slug in ("maya", "ines", "maya"):
+            resp = self.client.post(
+                f"/api/credits/{slug}/", data=json.dumps({"n": 1}),
+                content_type="application/json",
+            )
+            self.assertEqual(resp.status_code, 200)
+            nos.append(resp.json()["receipt"]["no"])
+        year = timezone.localdate().year
+        self.assertEqual(nos, [f"RE-{year}-1001", f"RE-{year}-1002", f"RE-{year}-1003"])
+
+    def test_continues_after_existing_receipts(self):
+        # e.g. a database that already holds RE-…-1001…1008 from earlier.
+        year = timezone.localdate().year
+        Receipt.objects.create(number=f"RE-{year}-1008", student=self.ines, date_str="x",
+                               credits=1, unit_price_cents=40)
+        self.client.force_login(self.davit)
+        resp = self.client.post("/api/credits/maya/", data=json.dumps({"n": 1}),
+                                content_type="application/json")
+        self.assertEqual(resp.json()["receipt"]["no"], f"RE-{year}-1009")
