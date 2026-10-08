@@ -1856,6 +1856,8 @@ class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.maya.refresh_from_db()
         after_book = self.maya.credits                    # 4
         b = Booking.objects.filter(student=self.maya).latest("id")
+        b.status = Booking.STATUS_CONFIRMED               # a firm booking, not a request
+        b.save()
         self.client.force_login(self.maya)
         resp = self.client.delete(f"/api/bookings/{b.pk}/")
         self.assertEqual(resp.status_code, 200)
@@ -1864,7 +1866,7 @@ class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.assertEqual(self.maya.credits, after_book)   # forfeited
 
 
-class BookingSlotValidationTests(FluentDataMixin, TestCase):
+class BookingSlotValidationTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     """Slot conflicts/closures must be enforced on the API, not just in the UI."""
 
     def _post(self, actor, student_slug, d, t):
@@ -2430,7 +2432,7 @@ class IntroEmailTests(FluentDataMixin, TestCase):
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_ASYNC=False,  # send inline so mail.outbox is populated deterministically
 )
-class LessonBookingEmailTests(FluentDataMixin, TestCase):
+class LessonBookingEmailTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, student_slug="maya", tutor_slug="davit",
               d="2026-06-08", t="09:00", title="English session"):
         self.client.force_login(getattr(self, student_slug))
@@ -2461,7 +2463,13 @@ class LessonBookingEmailTests(FluentDataMixin, TestCase):
     def test_student_gets_confirmation_with_cancel_link(self):
         from django.core import mail
         self.assertEqual(self._book().status_code, 200)
-        student_mail = [m for m in mail.outbox if m.to == ["maya@fluent.at"]]
+        # A student's booking is a request first; the confirmation follows the
+        # tutor's OK.
+        b = Booking.objects.get(student=self.maya, time="09:00")
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+        student_mail = [m for m in mail.outbox
+                        if m.to == ["maya@fluent.at"] and "gebucht" in m.subject]
         self.assertEqual(len(student_mail), 1, "the student must get a booking confirmation")
         msg = student_mail[0]
         self.assertIn("gebucht", msg.subject)
@@ -3292,3 +3300,143 @@ class ReceiptNumberingTests(FluentDataMixin, TestCase):
         resp = self.client.post("/api/credits/maya/", data=json.dumps({"n": 1}),
                                 content_type="application/json")
         self.assertEqual(resp.json()["receipt"]["no"], f"RE-{year}-1009")
+
+
+# --------------------------------------------------------------------------- #
+# Booking requests: a student's booking awaits the tutor's confirmation
+# --------------------------------------------------------------------------- #
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_ASYNC=False,
+)
+class BookingRequestTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    # FROZEN_NOW is Mon 1 Jun 2026 08:00 UTC; this slot is a week ahead.
+    D, T = "2026-06-08", "10:00"
+
+    def _book(self, actor=None, student="maya", d=None, t=None):
+        self.client.force_login(actor or self.maya)
+        return self.client.post("/api/bookings/", data=json.dumps({
+            "studentSlug": student, "tutorSlug": "davit",
+            "date": d or self.D, "time": t or self.T, "title": "English session",
+        }), content_type="application/json")
+
+    def _booking(self):
+        return Booking.objects.get(student=self.maya, date=date(2026, 6, 8), time=self.T)
+
+    def test_student_booking_is_a_request_that_reserves_slot_and_credit(self):
+        from django.core import mail
+        start = self.maya.credits
+        resp = self._book()
+        self.assertEqual(resp.json()["status"], "requested")
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start - 1)          # credit reserved
+        subjects = {m.to[0]: m.subject for m in mail.outbox}
+        self.assertIn("Bitte bestätigen", subjects["davit@fluent.at"])
+        self.assertIn("Anfrage gesendet", subjects["maya@fluent.at"])
+        # Slot is held: nobody else can take it while it's pending.
+        clash = self._book(actor=self.ines, student="ines")
+        self.assertEqual(clash.status_code, 409)
+
+    def test_tutor_booking_is_confirmed_immediately(self):
+        resp = self._book(actor=self.davit)
+        self.assertEqual(resp.json()["status"], "confirmed")
+
+    def test_tutor_confirms(self):
+        from django.core import mail
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+        b.refresh_from_db()
+        self.assertEqual(b.status, "confirmed")
+        self.assertTrue(any("gebucht" in m.subject and m.to == ["maya@fluent.at"]
+                            for m in mail.outbox))
+
+    def test_tutor_declines_refunds_and_frees_slot(self):
+        from django.core import mail
+        start = self.maya.credits
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/decline/").status_code, 200)
+        self.assertFalse(Booking.objects.filter(pk=b.pk).exists())
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)               # refunded
+        self.assertTrue(any("Abgelehnt" in m.subject for m in mail.outbox))
+        txn = CreditTransaction.objects.filter(student=self.maya).latest("id")
+        self.assertEqual((txn.amount, txn.label), (1, "Anfrage abgelehnt — Einheit erstattet"))
+        self.assertEqual(self._book(actor=self.ines, student="ines").status_code, 200)
+
+    def test_only_own_tutor_or_admin_may_answer(self):
+        self._book()
+        b = self._booking()
+        other = make_user("eva", "tutor", first_name="Eva")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 403)
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 403)
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.post(f"/api/bookings/{b.pk}/confirm/").status_code, 200)
+
+    def test_unanswered_request_expires_24h_before(self):
+        from core.views import expire_booking_requests
+        from django.core import mail
+        start = self.maya.credits
+        self._book()
+        b = self._booking()
+        mail.outbox.clear()
+        just_before = b.start - timedelta(hours=24, minutes=1)
+        self.assertEqual(expire_booking_requests(now=just_before), 0)
+        self.assertEqual(expire_booking_requests(now=b.start - timedelta(hours=24)), 1)
+        self.assertFalse(Booking.objects.filter(pk=b.pk).exists())
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)
+        self.assertTrue(any("Nicht bestätigt" in m.subject for m in mail.outbox))
+
+    def test_confirmed_bookings_never_expire(self):
+        from core.views import expire_booking_requests
+        self._book(actor=self.davit)
+        b = self._booking()
+        self.assertEqual(expire_booking_requests(now=b.start), 0)
+
+    def test_short_notice_request_gets_until_one_hour_before(self):
+        # Booked for 20:00 today (inside the 24h window).
+        self._book(d="2026-06-01", t="20:00")
+        b = Booking.objects.get(student=self.maya, date=date(2026, 6, 1), time="20:00")
+        self.assertEqual(b.request_deadline(), b.start - timedelta(hours=1))
+
+    def test_student_cancelling_a_request_is_always_refunded(self):
+        start = self.maya.credits
+        self._book(d="2026-06-01", t="20:00")                    # within 24h
+        b = Booking.objects.get(student=self.maya, date=date(2026, 6, 1), time="20:00")
+        self.client.force_login(self.maya)
+        resp = self.client.delete(f"/api/bookings/{b.pk}/")
+        self.assertTrue(resp.json()["refunded"])
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start)
+
+    def test_student_reschedule_needs_confirmation_again(self):
+        self._book(actor=self.davit)
+        b = self._booking()
+        self.client.force_login(self.maya)
+        resp = self.client.put(f"/api/bookings/{b.pk}/", data=json.dumps({"time": "11:00"}),
+                               content_type="application/json")
+        self.assertEqual(resp.json()["status"], "requested")
+        b.refresh_from_db()
+        self.assertEqual(b.status, "requested")
+
+    def test_payload_carries_status(self):
+        self._book()
+        self.client.force_login(self.davit)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        mine = [b for b in payload["bookings"] if b["date"] == self.D and b["time"] == self.T]
+        self.assertEqual(mine[0]["status"], "requested")
+
+    def test_ical_marks_requests_tentative(self):
+        from core.ical import build_tutor_feed
+        self._book()
+        feed = build_tutor_feed(self.davit, Booking.objects.filter(tutor=self.davit))
+        self.assertIn("STATUS:TENTATIVE", feed)
+        self.assertIn("SUMMARY:Anfrage:", feed)

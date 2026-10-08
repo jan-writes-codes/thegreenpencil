@@ -522,6 +522,13 @@
   .slot.t-open:hover .ts-add { color: var(--c1); }
   .slot.t-booked { background: color-mix(in oklch, var(--good) 13%, transparent); border-color: color-mix(in oklch, var(--good) 30%, transparent); cursor: pointer; }
   .slot.t-booked:hover { filter: brightness(1.04); }
+  /* Booking request awaiting the tutor's confirmation */
+  .slot.t-booked.t-req { background: color-mix(in oklch, #c2782f 12%, transparent); border: 1.5px dashed color-mix(in oklch, #c2782f 55%, transparent); }
+  .req-chip { display: inline-block; font-size: 11px; font-weight: 600; color: #8a4b16; background: rgba(194,120,47,0.13);
+    border: 1px solid rgba(194,120,47,0.35); border-radius: 100px; padding: 2px 8px; margin-left: 6px; vertical-align: 1px; }
+  .req-panel { border: 1.5px solid rgba(194,120,47,0.4); background: rgba(194,120,47,0.06); padding: 8px 22px; }
+  .tab .tab-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+    border-radius: 100px; background: #c2552f; color: #fff; font-size: 11px; font-weight: 700; }
   .slot.t-booked .ts-name { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink); }
   .slot .ts-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .slot.t-open.sel .ts-time, .slot.t-open.sel .ts-add,
@@ -1029,6 +1036,10 @@
             </aside>
           </div>
 
+          <div id="tutorRequestsSec" hidden>
+            <div class="section-h" style="margin-top:34px;"><h2>Offene Anfragen</h2><span class="micro" style="margin:0;">Bitte bestätigen oder ablehnen — ohne Antwort verfallen sie 24 h vor Beginn.</span></div>
+            <div class="panel req-panel"><div class="list" id="tutorRequests"></div></div>
+          </div>
           <div class="section-h" style="margin-top:34px;"><h2>Nächste Stunden</h2><span style="display:flex;gap:18px;"><span class="lnk" id="videoConnectBtn">🎥 Video-Call verbinden</span><span class="lnk" id="calSyncBtn">↻ Kalender abonnieren / sync</span></span></div>
           <div class="panel" style="padding: 8px 22px;"><div class="list" id="tutorUpcoming"></div></div>
 
@@ -1549,7 +1560,9 @@
 
   // ---------- Reschedule / cancel ----------
   function bookingStart(b){ const [h,m]=b.time.split(":").map(Number); const dt=new Date(b.date); dt.setHours(h,m,0,0); return dt; }
-  function canModify(b){ return (bookingStart(b) - NOW) >= 24*3600000; }
+  // An unconfirmed request can always be withdrawn (full refund); a confirmed
+  // lesson only outside the 24h window.
+  function canModify(b){ return b.status === "requested" || (bookingStart(b) - NOW) >= 24*3600000; }
 
   function openManage(b){ if(!b) return; state.selected=null; state.justBooked=null; state.rescheduling=null; state.managing=b; setView("book"); renderWeek(); renderSummary(); document.querySelector("#main").scrollTop=0; }
 
@@ -1561,12 +1574,13 @@
     const b=state.rescheduling, s=state.selected; if(!b||!s) return;
     const t=tutorById(b.tutorId);
     b.date=new Date(s.date); b.time=s.time;
+    if (state.role === "student") b.status = "requested";  // the tutor confirms the new slot
     meLog().unshift({ type:"book", label:"Umgebucht mit "+t.name, sub:"Jetzt "+MONTHS_S[b.date.getMonth()]+" "+b.date.getDate()+" · "+b.time, amt:"" });
     if (b._pk) api('PUT', '/api/bookings/' + b._pk + '/', { date: ymd(b.date), time: b.time });
     state.rescheduling=null; state.selected=null; state.managing=null;
     state.justBooked=b; state.justAction="rescheduled";
     renderWeek(); renderSummary(); renderAccount(); renderTeacherWeek(); renderRoster();
-    toast("Stunde umgebucht auf "+b.time);
+    toast(b.status === "requested" ? "Umbuchung angefragt · "+b.time : "Stunde umgebucht auf "+b.time);
   }
 
   function cancelBooking(b){
@@ -1754,8 +1768,9 @@
       sumCard.innerHTML = `
         <div class="sum-confirm">
           <div class="confirm-badge">✓</div>
-          <h3 class="confirm-h">${resched ? "Umgebucht!" : "Gebucht!"}</h3>
+          <h3 class="confirm-h">${b.status === "requested" ? (resched ? "Umbuchung angefragt" : "Angefragt!") : (resched ? "Umgebucht!" : "Gebucht!")}</h3>
           <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${esc(t.name)}</p>
+          ${b.status === "requested" ? `<p class="confirm-p" style="margin-top:8px;">${esc(t.name.split(" ")[0])} bestätigt deine Anfrage — du bekommst dann eine E-Mail. Der Termin ist so lange für dich reserviert.</p>` : ""}
         </div>
         <button class="btn" id="icsBtn">
           <span class="grainbtn"></span>
@@ -1858,9 +1873,10 @@
     const s = state.selected; if (!s) return;
     const t = tutorById(s.tutorId);
     state.credits -= 1;
-    const booking = { studentId: state.currentUser, tutorId: s.tutorId, date: new Date(s.date), time: s.time, title: "Englischstunde" };
+    // A student's booking is a request until the tutor confirms it.
+    const booking = { studentId: state.currentUser, tutorId: s.tutorId, date: new Date(s.date), time: s.time, title: "Englischstunde", status: "requested" };
     state.bookings.push(booking);
-    meLog().unshift({ type:"book", label:"Gebucht mit "+t.name, sub: "Stunde · "+MONTHS_S[s.date.getMonth()]+" "+s.date.getDate(), amt:"-1" });
+    meLog().unshift({ type:"book", label:"Angefragt bei "+t.name, sub: "Stunde · "+MONTHS_S[s.date.getMonth()]+" "+s.date.getDate(), amt:"-1" });
     state.selected = null;
     state.justBooked = booking; state.justAction = "booked";
     // Persist first, so a rendering hiccup can never swallow the save.
@@ -1872,11 +1888,12 @@
       title: 'Englischstunde',
     }).then(r => {
       if (r && r.pk) booking._pk = r.pk;
+      if (r && r.status) { booking.status = r.status; renderUpcoming(); }
       // Reconcile with the server's authoritative balance.
       if (r && typeof r.credits === 'number') { state.credits = r.credits; updateCredits(); renderAccount(); }
     });
     updateCredits(); renderWeek(); renderSummary(); renderAccount(); renderTeacherWeek(); renderRoster();
-    toast(`Stunde gebucht mit ${t.name.split(" ")[0]} · ${s.time}`);
+    toast(`Anfrage an ${t.name.split(" ")[0]} gesendet · ${s.time}`);
   }
 
   // ---------- Einheiten ----------
@@ -2086,7 +2103,7 @@
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
         <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
-        <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+        <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip" title="Wartet auf Bestätigung durch deinen Tutor">Angefragt</span>':""}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
           ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
           <button class="ics-mini" title="Zum Kalender (.ics)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></button>
@@ -2247,8 +2264,8 @@
         const el=document.createElement("button");
         if(bk){
           const s=bookingStudent(bk);
-          el.className="slot t-booked"+(state.teacherManage===bk?" sel":"");
-          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
+          el.className="slot t-booked"+(bk.status==="requested"?" t-req":"")+(state.teacherManage===bk?" sel":"");
+          el.innerHTML=`<span class="ts-time">${time}${bk.status==="requested"?' · Anfrage':''}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
           el.onclick=()=>teacherManageSlot(bk);
         } else {
           const isSel=state.teacherSel && state.teacherSel.dateKey===dk && state.teacherSel.time===time;
@@ -2427,8 +2444,9 @@
       const bk=state.teacherManage, s=bookingStudent(bk);
       const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
       card.innerHTML=`
-        <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":"Gebuchte Zeit"}</div>
+        <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":(bk.status==="requested"?"Anfrage · wartet auf dich":"Gebuchte Zeit")}</div>
         <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        ${bk.status==="requested" && bk._pk ? `<div style="display:flex;gap:8px;margin:4px 0 14px;"><button class="btn" id="tReqConfirm" style="flex:1;"><span class="grainbtn"></span>Bestätigen</button><button class="btn ghost" id="tReqDecline" style="flex:1;">Ablehnen</button></div>` : ""}
         <label class="field-label">Titel der Stunde</label>
         <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
@@ -2466,6 +2484,8 @@
         renderTeacherWeek(); renderTutorLists(); renderAccount(); renderWeek(); renderTeacherSummary();
       };
       $("#tRemove").onclick=()=>teacherRemove(bk);
+      if($("#tReqConfirm")) $("#tReqConfirm").onclick=()=>answerRequest(bk._pk, true);
+      if($("#tReqDecline")) $("#tReqDecline").onclick=()=>{ state.teacherManage=null; answerRequest(bk._pk, false); };
       $("#tBack").onclick=()=>{ state.teacherManage=null; renderTeacherSummary(); };
       return;
     }
@@ -2693,9 +2713,32 @@
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
       <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
-      <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
-      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
+      <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip">Anfrage</span>':""}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+      <div class="tail">${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
+  }
+  function updateRequestBadge(n){
+    const tab=document.querySelector('.tab[data-view="teacher"]'); if(!tab) return;
+    let badge=tab.querySelector(".tab-badge");
+    if(!n){ if(badge) badge.remove(); return; }
+    if(!badge){ badge=document.createElement("span"); badge.className="tab-badge"; tab.appendChild(badge); }
+    badge.textContent=n;
+  }
+  // Tutor confirms or declines a student's booking request.
+  async function answerRequest(pk, confirm){
+    const b = state.bookings.find(x=>x._pk===pk); if(!b) return;
+    const s = bookingStudent(b), first = esc(s.name.split(" ")[0]);
+    if (!confirm && !window.confirm(`Anfrage von ${s.name} am ${fmtLong(b.date)} um ${b.time} ablehnen? Die Einheit wird erstattet.`)) return;
+    const res = await apiResult('POST', `/api/bookings/${pk}/${confirm ? "confirm" : "decline"}/`);
+    if (!res.ok) { toast("Das hat nicht geklappt — bitte neu laden."); return; }
+    if (confirm) { b.status = "confirmed"; toast(`Bestätigt · ${first} bekommt eine E-Mail`); }
+    else {
+      state.bookings = state.bookings.filter(x=>x!==b);
+      const st = state.students && state.students.find(x=>x.id===b.studentId);
+      if (st) st.credits += 1;
+      toast(`Abgelehnt · ${first} bekommt die Einheit zurück`);
+    }
+    renderTutorLists(); renderTeacherWeek(); if (typeof renderTeacherSummary==="function") renderTeacherSummary(); renderRoster();
   }
   function renderTutorLists(){
     const up=$("#tutorUpcoming"), done=$("#tutorCompleted");
@@ -2703,6 +2746,17 @@
     const upcoming = state.bookings.filter(b=> b.date>=NOW || sameDay(b.date,NOW)).sort((a,b)=>a.date-b.date || toMin(a.time)-toMin(b.time));
     const past = state.bookings.filter(b=> b.date<NOW && !sameDay(b.date,NOW)).sort((a,b)=> b.date-a.date || toMin(b.time)-toMin(a.time));
     up.innerHTML = upcoming.length ? upcoming.map(b=>tutorRow(b,false)).join("") : `<div class="empty-list">Keine geplanten Stunden.</div>`;
+    // Open requests first, in their own panel, so none gets overlooked.
+    const reqs = upcoming.filter(b=>b.status==="requested");
+    const rp=$("#tutorRequests"), rs=$("#tutorRequestsSec");
+    if (rp && rs) { rs.hidden = !reqs.length; rp.innerHTML = reqs.map(b=>tutorRow(b,false)).join(""); }
+    updateRequestBadge(reqs.length);
+    document.querySelectorAll("#tutorUpcoming [data-confirm], #tutorRequests [data-confirm]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.confirm, true); };
+    });
+    document.querySelectorAll("#tutorUpcoming [data-decline], #tutorRequests [data-decline]").forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); answerRequest(+btn.dataset.decline, false); };
+    });
     done.innerHTML = past.length ? past.map(b=>tutorRow(b,true)).join("") : `<div class="empty-list">Noch keine abgeschlossenen Stunden.</div>`;
     // Admin-only: retroactively undo a completed lesson (see openUndoCompleted).
     done.querySelectorAll("[data-undo]").forEach(btn=>{
