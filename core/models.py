@@ -64,6 +64,9 @@ class Booking(models.Model):
     # The tutor's recap for the student ("Was wir gemacht haben"), shown in the
     # student's lesson overview. Unlike tutor_notes it is shared.
     summary = models.TextField(blank=True)
+    # Homework set in this lesson; the student ticks it off.
+    homework = models.TextField(blank=True)
+    homework_done = models.BooleanField(default=False)
     call_link = models.TextField(blank=True)
     # Free "intro" session booked by a visitor from the public landing page, who
     # has no account yet. The guest's contact details live here (not on a User),
@@ -369,7 +372,12 @@ class LessonFile(models.Model):
     """A PDF the tutor attaches to a curriculum lesson (e.g. 'a1-1'). Files are
     shared across all students who have that lesson unlocked."""
     lesson_id = models.CharField(max_length=20, db_index=True)
-    file = models.FileField(upload_to=lesson_upload_path)
+    # Legacy: files once lived on the web server's disk, which Render wipes on
+    # every deploy. New uploads are stored in the database (``data``) instead.
+    file = models.FileField(upload_to=lesson_upload_path, blank=True)
+    data = models.BinaryField(null=True, blank=True, editable=False)
+    content_type = models.CharField(max_length=100, blank=True)
+    size = models.PositiveIntegerField(default=0)
     original_name = models.CharField(max_length=255)
     uploaded_by = models.ForeignKey(
         User, null=True, on_delete=models.SET_NULL, related_name='uploaded_lesson_files'
@@ -415,7 +423,14 @@ class ErrorCard(models.Model):
     STATUS_OPEN = 'open'
     STATUS_MASTERED = 'mastered'
     STATUS_CHOICES = [(STATUS_OPEN, 'Offen'), (STATUS_MASTERED, 'Gemeistert')]
+    # The same card mechanics serve two decks: mistakes (front = what the student
+    # said, back = correct version, note = why) and new vocabulary (front = the
+    # word, back = its meaning, note = an example sentence).
+    KIND_ERROR = 'error'
+    KIND_VOCAB = 'vocab'
+    KIND_CHOICES = [(KIND_ERROR, 'Fehler'), (KIND_VOCAB, 'Wortschatz')]
 
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_ERROR, db_index=True)
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='error_cards')
     # The lesson the mistake came from (kept if the booking row disappears).
     booking = models.ForeignKey(Booking, on_delete=models.SET_NULL, null=True, blank=True,
@@ -438,3 +453,39 @@ class ErrorCard(models.Model):
 
     def __str__(self):
         return f'{self.student.slug}: {self.front[:40]}'
+
+
+class SessionExercise(models.Model):
+    """An exercise done in (or set for) a lesson, listed on the session page.
+    The student can tick it off."""
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='exercises')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    link = models.URLField(max_length=500, blank=True)
+    done = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+
+class SessionFile(models.Model):
+    """A file attached to one lesson: a worksheet the tutor uploads, or homework
+    the student hands in. Stored in the database (not on the web server's disk,
+    which Render wipes on every deploy), so keep uploads small."""
+    KIND_WORKSHEET = 'worksheet'
+    KIND_HOMEWORK = 'homework'
+    KIND_CHOICES = [(KIND_WORKSHEET, 'Arbeitsblatt'), (KIND_HOMEWORK, 'Hausaufgabe')]
+
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='files')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100, blank=True)
+    size = models.PositiveIntegerField(default=0)
+    data = models.BinaryField(editable=False)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='session_uploads')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
