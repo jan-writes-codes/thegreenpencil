@@ -29,6 +29,7 @@ const doAdminPricing = process.argv.includes("--admin-pricing");
 const doLearning = process.argv.includes("--learning");
 const doPreview = process.argv.includes("--preview");
 const doBuy = process.argv.includes("--buy");
+const doQuickAdds = process.argv.includes("--quick-adds");
 if (!file) {
   console.error("usage: node dom_probe.js <app.html> [--book]");
   process.exit(2);
@@ -106,6 +107,8 @@ function finish(extra) {
         initials: $("#meAvatar") ? $("#meAvatar").textContent : null,
       },
       tabs: tabDisplays(),
+      // Elements injected through user-supplied text (tests plant <i/data-xss>).
+      xss: document.querySelectorAll("[data-xss]").length,
     },
     extra || {}
   );
@@ -232,6 +235,14 @@ setTimeout(() => {
     return finish({ adminPricing: result });
   }
 
+  if (doQuickAdds) {
+    const card = document.querySelector("#rosterList .rost");
+    const adds = card
+      ? [...card.querySelectorAll("[data-add]")].map((b) => +b.dataset.add)
+      : [];
+    return finish({ quickAdds: adds });
+  }
+
   if (doPreview) {
     // Tutor: open a roster student's modal and reveal the Learning preview.
     const card = [...document.querySelectorAll("#rosterList .rost")]
@@ -264,9 +275,15 @@ setTimeout(() => {
   if (!doBook) return finish();
 
   // Click the first open, clickable calendar slot, then confirm.
-  const openSlot = [...document.querySelectorAll(".slot")].find(
+  const findSlot = () => [...document.querySelectorAll(".slot")].find(
     (b) => b.onclick && /\d\d:\d\d/.test(b.textContent)
   );
+  let openSlot = findSlot();
+  // Late in the week the open slots may all fall in next week's view.
+  if (!openSlot && document.querySelector("#nextWeek")) {
+    document.querySelector("#nextWeek").click();
+    openSlot = findSlot();
+  }
   if (!openSlot) return finish({ booking: { error: "no open slot found" } });
   openSlot.click();
 

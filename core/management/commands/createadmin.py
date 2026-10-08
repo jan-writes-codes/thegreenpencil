@@ -73,7 +73,7 @@ class Command(BaseCommand):
 
         first_name, _, last_name = name.partition(" ")
 
-        user = User.objects.create_user(
+        User.objects.create_user(
             username=username,
             email=email,
             password=password,
@@ -85,12 +85,6 @@ class Command(BaseCommand):
             first_name=first_name,
             last_name=last_name,
         )
-        # Also a Django superuser, harmless and future-proof if django.contrib.admin
-        # is ever enabled.
-        user.is_staff = True
-        user.is_superuser = True
-        user.save(update_fields=["is_staff", "is_superuser"])
-
         self.stdout.write(self.style.SUCCESS(
             f"Created admin '{username}' ({email}) with slug '{slug}'. "
             f"Log in at /login/ and build out tutors and students from the GUI."

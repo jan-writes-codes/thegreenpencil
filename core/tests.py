@@ -22,18 +22,23 @@ Map of bug -> guarding test:
   * bookings don't sync between users .... BookingPersistenceTests.*  +  DomBookingTests.test_booking_persists_with_local_date
   * identity always shows Maya ........... DomRoleTests.test_identity_*
 """
+import hashlib
+import hmac
 import json
 import os
 import re
 import secrets
 import shutil
 import subprocess
+import sys
+import time
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from unittest import mock
 
-from django.test import TestCase, Client, override_settings
+from django.core.cache import cache
+from django.test import TestCase as _DjangoTestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -59,14 +64,41 @@ def make_user(slug, role, **extra):
     return user
 
 
+def complete_payment_setup(user):
+    """Give a fixture student what card payments require: a real e-mail (fixtures
+    start with the <slug>@fluent.at placeholder) and a receipt address."""
+    user.email = f"{user.slug}@example.com"
+    user.billing_line1 = "Hauptstraße 1"
+    user.billing_postcode = "1010"
+    user.billing_city = "Wien"
+    user.save()
+
+
 def current_week_monday():
     """Monday of the week containing today (so fixtures land in the default view)."""
     today = date.today()
     return today - timedelta(days=today.weekday())
 
 
-DJANGO_DATA_RE = re.compile(r"window\.DJANGO_DATA = (\{.*?\});", re.S)
+DJANGO_DATA_RE = re.compile(r'<script id="django-data" type="application/json">(.*?)</script>', re.S)
 DATA_ROLE_RE = re.compile(r'<div class="app" data-role="([^"]*)"')
+
+
+class TestCase(_DjangoTestCase):
+    """Rate-limit counters live in the cache; every test starts with a clean one."""
+    def run(self, result=None):
+        cache.clear()
+        return super().run(result)
+
+
+WEBHOOK_SECRET = "whsec_test"
+
+
+def stripe_signed(payload, secret=WEBHOOK_SECRET):
+    """The header Stripe sends with ``payload``: a v1 HMAC-SHA256 signature."""
+    ts = int(time.time())
+    sig = hmac.new(secret.encode(), f"{ts}.{payload}".encode(), hashlib.sha256).hexdigest()
+    return {"HTTP_STRIPE_SIGNATURE": f"t={ts},v1={sig}"}
 
 
 def extract_payload(html):
@@ -78,6 +110,20 @@ def extract_payload(html):
 def extract_data_role(html):
     m = DATA_ROLE_RE.search(html)
     return m.group(1) if m else None
+
+
+class FrozenTodayMixin:
+    """Pins "now" to Mon 1 Jun 2026 — the demo week these tests' hard-coded
+    dates live in — so date rules (e.g. the 30-day back-dating limit) don't
+    start rejecting them as the real calendar moves on."""
+
+    FROZEN_NOW = datetime(2026, 6, 1, 8, 0, tzinfo=dt_timezone.utc)
+
+    def setUp(self):
+        patcher = mock.patch("django.utils.timezone.now", return_value=self.FROZEN_NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
 
 
 class FluentDataMixin:
@@ -330,7 +376,8 @@ class ProfilePhotoPersistenceTests(FluentDataMixin, TestCase):
 # --------------------------------------------------------------------------- #
 # Booking persistence + cross-user visibility  (Bug A, backend half)
 # --------------------------------------------------------------------------- #
-class BookingPersistenceTests(FluentDataMixin, TestCase):
+@override_settings(EMAIL_ASYNC=False)  # no mail threads racing the test DB
+class BookingPersistenceTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, student_slug, tutor_slug, d, t):
         self.client.force_login(getattr(self, student_slug))
         return self.client.post(
@@ -690,21 +737,21 @@ class MultiTutorTests(FluentDataMixin, TestCase):
         for slug, is_open in ((self.davit.slug, True), (other.slug, False)):
             r = self.client.post(
                 "/api/availability/",
-                data=json.dumps({"date": "2026-5-2", "time": "11:00", "isOpen": is_open, "tutorSlug": slug}),
+                data=json.dumps({"date": "2026-06-02", "time": "11:00", "isOpen": is_open, "tutorSlug": slug}),
                 content_type="application/json",
             )
             self.assertEqual(r.status_code, 200)
         # the payload keys each tutor's overrides separately — no collision
         html = self.client.get(reverse("app")).content.decode()
         avail = extract_payload(html)["availability"]
-        self.assertEqual(avail[self.davit.slug]["2026-5-2|11:00"], True)
-        self.assertEqual(avail[other.slug]["2026-5-2|11:00"], False)
+        self.assertEqual(avail[self.davit.slug]["2026-06-02|11:00"], True)
+        self.assertEqual(avail[other.slug]["2026-06-02|11:00"], False)
 
     def test_admin_custom_time_requires_known_tutor(self):
         self.client.force_login(self.admin)
         r = self.client.post(
             "/api/custom-times/",
-            data=json.dumps({"date": "2026-5-2", "time": "07:30", "tutorSlug": "nope"}),
+            data=json.dumps({"date": "2026-06-02", "time": "07:30", "tutorSlug": "nope"}),
             content_type="application/json",
         )
         self.assertEqual(r.status_code, 400)
@@ -744,8 +791,8 @@ class AuthorizationTests(FluentDataMixin, TestCase):
         self.assertEqual(self._put("/api/users/ines/", {"name": "Hacked"}).status_code, 403)
         self.assertEqual(self.client.delete("/api/users/ines/").status_code, 403)
         self.assertEqual(self._post("/api/credits/maya/", {"n": 99}).status_code, 403)
-        self.assertEqual(self._post("/api/availability/", {"date": "2026-5-1", "time": "10:00"}).status_code, 403)
-        self.assertEqual(self._post("/api/custom-times/", {"date": "2026-5-1", "time": "10:00"}).status_code, 403)
+        self.assertEqual(self._post("/api/availability/", {"date": "2026-06-01", "time": "10:00"}).status_code, 403)
+        self.assertEqual(self._post("/api/custom-times/", {"date": "2026-06-01", "time": "10:00"}).status_code, 403)
         self.assertEqual(self._post("/api/notes/ines/", {"text": "x"}).status_code, 403)
         self.assertEqual(self._post("/api/lessons/ines/", {"lessonId": "a1-1"}).status_code, 403)
         self.assertEqual(self._put("/api/settings/", {"creditPrice": 1}).status_code, 403)
@@ -790,7 +837,7 @@ class AuthorizationTests(FluentDataMixin, TestCase):
         self.client.force_login(self.davit)
         self.assertEqual(self._post("/api/credits/maya/", {"n": 1}).status_code, 200)
         self.assertEqual(self._post("/api/notes/maya/", {"text": "great progress"}).status_code, 200)
-        self.assertEqual(self._post("/api/availability/", {"date": "2026-5-1", "time": "10:00", "isOpen": False}).status_code, 200)
+        self.assertEqual(self._post("/api/availability/", {"date": "2026-06-01", "time": "10:00", "isOpen": False}).status_code, 200)
         # but not admin-only user management / settings
         self.assertEqual(self.client.get("/api/users/").status_code, 403)
         self.assertEqual(self._put("/api/settings/", {"creditPrice": 40}).status_code, 403)
@@ -1003,7 +1050,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 "to enable frontend tests"
             )
 
-    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False):
+    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False, quick_adds=False):
         self._skip_if_unavailable()
         self.client.force_login(user)
         html = self.client.get(reverse("app")).content.decode()
@@ -1031,6 +1078,8 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 cmd.append("--preview")
             if buy:
                 cmd.append("--buy")
+            if quick_adds:
+                cmd.append("--quick-adds")
             out = subprocess.run(
                 cmd, capture_output=True, text=True, env=env, timeout=60
             )
@@ -1068,6 +1117,53 @@ class DomRoleTests(_DomProbeBase):
 
     def test_identity_and_tabs_admin(self):
         self._check(self.admin, *self.EXPECTED["admin"])
+
+
+class XssTests(_DomProbeBase):
+    """User-supplied text (guest/student/tutor names, booking titles) must render
+    as text, never as markup, in every role's app — and must not be able to
+    close the <script> block that carries the page data."""
+    MARK = "<i/data-xss>Eve"            # no spaces: survives name.split(" ")[0]
+    BREAKOUT = "</script><script>window.__pwned=1</script>"
+
+    def setUp(self):
+        super().setUp()
+        today = date.today()
+        self.maya.first_name = self.MARK
+        self.maya.save()
+        self.davit.first_name = self.MARK
+        self.davit.save()
+        Booking.objects.create(student=self.maya, tutor=self.davit, date=today,
+                               time="19:00", title=self.MARK)
+        Booking.objects.create(tutor=self.davit, date=today + timedelta(days=1), time="19:00",
+                               is_intro=True, guest_name=self.MARK, guest_email="eve@example.at",
+                               student_name=self.MARK, student_slug="intro")
+
+    def test_names_and_titles_render_as_text(self):
+        for user in (self.davit, self.admin, self.maya):
+            r = self.run_probe(user)
+            self.assertEqual(r["initErrors"], [], f"init must not throw ({user.slug})")
+            self.assertEqual(r["xss"], 0, f"markup injected into {user.slug}'s app")
+
+    def test_page_data_cannot_close_its_script_block(self):
+        self.client.force_login(self.maya)
+        self.client.put("/api/users/me/billing/", data=json.dumps({"name": self.BREAKOUT}),
+                        content_type="application/json")
+        self.client.force_login(self.davit)
+        html = self.client.get(reverse("app")).content.decode()
+        self.assertNotIn(self.BREAKOUT, html)
+        maya = next(s for s in extract_payload(html)["students"] if s["slug"] == "maya")
+        self.assertEqual(maya["name"], self.BREAKOUT)   # data survives intact
+        self.davit.first_name = self.BREAKOUT
+        self.davit.save()
+        self.assertNotIn(self.BREAKOUT, self.client.get("/intro/").content.decode())
+
+    def test_photo_must_be_an_image_data_url(self):
+        self.client.force_login(self.admin)
+        for bad in ("javascript:alert(1)", "data:text/html;base64,PHNjcmlwdD4=", "x');}*{background:red"):
+            r = self.client.put(f"/api/users/{self.maya.slug}/", data=json.dumps({"photo": bad}),
+                                content_type="application/json")
+            self.assertEqual(r.status_code, 400, bad)
 
 
 class DomAdminTests(_DomProbeBase):
@@ -1147,17 +1243,30 @@ class DomLessonTests(_DomProbeBase):
         self.assertIn(f"/api/lesson-files/download/{lf.pk}/", r["preview"]["fileLinks"])
 
 
+class DomQuickAddTests(_DomProbeBase):
+    def test_quick_add_buttons_match_admin_packs(self):
+        # Custom packs -> the tutor's +N credit buttons must follow them.
+        SiteSettings.objects.all().delete()
+        SiteSettings.objects.create(credit_price=30, packs_json=json.dumps([
+            {"n": 2, "price": "€60"}, {"n": 4, "price": "€110"}, {"n": 8, "price": "€200"},
+        ]))
+        r = self.run_probe(self.davit, quick_adds=True)
+        self.assertEqual(r["initErrors"], [])
+        self.assertEqual(sorted(set(r["quickAdds"])), [2, 4, 8])
+
+
 class DomBookingTests(_DomProbeBase):
     def setUp(self):
         super().setUp()
-        # Availability is opt-in now (no seeded defaults). The app pins its
-        # calendar "today" to Mon 1 Jun 2026, so open a few of Davit's slots in
-        # that demo week for the booking flow to have something to click.
+        # Availability is opt-in now (no seeded defaults). The calendar runs on
+        # the real current date, so open a few of Davit's slots over the coming
+        # days (2+ days out, clear of the 24h window) for the flow to click.
         from core.models import AvailabilityOverride
-        for day in range(1, 6):  # Mon–Fri, 1–5 Jun 2026
+        for offset in range(2, 10):
             for time in ("09:00", "10:00", "11:00", "14:00"):
                 AvailabilityOverride.objects.create(
-                    tutor=self.davit, date=date(2026, 6, day), time=time, is_open=True
+                    tutor=self.davit, date=date.today() + timedelta(days=offset),
+                    time=time, is_open=True,
                 )
 
     def test_booking_persists_with_local_date(self):
@@ -1302,11 +1411,8 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x")
     def test_checkout_creates_session(self):
-        # A receipt address is required before a student can pay.
-        self.maya.billing_line1 = "Hauptstraße 1"
-        self.maya.billing_postcode = "1010"
-        self.maya.billing_city = "Wien"
-        self.maya.save()
+        # A completed account (real e-mail + receipt address) is required to pay.
+        complete_payment_setup(self.maya)
         self.client.force_login(self.maya)
         with mock.patch("core.views.stripe") as st:
             st.checkout.Session.create.return_value = mock.Mock(
@@ -1334,7 +1440,9 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_checkout_requires_billing_address(self):
-        # maya has no billing address in the fixture -> checkout is blocked.
+        # Real e-mail but no billing address -> checkout is blocked.
+        self.maya.email = "maya@example.com"
+        self.maya.save()
         self.client.force_login(self.maya)
         with mock.patch("core.views.stripe") as st:
             resp = self.client.post(
@@ -1342,8 +1450,25 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 content_type="application/json",
             )
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()["error"], "billing_required")
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["billing"]})
         st.checkout.Session.create.assert_not_called()  # no session without an address
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    def test_checkout_requires_real_email(self):
+        # Address on file but still the generated placeholder e-mail -> blocked,
+        # so Stripe and our receipt mail never go to a dead address.
+        complete_payment_setup(self.maya)
+        self.maya.email = "maya@fluent.at"
+        self.maya.save()
+        self.client.force_login(self.maya)
+        with mock.patch("core.views.stripe") as st:
+            resp = self.client.post(
+                "/api/checkout/", data=json.dumps({"n": 5}),
+                content_type="application/json",
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["email"]})
+        st.checkout.Session.create.assert_not_called()
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_confirm_credits_student_once(self):
@@ -1386,7 +1511,7 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_x").count(), 0)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")  # no webhook secret -> unverified JSON
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_webhook_credits_idempotently(self):
         start = self.maya.credits
         event = json.dumps({
@@ -1396,13 +1521,15 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "10"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, start + 10)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_wh_1").count(), 1)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_webhook_ignores_unpaid_session(self):
         start = self.maya.credits
         event = json.dumps({
@@ -1412,7 +1539,8 @@ class StripeCheckoutTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "5"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, start)
         self.assertEqual(Receipt.objects.filter(stripe_session_id="cs_unpaid").count(), 0)
@@ -1645,7 +1773,8 @@ class PurchaseAndCancellationEmailTests(FluentDataMixin, TestCase):
 # --------------------------------------------------------------------------- #
 # Negative credits: tutor books on tab, student/tutor settle the balance
 # --------------------------------------------------------------------------- #
-class NegativeCreditBookingTests(FluentDataMixin, TestCase):
+@override_settings(EMAIL_ASYNC=False)  # no mail threads racing the test DB
+class NegativeCreditBookingTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def _book(self, actor, student_slug, d="2026-07-01", t="09:30"):
         self.client.force_login(actor)
         return self.client.post(
@@ -1721,7 +1850,7 @@ class NegativeCreditBookingTests(FluentDataMixin, TestCase):
         # A booking later *today* is inside the 24h window -> no refund.
         self.maya.credits = 5
         self.maya.save()
-        today = date.today().isoformat()
+        today = self.FROZEN_NOW.date().isoformat()
         self._book(self.maya, "maya", d=today, t="23:59")
         self.maya.refresh_from_db()
         after_book = self.maya.credits                    # 4
@@ -1796,11 +1925,6 @@ class SettlePricingTests(TestCase):
         self.assertEqual(settle_unit_euros(self.s, 8), 29)    # 5-pack tier (145/5)
         self.assertEqual(settle_unit_euros(self.s, 13), 27)   # 10-pack tier (270/10)
 
-    def test_total_cents(self):
-        from core.views import settle_total_cents
-        self.assertEqual(settle_total_cents(self.s, 8), 8 * 29 * 100)
-        self.assertEqual(settle_total_cents(self.s, 13), 13 * 27 * 100)
-
 
 class SettleFlowTests(FluentDataMixin, TestCase):
     def setUp(self):
@@ -1808,6 +1932,7 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         SiteSettings.objects.create(credit_price=30, packs_json=json.dumps([
             {"n": 1, "price": "€32"}, {"n": 5, "price": "€145"}, {"n": 10, "price": "€270"},
         ]))
+        complete_payment_setup(self.maya)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_x")
     def test_student_settle_creates_session_for_outstanding(self):
@@ -1841,9 +1966,14 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         # Positive balance -> nothing to settle.
         resp = self.client.post("/api/students/maya/settle-link/")
         self.assertEqual(resp.status_code, 400)
-        # Negative balance -> a token + link is minted.
+        # Negative balance but account not set up -> no link (card payment gate).
         self.ines.credits = -5
         self.ines.save()
+        resp = self.client.post("/api/students/ines/settle-link/")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json(), {"error": "setup_required", "missing": ["email", "billing"]})
+        # Account completed -> a token + link is minted.
+        complete_payment_setup(self.ines)
         resp = self.client.post("/api/students/ines/settle-link/")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
@@ -1870,7 +2000,7 @@ class SettleFlowTests(FluentDataMixin, TestCase):
         # Unknown token -> 404 page, no leak.
         self.assertEqual(self.client.get("/settle/nope/").status_code, 404)
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
     def test_token_checkout_then_webhook_settles_to_zero(self):
         self.maya.credits = -8
         self.maya.settle_token = "tok_pay"
@@ -1890,13 +2020,75 @@ class SettleFlowTests(FluentDataMixin, TestCase):
                 "metadata": {"student_slug": "maya", "credits": "8", "kind": "settle", "unit": "29"},
             }},
         })
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
-        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json")
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
+        self.client.post("/api/stripe/webhook/", data=event, content_type="application/json",
+                         **stripe_signed(event))
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, 0)
         r = Receipt.objects.get(stripe_session_id="cs_set")
         self.assertEqual(r.credits, 8)
         self.assertEqual(r.unit_price_cents, 29)          # tier unit on the receipt
+        # Paid: the link is retired, but Stripe's return URL still says thanks.
+        self.assertEqual(self.client.get("/settle/tok_pay/").status_code, 404)
+        self.assertContains(self.client.get("/settle/tok_pay/?paid=1"), "", status_code=200)
+
+
+class SecurityHardeningTests(FluentDataMixin, TestCase):
+    FORGED = json.dumps({"type": "checkout.session.completed", "data": {"object": {
+        "id": "cs_forged", "payment_status": "paid",
+        "metadata": {"student_slug": "maya", "credits": "50"},
+    }}})
+
+    def _post(self, url, body, **extra):
+        return self.client.post(url, data=json.dumps(body), content_type="application/json", **extra)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET="")
+    def test_webhook_is_off_without_a_signing_secret(self):
+        r = self.client.post("/api/stripe/webhook/", data=self.FORGED, content_type="application/json")
+        self.assertEqual(r.status_code, 503)
+        self.assertFalse(Receipt.objects.filter(stripe_session_id="cs_forged").exists())
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+    def test_webhook_rejects_a_forged_signature(self):
+        r = self.client.post("/api/stripe/webhook/", data=self.FORGED, content_type="application/json",
+                             **stripe_signed(self.FORGED, secret="whsec_attacker"))
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(Receipt.objects.filter(stripe_session_id="cs_forged").exists())
+
+    def test_login_attempts_are_throttled_per_ip_and_address(self):
+        wrong = {"email": "maya@fluent.at", "password": "wrong"}
+        for _ in range(10):
+            self.assertEqual(self._post("/api/login/", wrong).status_code, 400)
+        self.assertEqual(self._post("/api/login/", wrong).status_code, 429)
+        # Another address isn't locked out by someone else's guessing.
+        self.assertEqual(self._post("/api/login/", {"email": "ines@fluent.at", "password": "x"}).status_code, 400)
+
+    def test_reset_mails_are_capped_per_address(self):
+        for _ in range(5):
+            self.assertEqual(self._post("/api/password/forgot/", {"email": "maya@fluent.at"}).status_code, 200)
+        self.assertEqual(self._post("/api/password/forgot/", {"email": "maya@fluent.at"}).status_code, 429)
+
+    def test_intro_bookings_are_throttled_per_ip(self):
+        for _ in range(20):
+            self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="203.0.113.7")
+        r = self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="203.0.113.7")
+        self.assertEqual(r.status_code, 429)
+        # A spoofed first hop doesn't buy a fresh counter: the proxy's last entry counts.
+        r = self._post("/api/intro-bookings/", {}, HTTP_X_FORWARDED_FOR="198.51.100.1, 203.0.113.7")
+        self.assertEqual(r.status_code, 429)
+
+    def test_settings_fail_closed_on_render(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("DJANGO_DEBUG", "DJANGO_SECRET_KEY")}
+        env["RENDER"] = "true"
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        run = lambda: subprocess.run([sys.executable, "-c", "import fluent.settings as s; print(s.DEBUG)"],
+                                     env=env, cwd=root, capture_output=True, text=True)
+        r = run()
+        self.assertNotEqual(r.returncode, 0, "must refuse to start with the published dev key")
+        self.assertIn("DJANGO_SECRET_KEY", r.stderr)
+        env["DJANGO_SECRET_KEY"] = "k" * 50
+        self.assertEqual(run().stdout.strip(), "False")   # DEBUG defaults off on Render
 
 
 # --------------------------------------------------------------------------- #
@@ -1933,17 +2125,13 @@ class DomBuyModalTests(_DomProbeBase):
 # Public intro-session booking (anonymous, free, no account)
 # --------------------------------------------------------------------------- #
 class IntroBookingTests(FluentDataMixin, TestCase):
-    def _jskey(self, d):
-        # Frontend/​server date key: 0-indexed month, "YYYY-M-D".
-        return f"{d.year}-{d.month - 1}-{d.day}"
-
     def _future_date(self, days=3):
         return date.today() + timedelta(days=days)
 
     def _post(self, **over):
         d = over.pop("date", self._future_date())
         body = {
-            "tutorSlug": "davit", "date": self._jskey(d),
+            "tutorSlug": "davit", "date": d.isoformat(),
             "time": "14:00", "name": "Lena Gast", "email": "lena@example.at",
             "phone": "+43 660 1234567",
         }
@@ -2171,7 +2359,7 @@ class IntroEmailTests(FluentDataMixin, TestCase):
         return self.client.post(
             "/api/intro-bookings/",
             data=json.dumps({
-                "tutorSlug": "davit", "date": f"{d.year}-{d.month - 1}-{d.day}",
+                "tutorSlug": "davit", "date": d.isoformat(),
                 "time": "14:00", "name": "Lena Gast", "email": email,
                 "phone": "+43 660 1234567",
             }),
@@ -2424,7 +2612,7 @@ class VideoConnectionTests(FluentDataMixin, TestCase):
         return self.client.post(
             "/api/intro-bookings/",
             data=json.dumps({
-                "tutorSlug": "davit", "date": f"{d.year}-{d.month - 1}-{d.day}",
+                "tutorSlug": "davit", "date": d.isoformat(),
                 "time": "14:00", "name": "Lena Gast", "email": email,
                 "phone": "+43 660 1234567",
             }),
@@ -2940,3 +3128,104 @@ class PasswordLifecycleTests(FluentDataMixin, TestCase):
         page = self.client.get("/password/reset/xxxx/yyyy/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "Link abgelaufen")
+
+
+# --------------------------------------------------------------------------- #
+# Tutor custom top-ups: any number of credits for any total (family deals)
+# --------------------------------------------------------------------------- #
+class CustomTopUpTests(FluentDataMixin, TestCase):
+    def _post(self, data, actor=None):
+        self.client.force_login(actor or self.davit)
+        return self.client.post(
+            "/api/credits/maya/", data=json.dumps(data), content_type="application/json",
+        )
+
+    def test_custom_total_sets_exact_receipt_amount(self):
+        start = self.maya.credits
+        resp = self._post({"n": 10, "total": "355,50", "method": "transfer", "note": "Familienangebot"})
+        self.assertEqual(resp.status_code, 200)
+        r = resp.json()["receipt"]
+        self.assertEqual(r["credits"], 10)
+        self.assertEqual(r["total"], 355.5)
+        self.assertEqual(r["unit"], 35.55)
+        receipt = Receipt.objects.get(number=r["no"])
+        self.assertEqual(receipt.total_cents, 35550)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.credits, start + 10)
+        txn = CreditTransaction.objects.get(receipt_no=r["no"])
+        self.assertEqual(txn.label, "Familienangebot")
+        self.assertEqual(txn.sub, "Heute · per Überweisung bezahlt")
+
+    def test_standard_top_up_unchanged(self):
+        r = self._post({"n": 5}).json()["receipt"]
+        receipt = Receipt.objects.get(number=r["no"])
+        self.assertIsNone(receipt.total_cents)
+        self.assertEqual(r["total"], 5 * receipt.unit_price_cents)
+        txn = CreditTransaction.objects.get(receipt_no=r["no"])
+        self.assertEqual((txn.label, txn.sub), ("Einheiten vom Tutor", "Heute · bar bezahlt"))
+
+    def test_zero_total_allowed(self):
+        r = self._post({"n": 2, "total": "0"}).json()["receipt"]
+        self.assertEqual((r["total"], r["unit"]), (0.0, 0.0))
+
+    def test_invalid_input_rejected(self):
+        for bad in (
+            {"n": 3, "total": "-5"},
+            {"n": 3, "total": "12.345"},
+            {"n": 3, "total": "abc"},
+            {"n": 3, "total": "50001"},
+            {"n": 0, "total": "10"},
+            {"n": 501, "total": "10"},
+            {"n": 3, "total": "10", "method": "crypto"},
+        ):
+            with self.subTest(bad=bad):
+                self.assertEqual(self._post(bad).status_code, 400)
+        self.assertFalse(Receipt.objects.filter(student=self.maya).exists())
+
+    def test_students_cannot_grant(self):
+        self.assertEqual(self._post({"n": 5, "total": "1"}, actor=self.maya).status_code, 403)
+
+    def test_storno_of_custom_receipt_mirrors_total(self):
+        r = self._post({"n": 10, "total": "355.50"}).json()["receipt"]
+        receipt = Receipt.objects.get(number=r["no"])
+        txn = CreditTransaction.objects.get(receipt_no=r["no"], txn_type="buy")
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.post(f"/api/transactions/{txn.pk}/cancel/").status_code, 200)
+        storno = Receipt.objects.get(reverses=receipt)
+        self.assertEqual(storno.total_cents, -35550)
+        self.assertEqual(storno.amounts(), (35.55, -355.5))
+
+    def test_receipt_pdf_renders_custom_amount(self):
+        from .receipts_pdf import render_receipt_pdf
+        r = self._post({"n": 3, "total": "100"}).json()["receipt"]
+        pdf = render_receipt_pdf(Receipt.objects.get(number=r["no"]))
+        self.assertTrue(pdf.startswith(b"%PDF"))
+
+
+# --------------------------------------------------------------------------- #
+# Students set their own real e-mail (needed before card payments)
+# --------------------------------------------------------------------------- #
+class SelfEmailUpdateTests(FluentDataMixin, TestCase):
+    def _put(self, data):
+        self.client.force_login(self.maya)
+        return self.client.put(
+            "/api/users/me/billing/", data=json.dumps(data), content_type="application/json",
+        )
+
+    def test_student_sets_real_email(self):
+        self.assertEqual(self._put({"email": " Maya@Example.com "}).status_code, 200)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@example.com")
+
+    def test_invalid_email_rejected(self):
+        for bad in ("", "not-an-email", "a@b"):
+            with self.subTest(bad=bad):
+                self.assertEqual(self._put({"email": bad}).status_code, 400)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@fluent.at")
+
+    def test_email_taken_by_someone_else_rejected(self):
+        resp = self._put({"email": self.ines.email})
+        self.assertEqual(resp.status_code, 400)
+        self.maya.refresh_from_db()
+        self.assertEqual(self.maya.email, "maya@fluent.at")

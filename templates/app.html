@@ -12,18 +12,8 @@
 {% load static %}
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
-<style>/* Self-hosted display font — no Google Fonts CDN, no visitor data sent to third parties (GDPR). */
-@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400 800; font-stretch: 100%; font-display: swap;
-  src: url("{% static 'fonts/font1.woff2' %}") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB; }
-@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400 800; font-stretch: 100%; font-display: swap;
-  src: url("{% static 'fonts/font2.woff2' %}") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
-@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400 800; font-stretch: 100%; font-display: swap;
-  src: url("{% static 'fonts/font3.woff2' %}") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-</style>
 <meta name="csrf-token" content="{{ csrf_token }}">
+{% include "_fonts.html" %}
 <style>
   :root {
     --bg: #f5f2ea;
@@ -598,6 +588,8 @@
   .ma-label { font-size: 13px; font-weight: 500; }
   .ma-label em { font-style: normal; color: var(--faint); font-size: 11px; display: block; margin-top: 1px; letter-spacing: 0.02em; }
   .ma-btns { display: flex; gap: 6px; }
+  .credit-warn { text-align: left; font-size: 13px; line-height: 1.45; color: #8a4b16; background: rgba(194,120,47,0.10);
+    border: 1px solid rgba(194,120,47,0.35); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; }
   .modal-txns { max-height: 320px; overflow-y: auto; margin-top: 2px; }
   .modal-txns::-webkit-scrollbar { width: 8px; }
   .modal-txns::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
@@ -970,13 +962,14 @@
             <div class="section-h"><h2>Rechnungsadresse</h2><span class="lnk" id="billingSave">Änderungen speichern</span></div>
             <div class="billing-form">
               <label class="bf-lab">Vollständiger Name<input class="bf-input" id="bfName" /></label>
+              <label class="bf-lab">E-Mail-Adresse<input class="bf-input" id="bfEmail" type="email" autocomplete="email" placeholder="name@beispiel.at" /></label>
               <label class="bf-lab">Straße &amp; Nr.<input class="bf-input" id="bfLine1" /></label>
               <div class="bf-grid">
                 <label class="bf-lab">PLZ<input class="bf-input" id="bfZip" /></label>
                 <label class="bf-lab">Stadt<input class="bf-input" id="bfCity" /></label>
               </div>
               <label class="bf-lab">Land<input class="bf-input" id="bfCountry" /></label>
-              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet.</div>
+              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet. Die E-Mail-Adresse ist auch dein Login und bekommt deine Belege — für Kartenzahlungen sind beide nötig.</div>
             </div>
           </div>
         </div>
@@ -1121,15 +1114,13 @@
   <div class="modal-overlay" id="settleModal" hidden></div>
   <div class="modal-overlay" id="backdateModal" hidden></div>
 
-<script>
-window.DJANGO_DATA = {{ django_data|safe }};
-</script>
+{{ django_data|json_script:"django-data" }}
 <script>
 (function () {
   "use strict";
 
   // ---------- Data (from Django) ----------
-  const DJ = window.DJANGO_DATA || {};
+  const DJ = JSON.parse(document.getElementById("django-data").textContent);
   const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
   async function api(method, url, body) {
@@ -1208,8 +1199,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     photo: DJ.currentUser.photo || null,
   } : { id:"admin", role:"admin", name:"Studio Admin", email:"admin@fluent.at", i:"AD", c:["#8a7cb0","#5f5188"], photo:null };
 
-  const TIMES = (()=>{ const out=[]; for(let m=9*60; m<=20*60; m+=15){ out.push(String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")); } return out; })();
-  const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+{% include "_calendar.js" %}
 
   let PACKS = [
     { n: 1,  price: "€32", each: "€32 / session", feat: false },
@@ -1217,22 +1207,12 @@ window.DJANGO_DATA = {{ django_data|safe }};
     { n: 10, price: "€270", each: "€27 / session", feat: true, tag: "Beliebt" },
   ];
 
-  function toMin(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
   // Availability + custom times are per tutor. These helpers take a tutor id so
   // the student calendar (the selected chip, state.tutor) and the teacher
   // calendar (the signed-in tutor, state.myTutor) never read each other's slots.
   function availMap(tid){ return (state.availability[tid] = state.availability[tid] || {}); }
   function customMap(tid){ return (state.customTimes[tid] = state.customTimes[tid] || {}); }
-  function isCustomTime(date,time,tid){ const dk=keyOf(date); return ((state.customTimes[tid]||{})[dk]||[]).includes(time); }
-  // Availability is opt-in: every slot starts closed (a new tutor has a blank
-  // calendar) and only opens when the tutor explicitly marks it open in the
-  // "Verfügbarkeit bearbeiten" editor. A slot the tutor added by hand (a custom
-  // time) is open by default — adding it *is* the opt-in — but can still be
-  // closed again via an override.
-  function defaultAvail(date,time,tid){ return isCustomTime(date,time,tid); }
-  function slotOpen(date,time,tid){ const m=state.availability[tid]||{}; const k=keyOf(date)+"|"+time; if(k in m) return m[k]; return defaultAvail(date,time,tid); }
   function bookingConflict(date,time,exclude,tid){ const s=toMin(time), e=s+45; return state.bookings.some(b=>{ if(b.tutorId!==tid||b===exclude||!sameDay(b.date,date)) return false; const bs=toMin(b.time), be=bs+45; return s<be && bs<e; }); }
-  function dayTimes(date,tid){ const dk=keyOf(date); const extra=(state.customTimes[tid]||{})[dk]||[]; return [...new Set([...TIMES, ...extra])].sort((a,b)=>toMin(a)-toMin(b)); }
 
   const state = {
     // static UI state
@@ -1251,7 +1231,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
     teacherManage: null,
     teacherStudent: null,
     receipts: [],
-    receiptSeq: (DJ.settings && DJ.settings.receiptSeq) || 1042,
     // Both keyed by tutor slug: availability = {tid: {date|time: bool}},
     // customTimes = {tid: {date_key: [times]}}.
     availability: (() => {
@@ -1297,6 +1276,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     studentQuery: "",
     lessonFiles: DJ.lessonFiles || {},  // {lesson_id: [{id,name,url}]}
   };
+  const AVAIL = state.availability, CUSTOM = state.customTimes;
 
   // Einheit packs from settings or fallback
   if (DJ.settings && DJ.settings.packs && DJ.settings.packs.length) {
@@ -1331,19 +1311,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
   }
 
   // ---------- Date helpers ----------
-  function startOfWeek(d) { const x = new Date(d); const day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
-  function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-  function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
-  function keyOf(d){ return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); }
-  // Local-time YYYY-MM-DD for the API. Date.toISOString() converts to UTC, which
-  // shifts a local-midnight date to the previous day for positive-UTC-offset
-  // users — saving bookings on the wrong day so they vanish from the calendar.
-  function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   // Real "today" (local midnight) anchors the calendar and the week navigation,
   // so "Diese Woche" returns to the actual current week rather than a fixed date.
   const NOW = (()=>{ const d = new Date(); d.setHours(0,0,0,0); return d; })();
-  const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-  const MONTHS_S = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 
   // ---------- Element refs ----------
   const $ = (s) => document.querySelector(s);
@@ -1367,7 +1337,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
   // Initials from a display name (mirrors the server's compute_initials).
   function initialsOf(name){ const p=(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "NS"; if(p.length===1) return p[0].slice(0,2).toUpperCase(); return (p[0][0]+p[1][0]).toUpperCase(); }
   function allAccounts(){ return [...tutorAccounts, ...state.students]; }
-  function accountByEmail(email){ return [ADMIN, ...tutorAccounts, ...state.students].find(u=>u.email.toLowerCase()===email); }
   function accountById(id){ const t=tutorAccounts.find(x=>x.id===id); if(t) return t; if(ADMIN && id===ADMIN.id) return ADMIN; return studentById(id); }
   function meLog(){ const s=studentById(state.currentUser); return s ? s.log : []; }
 
@@ -1380,14 +1349,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
   function fmtAT(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
   // Numeric euros from a price string like "€270" / "270,50" (null if none).
   function parsePrice(s){ const m=String(s==null?"":s).replace(",",".").match(/\d+(?:\.\d+)?/); return m?parseFloat(m[0]):null; }
-  // Per-credit price for a purchase of n credits: if n matches a pack, use that
-  // pack's total ÷ n so the receipt reflects the package price (e.g. 10 → €270),
-  // not n × the per-credit rate. Falls back to the per-credit receipts rate.
-  function unitForCredits(n){
-    const p = PACKS.find(p => +p.n === +n);
-    if(p){ const amt = parsePrice(p.price); if(amt && n>0) return Math.round(amt/n); }
-    return state.creditPrice;
-  }
   // Per-credit settlement price for n outstanding credits: the per-credit rate of
   // the largest pack tier whose size ≤ n (the volume tier "already reached").
   // Mirrors settle_unit_euros server-side — display only; the charge is authoritative.
@@ -1396,12 +1357,12 @@ window.DJANGO_DATA = {{ django_data|safe }};
     PACKS.forEach(p=>{ const pn=+p.n, amt=parsePrice(p.price); if(amt && pn>0 && pn<=n && pn>bestN){ bestN=pn; rate=amt/pn; } });
     return Math.round(rate!=null ? rate : state.creditPrice);
   }
-  function issueReceipt(s, n, dateStr){
-    const no = "RE-"+NOW.getFullYear()+"-"+String(state.receiptSeq++).padStart(4,"0");
-    const unit = unitForCredits(n);
-    const r = { no, dateStr: dateStr || fmtAT(NOW), studentName: s.name, studentId: s.id, billing: (s.billing?{...s.billing}:null), credits: n, unit, net: n*unit, total: n*unit };
-    state.receipts.push(r);
-    return r;
+  // Quick-add credit amounts for the tutor, driven by the admin-defined packs
+  // (their credit counts), so the +N buttons always match configured pricing.
+  function creditQuickAdds(){
+    const ns = (PACKS||[]).map(p=>parseInt(p.n,10)).filter(n=>Number.isFinite(n)&&n>0);
+    const uniq = [...new Set(ns)].sort((a,b)=>a-b);
+    return uniq.length ? uniq : [1,5,10];
   }
   function findReceipt(no){ return state.receipts.find(r=>r.no===no); }
   function openReceiptNo(no){ const r=findReceipt(no); if(r) openReceipt(r); }
@@ -1420,7 +1381,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       ${stornoNote}
       <div class="r-parties">
         <div><div class="r-lbl">Leistungserbringer · From</div>${SUPPLIER.name}<br/>${SUPPLIER.line2}<br/>${SUPPLIER.addr}<br/>${SUPPLIER.city}<br/>${SUPPLIER.email}</div>
-        <div><div class="r-lbl">Empfänger · Billed to</div>${r.studentName}${r.billing?'<br/>'+r.billing.line1+'<br/>'+r.billing.postcode+' '+r.billing.city+'<br/>'+r.billing.country:''}</div>
+        <div><div class="r-lbl">Empfänger · Billed to</div>${esc(r.studentName)}${r.billing?'<br/>'+esc(r.billing.line1)+'<br/>'+esc(r.billing.postcode)+' '+esc(r.billing.city)+'<br/>'+esc(r.billing.country):''}</div>
       </div>
       <table class="r-table">
         <thead><tr><th>Menge</th><th>Beschreibung</th><th>Einzel</th><th>Betrag</th></tr></thead>
@@ -1461,7 +1422,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
   // for yet); the server is authoritative, so we don't clamp here.
   function setStudentCredits(id, val){ const s=studentById(id); if(!s) return; s.credits=val; if(id===state.currentUser){ state.credits=s.credits; updateCredits(); } }
   function addStudentCredits(id, n){ const s=studentById(id); if(!s) return; setStudentCredits(id, s.credits + n); }
-  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${t.photo}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
+  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
 
   // ---------- Render tutors ----------
   function renderTutors() {
@@ -1470,7 +1431,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       const chip = document.createElement("div");
       chip.className = "tutor-chip" + (t.id===state.tutor ? " sel" : "");
       chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-        <div><div class="tn">${t.name}</div><div class="tm">${t.role}</div></div>`;
+        <div><div class="tn">${esc(t.name)}</div><div class="tm">${t.role}</div></div>`;
       chip.onclick = () => { state.tutor = t.id; state.selected = null; renderTutors(); renderWeek(); renderSummary(); };
       tutorsEl.appendChild(chip);
     });
@@ -1484,7 +1445,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       if (state.rescheduling) {
         _rb.hidden = false;
         _rb.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.9"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>
-          <span>Umbuchung von <b>${state.rescheduling.title}</b> — wähle unten eine neue freie Zeit.</span>
+          <span>Umbuchung von <b>${esc(state.rescheduling.title)}</b> — wähle unten eine neue freie Zeit.</span>
           <button class="banner-x" id="bannerCancel">Abbrechen</button>`;
         _rb.querySelector("#bannerCancel").onclick = cancelReschedule;
       } else { _rb.hidden = true; }
@@ -1517,7 +1478,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const perDay = days.map(d => {
       const list = [];
       dayTimes(d.date, state.tutor).forEach(time => {
-        const dk = keyOf(d.date);
+        const dk = ymd(d.date);
         const myBk = state.bookings.find(b => b.studentId===state.currentUser && b.tutorId===state.tutor && sameDay(b.date,d.date) && b.time===time);
         const booked = !!myBk;
         const open = !d.isPast && slotOpen(d.date,time,state.tutor) && !bookingConflict(d.date,time,null,state.tutor); // unavailable if its 45 min overlap a booking
@@ -1575,8 +1536,6 @@ window.DJANGO_DATA = {{ django_data|safe }};
     });
   }
 
-  function fmtLong(d){ return DOW_FULL[(d.getDay()+6)%7] + ", " + MONTHS_S[d.getMonth()] + " " + d.getDate(); }
-  const DOW_FULL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 
   function endTime(t, mins){ const [h,m]=t.split(":").map(Number); let tm=h*60+m+(mins||45); const hh=Math.floor(tm/60), mm=tm%60; return String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0"); }
   // Schnupperstunden (free intros) run 15 min; paid lessons 45 min.
@@ -1584,7 +1543,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
 
   function selectSlot(date, time) {
     state.justBooked = null; state.managing = null;
-    state.selected = { tutorId: (state.rescheduling ? state.rescheduling.tutorId : state.tutor), dateKey: keyOf(date), date: new Date(date), time, };
+    state.selected = { tutorId: (state.rescheduling ? state.rescheduling.tutorId : state.tutor), dateKey: ymd(date), date: new Date(date), time, };
     renderWeek(); renderSummary();
   }
 
@@ -1699,9 +1658,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8.5 15.5a3 3 0 1 0 3-3"/></svg></div>
       <h3 class="buy-h">Kalender abonnieren</h3>
       <p class="buy-p">Füge diesen Live-Feed einmal hinzu — neue Buchungen, Umbuchungen und Stornierungen synchronisieren sich automatisch, ganz ohne erneuten Download.</p>
-      <div class="cal-url"><input id="calUrl" readonly value="${calFeed.url}"><button class="mini-btn" id="calCopy">Kopieren</button></div>
-      <a class="btn" href="${calFeed.webcalUrl}">Abonnieren · Apple &amp; Outlook</a>
-      <a class="btn ghost" href="${gcal}" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a>
+      <div class="cal-url"><input id="calUrl" readonly value="${esc(calFeed.url)}"><button class="mini-btn" id="calCopy">Kopieren</button></div>
+      <a class="btn" href="${esc(calFeed.webcalUrl)}">Abonnieren · Apple &amp; Outlook</a>
+      <a class="btn ghost" href="${esc(gcal)}" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a>
       <button class="btn-text" id="calDownload">Oder einmalig .ics herunterladen</button>
       <div class="micro" style="margin-top:10px;">Der Link ist privat — wer ihn hat, sieht deine Stunden.</div>
     </div>`;
@@ -1721,7 +1680,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     let body;
     if (conn) {
       body = `
-        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${escHtml(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit — er steht in der Bestätigungs-Mail und im Kalender.</p>
+        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${esc(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit — er steht in der Bestätigungs-Mail und im Kalender.</p>
         <button class="btn ghost" id="videoDisconnect">Konto trennen</button>`;
     } else if (DJ.role !== "tutor") {
       body = `<p class="buy-p">Nur der Tutor selbst kann sein Zoom- oder Teams-Konto verbinden — die Freigabe gehört zu seinem Login.</p>`;
@@ -1775,7 +1734,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
           <div class="manage-eyebrow">Stunde umbuchen</div>
           <div class="sum-head">
             <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-            <div><div class="nm">${b.title}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
+            <div><div class="nm">${esc(b.title)}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
           </div>
           <div class="pick-prompt">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.7"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -1796,7 +1755,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="sum-confirm">
           <div class="confirm-badge">✓</div>
           <h3 class="confirm-h">${resched ? "Umgebucht!" : "Gebucht!"}</h3>
-          <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${t.name}</p>
+          <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${esc(t.name)}</p>
         </div>
         <button class="btn" id="icsBtn">
           <span class="grainbtn"></span>
@@ -1818,17 +1777,17 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="manage-eyebrow">Buchung verwalten</div>
         <div class="sum-head">
           <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-          <div><div class="nm">${b.title}</div><div class="rl">with ${t.name}</div></div>
+          <div><div class="nm">${esc(b.title)}</div><div class="rl">with ${esc(t.name)}</div></div>
         </div>
         <div class="sum-rows">
           <div class="sum-row"><span class="k">Datum</span><span class="v">${fmtLong(b.date)}</span></div>
           <div class="sum-row"><span class="k">Zeit</span><span class="v hl">${b.time} – ${endTime(b.time)}</span></div>
           <div class="sum-row"><span class="k">Dauer</span><span class="v">45 Minuten</span></div>
         </div>
-        ${b.callLink?`<a class="btn join-btn" href="${escHtml(b.callLink)}" target="_blank" rel="noopener"><span class="grainbtn"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px"><path d="M15 10l5-3v10l-5-3v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/></svg>Zum Call</a>`:`<div class="micro" style="text-align:left;margin:2px 0 0;">Dein Tutor stellt den Call-Link vor der Stunde hier ein.</div>`}
+        ${b.callLink?`<a class="btn join-btn" href="${esc(b.callLink)}" target="_blank" rel="noopener"><span class="grainbtn"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px"><path d="M15 10l5-3v10l-5-3v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/></svg>Zum Call</a>`:`<div class="micro" style="text-align:left;margin:2px 0 0;">Dein Tutor stellt den Call-Link vor der Stunde hier ein.</div>`}
         <div class="notes-block">
           <label class="field-label">Themen für die Stunde</label>
-          <textarea class="notes-ta" id="noteTA" placeholder="Themen, Fragen oder Ziele für diese Stunde…">${escHtml(b.notes)}</textarea>
+          <textarea class="notes-ta" id="noteTA" placeholder="Themen, Fragen oder Ziele für diese Stunde…">${esc(b.notes)}</textarea>
           <div class="micro" style="text-align:left;margin:6px 0 0;">Für deinen Tutor sichtbar.</div>
         </div>
         ${mod ? `
@@ -1874,7 +1833,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     sumCard.innerHTML = `
       <div class="sum-head">
         <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
-        <div><div class="nm">${t.name}</div><div class="rl">${t.role}</div></div>
+        <div><div class="nm">${esc(t.name)}</div><div class="rl">${t.role}</div></div>
       </div>
       <div class="sum-rows">
         <div class="sum-row"><span class="k">Datum</span><span class="v">${fmtLong(d)}</span></div>
@@ -1943,13 +1902,14 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const btn = $("#settleBtn");
     btn.disabled = false;
     btn.onclick = () => {
-      // Settling issues a receipt too — require the address first.
-      if (!billingComplete(studentById(state.currentUser))) { goToBilling(); return; }
+      // Settling is a card payment too — the account must be complete first.
+      const missing = paymentSetupMissing(studentById(state.currentUser));
+      if (missing.length) { goToAccountSetup(missing); return; }
       btn.disabled = true;
       apiResult('POST', '/api/settle/').then(res => {
         if (res.ok && res.data && res.data.url) { window.location.href = res.data.url; return; }
         btn.disabled = false;
-        if (res.data && res.data.error === "billing_required") { goToBilling(); return; }
+        if (res.data && res.data.error === "setup_required") { goToAccountSetup(res.data.missing); return; }
         toast("Zahlung konnte nicht gestartet werden");
       });
     };
@@ -1961,9 +1921,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
     PACKS.forEach(p => {
       const d = document.createElement("div");
       d.className = "pack" + (p.feat?" feat":"");
-      d.innerHTML = `${p.tag?`<span class="tag">${p.tag}</span>`:""}
+      d.innerHTML = `${p.tag?`<span class="tag">${esc(p.tag)}</span>`:""}
         <div class="pc">${p.n}</div><div class="pl">Einheiten</div>
-        <div class="pp">${p.price}</div><div class="pe">${p.each}</div>`;
+        <div class="pp">${esc(p.price)}</div><div class="pe">${esc(p.each)}</div>`;
       d.onclick = () => openBuyInfo(p);
       el.appendChild(d);
     });
@@ -1977,17 +1937,41 @@ window.DJANGO_DATA = {{ django_data|safe }};
   }
   // Send the student to their billing form to fill the receipt address, then come
   // back and buy. Used both as a pre-check and as the server 400 fallback.
-  function goToBilling(){
+  // Accounts start with a generated <slug>@fluent.at placeholder until a real
+  // address is entered. Mirrors emails.has_real_email() server-side.
+  function hasRealEmail(s){
+    const e=((s && s.email)||"").trim().toLowerCase();
+    return !!e && e!==(String(s.id)+"@fluent.at").toLowerCase();
+  }
+  // What's still missing before any card payment — mirrors payment_setup_missing().
+  function paymentSetupMissing(s){
+    const m=[];
+    if(!hasRealEmail(s)) m.push("email");
+    if(!billingComplete(s)) m.push("billing");
+    return m;
+  }
+  function setupMissingText(missing){
+    const parts=[];
+    if(missing.includes("email")) parts.push("deine <b>E-Mail-Adresse</b>");
+    if(missing.includes("billing")) parts.push("deine <b>Rechnungsadresse</b>");
+    return parts.join(" und ");
+  }
+  // Send the student to the account form to finish setup, then come back and pay.
+  // Used both as a pre-check and as the server 400 fallback.
+  function goToAccountSetup(missing){
+    missing = missing && missing.length ? missing : paymentSetupMissing(studentById(state.currentUser));
     closeBuy();
     setView("account");
-    setTimeout(()=>{ const el=$("#bfLine1"); if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.focus(); } }, 60);
-    toast("Bitte zuerst deine Rechnungsadresse hinterlegen.");
+    const target = missing.includes("email") ? "#bfEmail" : "#bfLine1";
+    setTimeout(()=>{ const el=$(target); if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.focus(); } }, 60);
+    toast("Bitte zuerst dein Konto vervollständigen: " + setupMissingText(missing).replace(/<\/?b>/g,"") + ".");
   }
   function openBuyInfo(p){
     const m=$("#buyModal");
     const stripeOn = !!(state.stripe && state.stripe.enabled);
-    // Card payments issue a receipt → require the address first.
-    const needBilling = stripeOn && !billingComplete(studentById(state.currentUser));
+    // Card payments need a completed account (real e-mail + receipt address).
+    const missing = stripeOn ? paymentSetupMissing(studentById(state.currentUser)) : [];
+    const needBilling = missing.length > 0;
     // Every tutor in the system (with their e-mail), so the student can pick who
     // to ask for a manual top-up — keyed on the tutor's real e-mail address.
     const tutors = (tutorAccounts && tutorAccounts.length)
@@ -2005,27 +1989,28 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <div class="buy-ic">${stripeOn ? `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>` : `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z"/></svg>`}</div>
       ${stripeOn ? (needBilling ? `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
-      <p class="buy-p">Bevor du bezahlen kannst, hinterlege bitte deine <b>Rechnungsadresse</b> — sie erscheint auf deinem Beleg (PDF).</p>
-      <button class="btn" id="buyBilling"><span class="grainbtn"></span>Rechnungsadresse hinterlegen</button>
+      <p class="buy-p">Bevor du per Karte bezahlen kannst, hinterlege bitte ${setupMissingText(missing)} in deinem Konto — dorthin gehen deine Belege.</p>
+      <button class="btn" id="buyBilling"><span class="grainbtn"></span>Konto vervollständigen</button>
       <button class="btn ghost" id="buyClose">Schließen</button>`
       : `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
-      <p class="buy-p">Bezahle das <b>${p.n}er-Paket</b> (<b>${p.price}</b>) sicher per Karte. Deine <b>${p.n} Einheiten</b> werden sofort gutgeschrieben und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
+      <p class="buy-p">Bezahle das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) sicher per Karte. Deine <b>${p.n} Einheiten</b> werden sofort gutgeschrieben und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       <label class="buy-consent"><input type="checkbox" id="buyConsent"><span>Ich stimme den <a href="/agb/" target="_blank" rel="noopener">AGB</a> zu und habe die <a href="/widerruf/" target="_blank" rel="noopener">Widerrufsbelehrung</a> zur Kenntnis genommen. Löse ich eine Einheit vor Ablauf der Widerrufsfrist ein, wünsche ich die vorzeitige Leistungserbringung ausdrücklich und nehme zur Kenntnis, dass mein Widerrufsrecht bei vollständiger Erbringung erlischt.</span></label>
       <button class="btn" id="buyStripe" disabled><span class="grainbtn"></span>Jetzt sicher bezahlen</button>
-      <a class="btn ghost" id="buyMail" href="${mailHref(t0)}">Lieber Tutor schreiben</a>
+      <a class="btn ghost" id="buyMail" href="${esc(mailHref(t0))}">Lieber Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>
       <div class="micro" style="margin-top:12px;">Zahlung über Stripe · du verlässt kurz die Seite und kommst danach automatisch zurück.</div>`)
       : `<h3 class="buy-h">Einheiten fügt dein Tutor hinzu</h3>
-      <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${p.price}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
+      <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       ${tutorPicker}
+      ${billingComplete(studentById(state.currentUser)) ? "" : `<div class="credit-warn" role="alert">⚠ Deine Rechnungsadresse ist noch unvollständig — ergänze sie vorher in deinem Konto, sonst steht sie nicht auf deinem Beleg.</div>`}
       <div class="buy-contact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span id="buyTutorEmail">${esc(t0.email)}</span></div>
-      <a class="btn" id="buyMail" href="${mailHref(t0)}"><span class="grainbtn"></span>Tutor schreiben</a>
+      <a class="btn" id="buyMail" href="${esc(mailHref(t0))}"><span class="grainbtn"></span>Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>`}
     </div>`;
     m.hidden=false;
     $("#buyCard").onclick=(e)=>e.stopPropagation();
     $("#buyX").onclick=closeBuy; $("#buyClose").onclick=closeBuy;
-    if ($("#buyBilling")) $("#buyBilling").onclick=goToBilling;
+    if ($("#buyBilling")) $("#buyBilling").onclick=()=>goToAccountSetup(missing);
     if (stripeOn && $("#buyStripe")) $("#buyStripe").onclick=()=>startStripeCheckout(p);
     // FAGG: the pay button unlocks only once the buyer accepts the terms.
     if ($("#buyConsent")) $("#buyConsent").onchange=(e)=>{ const b=$("#buyStripe"); if(b) b.disabled=!e.target.checked; };
@@ -2046,8 +2031,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
     apiResult('POST', '/api/checkout/', { n: p.n }).then(res => {
       if (res.ok && res.data && res.data.url) { window.location.href = res.data.url; return; }
       if(btn){ btn.disabled=false; btn.style.opacity=""; }
-      // Server guard fallback: address missing → route to the billing form.
-      if (res.data && res.data.error === "billing_required") { goToBilling(); return; }
+      // Server guard fallback: account incomplete → route to the account form.
+      if (res.data && res.data.error === "setup_required") { goToAccountSetup(res.data.missing); return; }
       toast("Zahlung konnte nicht gestartet werden — bitte schreib deinem Tutor.");
     });
   }
@@ -2101,9 +2086,9 @@ window.DJANGO_DATA = {{ django_data|safe }};
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
         <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
-        <div class="info"><div class="t">${b.title}</div><div class="s">${t.name} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${escHtml(b.notes)}</div>`:""}</div>
+        <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
-          ${b.callLink?`<a class="join-mini" href="${escHtml(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
+          ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
           <button class="ics-mini" title="Zum Kalender (.ics)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></button>
           <div class="li-actions">
             ${mod
@@ -2137,8 +2122,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
     return log.map(a => {
       const ic = TXN_ICONS[a.type] || TXN_ICONS.done;
       const amtCls = a.amt.startsWith("+")?"plus":(a.amt.startsWith("-")?"minus":"");
-      const who = (opts.showStudent && a.studentName) ? `${escHtml(a.studentName)} · ` : "";
-      const sub = [who + (a.sub||""), a.date].filter(Boolean).join(" · ");
+      const who = (opts.showStudent && a.studentName) ? `${esc(a.studentName)} · ` : "";
+      const sub = [who + esc(a.sub||""), a.date].filter(Boolean).join(" · ");
       const receiptBtn = a.receiptNo?`<button class="rcpt-link" data-receipt="${a.receiptNo}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg> ${a.receiptNo}</button>`:"";
       let cancelCtl = "";
       if (isAdmin && a.cancellable && a.id) {
@@ -2148,7 +2133,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         cancelCtl = `<span class="txn-cancelled-tag">storniert</span>`;
       }
       return `<div class="ai"><div class="adot" style="background:${ic.bg}">${ic.t}</div>
-        <div class="at"><div>${a.label}</div><div class="as">${sub}</div>${receiptBtn}${cancelCtl}</div>
+        <div class="at"><div>${esc(a.label)}</div><div class="as">${sub}</div>${receiptBtn}${cancelCtl}</div>
         ${a.amt?`<div class="amt ${amtCls}">${a.amt}</div>`:""}</div>`;
     }).join("");
   }
@@ -2231,7 +2216,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       col.appendChild(head);
       const slots=document.createElement("div"); slots.className="slots"; let any=false;
       dayTimes(date, state.myTutor).forEach(time=>{
-        const dk=keyOf(date);
+        const dk=ymd(date);
         const bk=state.bookings.find(b=>b.tutorId===state.myTutor&&sameDay(b.date,date)&&b.time===time);
         const conflict = bookingConflict(date,time,null,state.myTutor);
         const open = !isPast && slotOpen(date,time,state.myTutor) && !conflict;
@@ -2242,7 +2227,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
           if(bk){
             const s=bookingStudent(bk);
             el.className="slot t-booked locked";
-            el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${s.name.split(" ")[0]}</span>`;
+            el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}</span>`;
             el.onclick=()=>toast("Gebuchte Zeit kann nicht geschlossen werden");
           } else if(conflict){
             el.className="slot avail avail-blocked";
@@ -2263,7 +2248,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         if(bk){
           const s=bookingStudent(bk);
           el.className="slot t-booked"+(state.teacherManage===bk?" sel":"");
-          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${s.name.split(" ")[0]}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
+          el.innerHTML=`<span class="ts-time">${time}</span><span class="ts-name"><span class="ts-dot" style="${avatarStyle(s)}"></span>${esc(s.name.split(" ")[0])}${bk.isIntro?' <span class="ts-intro">· Intro</span>':''}</span>`;
           el.onclick=()=>teacherManageSlot(bk);
         } else {
           const isSel=state.teacherSel && state.teacherSel.dateKey===dk && state.teacherSel.time===time;
@@ -2278,14 +2263,14 @@ window.DJANGO_DATA = {{ django_data|safe }};
     }
   }
 
-  function teacherSelectSlot(date,time){ state.teacherManage=null; state.teacherSel={ dateKey:keyOf(date), date:new Date(date), time }; renderTeacherWeek(); renderTeacherSummary(); }
+  function teacherSelectSlot(date,time){ state.teacherManage=null; state.teacherSel={ dateKey:ymd(date), date:new Date(date), time }; renderTeacherWeek(); renderTeacherSummary(); }
   function teacherManageSlot(bk){ state.teacherSel=null; state.teacherManage=bk; renderTeacherWeek(); renderTeacherSummary(); }
-  function toggleAvail(date,time){ const dk=keyOf(date), k=dk+"|"+time; const newOpen = !slotOpen(date,time,state.myTutor); availMap(state.myTutor)[k] = newOpen; api('POST', '/api/availability/', { date: dk, time, isOpen: newOpen, tutorSlug: state.myTutor }); renderTeacherWeek(); renderWeek(); }
+  function toggleAvail(date,time){ const dk=ymd(date), k=dk+"|"+time; const newOpen = !slotOpen(date,time,state.myTutor); availMap(state.myTutor)[k] = newOpen; api('POST', '/api/availability/', { date: dk, time, isOpen: newOpen, tutorSlug: state.myTutor }); renderTeacherWeek(); renderWeek(); }
   function exitEditAvail(){ state.editAvail=false; const t=$("#availToggle"); if(t){ t.classList.remove("active"); t.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Verfügbarkeit bearbeiten`; } renderTeacherWeek(); renderTeacherSummary(); renderWeek(); }
   function addCustomTime(i, time){
     if(!/^\d{1,2}:\d{2}$/.test(time||"")){ toast("Gib eine gültige Zeit ein"); return; }
     const ws=addDays(startOfWeek(NOW), state.tWeekOffset*7);
-    const date=addDays(ws, i), dk=keyOf(date);
+    const date=addDays(ws, i), dk=ymd(date);
     if(bookingConflict(date,time,null,state.myTutor)){ toast("Das überschneidet eine Buchung — wähle eine andere Zeit"); return; }
     const cm=customMap(state.myTutor); cm[dk]=cm[dk]||[];
     if(!cm[dk].includes(time) && !TIMES.includes(time)) cm[dk].push(time);
@@ -2332,7 +2317,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg></div>
       <h3 class="buy-h">Stunde nachtragen</h3>
       <p class="buy-p">Trage eine bereits gehaltene Stunde nach — bis zu <b>30 Tage</b> zurück. Es wird <b>1 Einheit</b> abgezogen und die Stunde erscheint im Verlauf.</p>
-      <label class="bf-lab" style="text-align:left;">Schüler<select class="bf-input" id="bdStudent">${list.map(s=>`<option value="${esc(s.id)}">${escHtml(s.name)}</option>`).join("")}</select></label>
+      <label class="bf-lab" style="text-align:left;">Schüler<select class="bf-input" id="bdStudent">${list.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select></label>
       <div class="bf-grid">
         <label class="bf-lab" style="text-align:left;">Datum<input class="bf-input" type="date" id="bdDate" min="${ymd(min)}" max="${ymd(NOW)}" value="${ymd(NOW)}"></label>
         <label class="bf-lab" style="text-align:left;">Uhrzeit<select class="bf-input" id="bdTime">${times.map(t=>`<option${t==="16:00"?" selected":""}>${t}</option>`).join("")}</select></label>
@@ -2416,7 +2401,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     }
     if(state.teacherSel){
       const sel=state.teacherSel;
-      const opts=state.students.map(s=>`<option value="${s.id}">${s.name} — ${s.credits} Einheiten</option>`).join("");
+      const opts=state.students.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${s.credits} Einheiten</option>`).join("");
       card.innerHTML=`
         <div class="manage-eyebrow">Schüler eintragen</div>
         <div class="sum-rows" style="margin-bottom:16px;">
@@ -2431,8 +2416,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
       `;
       const selEl=$("#assignSel");
       const note=()=>{ const s=studentById(selEl.value); $("#assignNote").innerHTML = s.credits>0
-        ? `Bucht die Stunde und zieht <b style='color:var(--c1)'>1 Einheit</b> von ${s.name.split(" ")[0]} ab (→ ${s.credits-1}).`
-        : `<span class="warn">${s.name.split(" ")[0]} hat keine Einheiten mehr offen.</span>`; };
+        ? `Bucht die Stunde und zieht <b style='color:var(--c1)'>1 Einheit</b> von ${esc(s.name.split(" ")[0])} ab (→ ${s.credits-1}).`
+        : `<span class="warn">${esc(s.name.split(" ")[0])} hat keine Einheiten mehr offen.</span>`; };
       selEl.onchange=note; note();
       $("#assignBtn").onclick=()=>teacherAssign(sel.date, sel.time, selEl.value);
       $("#assignCancel").onclick=()=>{ state.teacherSel=null; renderTeacherWeek(); renderTeacherSummary(); };
@@ -2440,29 +2425,29 @@ window.DJANGO_DATA = {{ django_data|safe }};
     }
     if(state.teacherManage){
       const bk=state.teacherManage, s=bookingStudent(bk);
-      const guestLine = s.isGuest ? `<div class="rl">${escHtml(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
+      const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
       card.innerHTML=`
         <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":"Gebuchte Zeit"}</div>
-        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${escHtml(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
         <label class="field-label">Titel der Stunde</label>
-        <input class="bf-input" id="tTitle" value="${escHtml(bk.title)}">
+        <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
         <div class="time-edit">
           <input type="time" class="bf-input" id="tTimeInput" value="${bk.time}" step="300" min="07:00" max="21:00">
           <span class="time-end" id="tTimeEnd">endet ${endTime(bk.time, lessonMins(bk))}</span>
         </div>
         <label class="field-label" style="margin-top:12px;">Call-Link <span class="lbl-only">· Zoom, Teams…</span></label>
-        <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${escHtml(bk.callLink)}">
+        <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${esc(bk.callLink)}">
         <label class="field-label" style="margin-top:12px;">Themen für die Stunde</label>
-        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${escHtml(s.name.split(' ')[0])}…">${escHtml(bk.notes)}</textarea>
+        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${esc(s.name.split(' ')[0])}…">${esc(bk.notes)}</textarea>
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
-        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${escHtml(bk.tutorNotes)}</textarea>
+        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
           ? `Entfernen gibt die Zeit wieder frei. Eine Schnupperstunde verbraucht keine Einheit.`
-          : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${s.name.split(" ")[0]}.`}</div>
+          : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${esc(s.name.split(" ")[0])}.`}</div>
       `;
       $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
       $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
@@ -2473,7 +2458,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         const nt=$("#tTimeInput").value;
         if(/^\d{2}:\d{2}$/.test(nt) && nt!==bk.time){
           if(bookingConflict(bk.date, nt, bk, bk.tutorId)){ toast("Diese Startzeit überschneidet eine andere Buchung — nicht geändert"); }
-          else { bk.time=nt; const dk=keyOf(bk.date); if(!dayTimes(bk.date, bk.tutorId).includes(nt)){ const cm=customMap(bk.tutorId); cm[dk]=cm[dk]||[]; cm[dk].push(nt); } toast("Stunde verschoben auf "+nt); }
+          else { bk.time=nt; const dk=ymd(bk.date); if(!dayTimes(bk.date, bk.tutorId).includes(nt)){ const cm=customMap(bk.tutorId); cm[dk]=cm[dk]||[]; cm[dk].push(nt); } toast("Stunde verschoben auf "+nt); }
         } else { toast("Details gespeichert"); }
         if (bk._pk) api('PUT', '/api/bookings/' + bk._pk + '/', {
           title: bk.title, notes: bk.notes, tutorNotes: bk.tutorNotes, callLink: bk.callLink, time: bk.time
@@ -2494,6 +2479,18 @@ window.DJANGO_DATA = {{ django_data|safe }};
   // Adding credits as a tutor first asks how the top-up was settled. Cash is
   // granted here; a Stripe top-up can only be started by the student from their
   // own account, so we just explain that and grant nothing.
+  // Warning line for tutor crediting: the receipt snapshots the address at issue
+  // time, and the Beleg mail needs a real e-mail — flag what's missing up front.
+  function creditWarningHtml(s){
+    const missing = paymentSetupMissing(s);
+    if (!missing.length) return "";
+    const first = esc(s.name.split(" ")[0]);
+    const parts = [];
+    if (missing.includes("billing")) parts.push(`Die Rechnungsadresse von ${first} ist unvollständig — der Beleg wird ohne vollständige Adresse ausgestellt.`);
+    if (missing.includes("email")) parts.push(`Für ${first} ist keine echte E-Mail-Adresse hinterlegt — der Beleg wird nicht per E-Mail zugestellt.`);
+    return `<div class="credit-warn" role="alert">⚠ ${parts.join(" ")}</div>`;
+  }
+
   function openSettleChooser(s, n, fromModal){
     const m = $("#settleModal");
     const first = esc(s.name.split(" ")[0]);
@@ -2502,6 +2499,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19M6 15.5h4"/></svg></div>
       <h3 class="buy-h">+${n} Einheiten für ${first}</h3>
       <p class="buy-p" id="settleP">Wie wurde diese Aufladung beglichen?</p>
+      ${creditWarningHtml(s)}
       <button class="btn" id="settleCash"><span class="grainbtn"></span>Bar bezahlt — jetzt gutschreiben</button>
       <button class="btn ghost" id="settleStripe">Über Stripe</button>
       <button class="btn ghost" id="settleCancel">Abbrechen</button>
@@ -2521,27 +2519,61 @@ window.DJANGO_DATA = {{ django_data|safe }};
   }
   function closeSettle(){ const m=$("#settleModal"); if(m){ m.hidden=true; m.innerHTML=""; } }
 
-  function topUp(s, n, fromModal){
-    // Optimistic receipt for instant display; the server mints the authoritative
-    // number (sequenced per student) which we adopt below — the client counter is
-    // only a placeholder until the response lands.
-    const r = issueReceipt(s, n);
-    s.log.unshift({ type:"buy", label:"Einheiten vom Tutor", sub:"Heute · bar bezahlt", amt:"+"+n, receiptNo: r.no });
-    addStudentCredits(s.id, n);
-    api('POST', '/api/credits/' + s.id + '/', { n, method: 'cash' }).then(res => {
-      if (res && res.receiptNo) {
-        // Adopt the server's number everywhere the placeholder went, so in-session
-        // lookups and the rendered document match the persisted record.
-        if (s.log[0]) s.log[0].receiptNo = res.receiptNo;
-        r.no = res.receiptNo;
-        if ($("#receiptShell")) openReceipt(r);   // refresh an open modal
-        renderAccount(); if(fromModal) renderStudentModal();
-      }
+  // Custom deal: any number of credits for any total (family offers, invoicing
+  // that doesn't match a pack). The server issues the receipt for the exact total.
+  function openCustomTopUp(s, fromModal){
+    const m = $("#settleModal");
+    const first = esc(s.name.split(" ")[0]);
+    const n0 = 10;
+    m.innerHTML = `<div class="modal-card buy-card" id="customCard">
+      <button class="modal-x" id="customX" aria-label="Close">×</button>
+      <h3 class="buy-h">Einheiten für ${first} hinzufügen</h3>
+      <p class="buy-p">Beliebige Anzahl zu einem frei gewählten Gesamtbetrag — der Beleg wird über genau diesen Betrag ausgestellt.</p>
+      <div class="bf-grid">
+        <label class="bf-lab">Einheiten<input class="bf-input" id="ctN" type="number" min="1" max="500" step="1" value="${n0}"></label>
+        <label class="bf-lab">Gesamtbetrag (€)<input class="bf-input" id="ctTotal" type="text" inputmode="decimal" value="${money(settleUnitEuros(n0)*n0)}"></label>
+      </div>
+      <label class="bf-lab">Bezahlt<select class="bf-input" id="ctMethod"><option value="cash">Bar</option><option value="transfer">Per Überweisung</option></select></label>
+      <label class="bf-lab">Notiz (optional)<input class="bf-input" id="ctNote" maxlength="80" placeholder="z. B. Familienangebot"></label>
+      <div class="micro" id="ctEach" style="margin:2px 0 14px;"></div>
+      ${creditWarningHtml(s)}
+      <button class="btn" id="ctSave"><span class="grainbtn"></span>Gutschreiben &amp; Beleg ausstellen</button>
+      <button class="btn ghost" id="ctCancel">Abbrechen</button>
+    </div>`;
+    m.hidden = false;
+    const parseTotal = ()=>{ const v=$("#ctTotal").value.trim().replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(v) ? parseFloat(v) : null; };
+    const readN = ()=>{ const n=parseInt($("#ctN").value,10); return Number.isInteger(n) && n>=1 && n<=500 ? n : null; };
+    const update = ()=>{
+      const n=readN(), t=parseTotal();
+      $("#ctEach").textContent = (n && t!=null) ? `= € ${money(t/n)} pro Einheit` : "Bitte gültige Anzahl (1–500) und Betrag eingeben.";
+      $("#ctSave").disabled = !(n && t!=null);
+    };
+    $("#ctN").oninput = update; $("#ctTotal").oninput = update; update();
+    $("#customCard").onclick = (e)=>e.stopPropagation();
+    $("#customX").onclick = closeSettle; $("#ctCancel").onclick = closeSettle;
+    $("#ctSave").onclick = ()=>{
+      const n=readN(), total=parseTotal(); if(!n || total==null) return;
+      const opts = { total: total.toFixed(2), method: $("#ctMethod").value, note: $("#ctNote").value.trim() };
+      closeSettle();
+      topUp(s, n, fromModal, opts);
+    };
+  }
+
+  function topUp(s, n, fromModal, opts){
+    // The server mints the receipt (and its number); show it once it exists.
+    opts = opts || {};
+    api('POST', '/api/credits/' + s.id + '/', Object.assign({ n }, opts)).then(res => {
+      if (!res || !res.receipt) { toast("Einheiten konnten nicht gebucht werden"); return; }
+      const r = res.receipt;
+      state.receipts.push(r);
+      const paid = opts.method === "transfer" ? "per Überweisung bezahlt" : "bar bezahlt";
+      s.log.unshift({ type:"buy", label: opts.note || "Einheiten vom Tutor", sub:"Heute · "+paid, amt:"+"+n, receiptNo: r.no });
+      addStudentCredits(s.id, n);
+      renderRoster(); renderAccount();
+      if(fromModal) renderStudentModal();
+      openReceipt(r);
+      toast(`+${n} Einheiten → ${s.name.split(" ")[0]}`);
     });
-    renderRoster(); renderAccount();
-    if(fromModal) renderStudentModal();
-    openReceipt(r);
-    toast(`+${n} Einheiten → ${s.name.split(" ")[0]}`);
   }
 
   // ---------- Student history modal ----------
@@ -2556,14 +2588,13 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <button class="modal-x" id="modalX" aria-label="Close">×</button>
         <div class="sum-head" style="margin-bottom:18px;">
           <div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${s.i}</div>
-          <div><div class="nm">${s.name}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+          <div><div class="nm">${esc(s.name)}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         </div>
         <div class="modal-add">
           <span class="ma-label">Einheiten hinzufügen<em>Bar oder Stripe</em></span>
           <div class="ma-btns">
-            <button class="mini-btn" data-madd="1">+1</button>
-            <button class="mini-btn" data-madd="5">+5</button>
-            <button class="mini-btn" data-madd="10">+10</button>
+            ${creditQuickAdds().map(n=>`<button class="mini-btn" data-madd="${n}">+${n}</button>`).join("")}
+            <button class="mini-btn" id="maddCustom" title="Beliebige Anzahl und Betrag, z. B. Familienangebot">Individuell…</button>
           </div>
         </div>
         ${s.credits < 0 ? `
@@ -2574,14 +2605,14 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
-          <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${escHtml(s.name.split(' ')[0])}…">
+          <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
           <button class="mini-btn snote-btn" id="snoteAdd">Hinzufügen</button>
         </div>
         <div class="snote-log">${notesLogHtml(s)}</div>
         <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2></div>
-        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${escHtml(s.name.split(' ')[0])} im Lern-Tab zugreifen kann.</div>
+        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} im Lern-Tab zugreifen kann.</div>
         <div class="curric-mgr">${curriculumMgrHtml(s)}</div>
-        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${escHtml(s.name.split(' ')[0])}s Lern-Tab</button>
+        <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Lern-Tab</button>
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
         <div class="section-h" style="margin:22px 2px 6px;"><h2>Verlauf</h2></div>
         <div class="activity modal-txns">${txnHtml(s.log)}</div>
@@ -2589,12 +2620,19 @@ window.DJANGO_DATA = {{ django_data|safe }};
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
+    $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
       settleLinkBtn.disabled = true; settleLinkBtn.textContent = "…";
-      api('POST', '/api/students/' + s.id + '/settle-link/').then(res => {
+      apiResult('POST', '/api/students/' + s.id + '/settle-link/').then(r => {
         settleLinkBtn.disabled = false; settleLinkBtn.textContent = "Zahlungslink";
         const out = $("#settleLinkOut");
+        const res = r.data;
+        if (!r.ok && res && res.error === "setup_required") {
+          const what = res.missing.map(m=>m==="email"?"E-Mail-Adresse":"Rechnungsadresse").join(" und ");
+          toast(`Für Kartenzahlung fehlt bei ${s.name.split(" ")[0]} noch: ${what}.`);
+          return;
+        }
         if (res && res.url) {
           if (out) { out.hidden = false; out.textContent = res.url; }
           if (navigator.clipboard) navigator.clipboard.writeText(res.url).then(()=>toast("Link kopiert — an den Schüler senden")).catch(()=>{});
@@ -2619,7 +2657,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     bindCancelLinks($("#studentModal"));
     if($("#modalCard")) $("#modalCard").scrollTop = prevScroll;
   }
-  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen — oben die erste hinzufügen.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${escHtml(n.text)}</div></div>`).join(""); }
+  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen — oben die erste hinzufügen.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${esc(n.text)}</div></div>`).join(""); }
   function addStudentNote(s){ const inp=$("#snoteInput"); const t=(inp.value||"").trim(); if(!t) return; s.notesLog=s.notesLog||[]; s.notesLog.unshift({ date:fmtAT(NOW), text:t }); inp.value=""; api('POST', '/api/notes/' + s.id + '/', { text: t, tutorSlug: state.myTutor }); renderStudentModal(); toast("Notiz zu "+s.name.split(" ")[0]+" hinzugefügt"); }
 
   function renderRoster(){
@@ -2627,18 +2665,16 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const q=(state.studentQuery||"").trim().toLowerCase();
     const list=state.students.filter(s=> !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q));
     const cnt=$("#studentsCount"); if(cnt) cnt.textContent = q ? `${list.length} von ${state.students.length}` : `${state.students.length} Schüler`;
-    if(!list.length){ el.innerHTML=`<div class="empty-list" style="padding:22px 0;">Keine Schüler passen zu „${escHtml(q)}“.</div>`; renderTutorLists(); return; }
+    if(!list.length){ el.innerHTML=`<div class="empty-list" style="padding:22px 0;">Keine Schüler passen zu „${esc(q)}“.</div>`; renderTutorLists(); return; }
     list.forEach(s=>{
       const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
       const card=document.createElement("div"); card.className="rost";
       card.innerHTML=`
         <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${s.i}</div>
-        <div class="rinfo"><div class="rname">${s.name}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
-          <button class="mini-btn" data-add="1">+1</button>
-          <button class="mini-btn" data-add="5">+5</button>
-          <button class="mini-btn" data-add="10">+10</button>
+          ${creditQuickAdds().map(n=>`<button class="mini-btn" data-add="${n}">+${n}</button>`).join("")}
         </div>`;
       card.querySelectorAll("[data-add]").forEach(btn=> btn.onclick=(e)=>{ e.stopPropagation(); openSettleChooser(s, +btn.dataset.add, false); });
       card.onclick=(e)=>{ if(e.target.closest("[data-add]")) return; openStudentModal(s); };
@@ -2653,12 +2689,12 @@ window.DJANGO_DATA = {{ django_data|safe }};
     // free guest intro sessions (which have no roster account).
     if(b.studentId==="__blocked__") return "";
     const s=bookingStudent(b);
-    const nameLine = s.isGuest ? `${escHtml(s.name)} · Intro` : escHtml(s.name);
+    const nameLine = s.isGuest ? `${esc(s.name)} · Intro` : esc(s.name);
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
       <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
-      <div class="info"><div class="t">${b.title}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${escHtml(b.notes)}</div>`:""}</div>
-      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${escHtml(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
+      <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
+      <div class="tail">${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
   }
   function renderTutorLists(){
@@ -2686,7 +2722,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     m.innerHTML=`<div class="modal-card buy-card" id="buyCard">
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <h3 class="buy-h">Stunde rückwirkend stornieren?</h3>
-      <p class="buy-p"><b>${escHtml(s.name)}</b>${isGuest?" · Intro":""} · ${fmtLong(b.date)} · ${b.time}</p>
+      <p class="buy-p"><b>${esc(s.name)}</b>${isGuest?" · Intro":""} · ${fmtLong(b.date)} · ${b.time}</p>
       <p class="buy-p">${isGuest
         ? "Eine Schnupperstunde kostet keine Einheit — sie wird nur aus der Liste entfernt."
         : "Die Stunde wird entfernt und die Einheit dem Schüler zurückgebucht. Der Vorgang wird mit deinem Namen im Einheiten-Verlauf protokolliert."}</p>
@@ -2721,10 +2757,19 @@ window.DJANGO_DATA = {{ django_data|safe }};
     const s=studentById(state.currentUser); if(!s) return;
     const b=s.billing||{};
     $("#bfName").value=s.name;
+    $("#bfEmail").value=hasRealEmail(s) ? s.email : "";
     $("#bfLine1").value=b.line1||""; $("#bfZip").value=b.postcode||""; $("#bfCity").value=b.city||""; $("#bfCountry").value=b.country||"Österreich";
   }
   function saveBilling(){
     const s=studentById(state.currentUser); if(!s) return;
+    const email=$("#bfEmail").value.trim().toLowerCase();
+    if (email && email!==s.email) {
+      if (state.impersonating) { s.email=email; api('PUT', '/api/users/' + s.id + '/', { email }); }
+      else apiResult('PUT', '/api/users/me/billing/', { email }).then(res => {
+        if (res.ok) { s.email=email; renderAccount(); }
+        else toast((res.data && res.data.error) || "E-Mail konnte nicht gespeichert werden");
+      });
+    }
     s.name = $("#bfName").value.trim()||s.name;
     s.billing = { line1:$("#bfLine1").value.trim(), postcode:$("#bfZip").value.trim(), city:$("#bfCity").value.trim(), country:$("#bfCountry").value.trim()||"Österreich" };
     $("#acctHello").textContent="Hallo, "+s.name.split(" ")[0]+".";
@@ -2741,8 +2786,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
   }
 
   // ---------- Admin: user management ----------
-  function esc(s){ return String(s==null?"":s).replace(/"/g,"&quot;"); }
-  function escHtml(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
   function renderAdmin(){ renderAdminList(); renderAdminEditor(); renderAdminPacks(); renderAdminTxns(); renderPayouts(); }
   // Per-tutor payout basis. Lessons paid for with *migrated* (opening-balance)
   // credits carry no on-platform revenue, so they can't be paid out. For each
@@ -2793,7 +2837,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="payout-table">
         <div class="payout-row payout-hrow"><div>Tutor</div><div>Abgeschl.</div><div>Migriert</div><div>Vergütbar</div><div>Wert</div></div>
         ${rows.length ? rows.map(r=>`<div class="payout-row">
-          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${escHtml(r.t.name)}</div>
+          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${esc(r.t.name)}</div>
           <div>${r.comp}</div><div class="${r.migr?'payout-mig':''}">${r.migr||"—"}</div><div><b>${r.pay}</b></div><div>€ ${r.value}</div>
         </div>`).join("") : `<div class="empty-list" style="padding:16px 0;">Noch keine Stunden im Zeitraum.</div>`}
         ${rows.length>1?`<div class="payout-row payout-total"><div>Gesamt</div><div>${sum("comp")}</div><div>${sum("migr")||"—"}</div><div><b>${sum("pay")}</b></div><div>€ ${sum("value")}</div></div>`:""}
@@ -2855,7 +2899,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       const item=document.createElement("button");
       item.className="admin-item"+(u.id===state.adminSel?" sel":"");
       item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${u.i}</div>
-        <div class="ai-info"><div class="ai-name">${u.name}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${u.email}</div></div>`;
+        <div class="ai-info"><div class="ai-name">${esc(u.name)}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${esc(u.email)}</div></div>`;
       item.onclick=()=>{ state.adminSel=u.id; renderAdmin(); };
       el.appendChild(item);
     });
@@ -2870,7 +2914,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       <div class="ed-head">
         <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${u.i}</div>
         <div class="ed-photo-actions">
-          <div class="ed-who"><div class="ed-name">${u.name}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
+          <div class="ed-who"><div class="ed-name">${esc(u.name)}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
           <div class="ed-photo-btns">
             <label class="mini-btn">Foto hochladen<input type="file" id="edPhoto" accept="image/*" hidden></label>
             ${u.photo?'<button class="mini-btn" id="edPhotoClear">Entfernen</button>':''}
@@ -2909,7 +2953,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
       </div>
       <div class="ed-actions">
         <button class="btn" id="edSave"><span class="grainbtn"></span>Änderungen speichern</button>
-        <button class="btn ghost" id="edViewAs">Ansehen als ${u.name.split(" ")[0]}</button>
+        <button class="btn ghost" id="edViewAs">Ansehen als ${esc(u.name.split(" ")[0])}</button>
       </div>
       ${isStudent?'<button class="btn-text" id="edRemove" style="color:#b8492c;">Schüler entfernen</button>':''}
       ${isTutor?'<button class="btn-text" id="edRemoveTutor" style="color:#b8492c;">Tutor entfernen</button>':''}
@@ -2971,7 +3015,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         reflectUser(u); renderAdmin();
         toast("Foto aktualisiert — zum Speichern „Änderungen speichern“");
       };
-      img.onerror=()=>{ u.photo=rd.result; reflectUser(u); renderAdmin(); };
+      img.onerror=()=>toast("Diese Datei ist kein Bild");
       img.src=rd.result;
     };
     rd.readAsDataURL(f);
@@ -3058,7 +3102,8 @@ window.DJANGO_DATA = {{ django_data|safe }};
   function toast(msg) {
     const w = $("#toastWrap");
     const el = document.createElement("div"); el.className="toast";
-    el.innerHTML = `<div class="ti">✓</div><div>${msg}</div>`;
+    el.innerHTML = `<div class="ti">✓</div><div></div>`;
+    el.lastChild.textContent = msg;
     w.appendChild(el);
     setTimeout(()=>{ el.style.transition="0.4s"; el.style.opacity="0"; el.style.transform="translateY(10px)"; setTimeout(()=>el.remove(),400); }, 2600);
   }
@@ -3143,7 +3188,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
     if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${l.t}</span><span class="les-tag">Gesperrt</span></div></div>`;
     const files=lessonFilesFor(l.id);
     const filesHtml = files.length
-      ? files.map(f=>`<a class="file-row" href="${escHtml(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${escHtml(f.name)}</span><span class="file-ext">${escHtml(f.ext||'FILE')}</span></a>`).join("")
+      ? files.map(f=>`<a class="file-row" href="${esc(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext||'FILE')}</span></a>`).join("")
       : `<div class="micro" style="text-align:left;padding:8px 4px;">Noch keine Materialien — dein Tutor hat für diese Lektion noch keine Dateien hinzugefügt.</div>`;
     return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${l.t}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
       <div class="les-files">${filesHtml}</div></div>`;
@@ -3168,7 +3213,7 @@ window.DJANGO_DATA = {{ django_data|safe }};
         <div class="cm-lessons">${lvl.lessons.map(l=>{
           const on=isActive(s,l.id);
           const files=lessonFilesFor(l.id);
-          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${escHtml(f.url)}" title="Herunterladen">${escHtml(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
+          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
           return `<div class="cm-les-wrap">
             <button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${l.t}</span></button>
             <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>

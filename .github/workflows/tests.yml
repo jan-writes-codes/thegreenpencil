@@ -1,0 +1,60 @@
+# Runs the full test suite (backend + jsdom frontend probes) against Postgres,
+# like production. Render's "Auto-Deploy: After CI Checks Pass" waits for this
+# check, so a commit on development/production only deploys when it is green.
+name: Tests
+
+on:
+  push:
+    branches: [development, production]
+  pull_request:
+    branches: [development, production]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: fluent
+          POSTGRES_PASSWORD: fluent
+          POSTGRES_DB: fluent
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fluent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://fluent:fluent@localhost:5432/fluent
+      # Mail is printed, never sent, and sent inline so tests stay deterministic.
+      EMAIL_ASYNC: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          npm ci --prefix tests/frontend
+
+      - name: Run tests
+        run: python manage.py test --noinput

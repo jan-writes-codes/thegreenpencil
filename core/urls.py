@@ -1,16 +1,18 @@
+from django.templatetags.static import static
 from django.urls import path
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from . import views
 
 urlpatterns = [
     path('', views.landing_view, name='landing'),
     path('app/', views.app_view, name='app'),
     path('login/', views.login_view, name='login'),
-    path('impressum/', views.impressum_view, name='impressum'),
-    path('datenschutz/', views.datenschutz_view, name='datenschutz'),
-    path('agb/', views.agb_view, name='agb'),
-    path('widerruf/', views.widerruf_view, name='widerruf'),
-    # Static FAQ page — pure content, so a TemplateView is enough (no view fn).
+    # Pure-content pages: legal notices required in Austria (Impressum §5 ECG,
+    # Datenschutz GDPR Art. 13/14, AGB, Widerruf FAGG) and the FAQ.
+    path('impressum/', TemplateView.as_view(template_name='impressum.html'), name='impressum'),
+    path('datenschutz/', TemplateView.as_view(template_name='datenschutz.html'), name='datenschutz'),
+    path('agb/', TemplateView.as_view(template_name='agb.html'), name='agb'),
+    path('widerruf/', TemplateView.as_view(template_name='widerruf.html'), name='widerruf'),
     path('faq/', TemplateView.as_view(template_name='faq.html'), name='faq'),
     path('intro/', views.intro_view, name='intro'),
     path('cancel/<str:token>/', views.booking_cancel_view, name='booking_cancel'),
@@ -19,7 +21,8 @@ urlpatterns = [
     path('oauth/video/<str:provider>/callback/', views.video_oauth_callback, name='video_oauth_callback'),
     # Public, token-guarded iCal subscription feed of a tutor's bookings.
     path('calendar/<str:token>.ics', views.calendar_feed, name='calendar_feed'),
-    path('favicon.ico', views.favicon_ico, name='favicon_ico'),
+    # Google Search fetches /favicon.ico from the site root, not the <link> tag.
+    path('favicon.ico', RedirectView.as_view(url=static('favicon.ico'), permanent=True)),
     path('robots.txt', views.robots_txt, name='robots_txt'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap_xml'),
     path('api/intro-bookings/', views.api_intro_booking),

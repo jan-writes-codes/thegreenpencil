@@ -3,7 +3,7 @@
 Kept separate from views so it can be reused by the download endpoint and the
 transactional e-mails. reportlab is a pure-Python dependency (no system libs),
 so this imports and runs anywhere the app does. The layout mirrors the on-screen
-receipt (``views.receipt_html``): brand mark, receipt meta, supplier/recipient
+receipt (``receiptDocHtml`` in app.html): brand mark, receipt meta, supplier/recipient
 blocks, a single line item, totals, the VAT-exemption note and a footer.
 """
 import io
@@ -112,8 +112,7 @@ def render_receipt_pdf(receipt):
     is_storno = receipt.reverses_id is not None
     reverses_no = receipt.reverses.number if is_storno and receipt.reverses else ""
     credits = receipt.credits
-    unit = receipt.unit_price_cents
-    net = credits * unit
+    unit, net = receipt.amounts()
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)

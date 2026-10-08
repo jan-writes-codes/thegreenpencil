@@ -1,6 +1,8 @@
+from datetime import datetime, time as dt_time
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-import json
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -100,6 +102,26 @@ class Booking(models.Model):
         if is_new:
             self._charge_credit()
 
+    @property
+    def minutes(self):
+        # A Schnupperstunde runs 15 minutes; a paid lesson is one 45-minute Einheit.
+        return 15 if self.is_intro else 45
+
+    @property
+    def start(self):
+        """Aware start datetime in the studio's timezone (settings.TIME_ZONE)."""
+        return timezone.make_aware(datetime.combine(self.date, dt_time.fromisoformat(self.time)))
+
+    def ledger_sub(self):
+        """Credit-ledger sub-line: which tutor and when, e.g. 'mit Davit · 01.06.2026 · 09:00'.
+        Prefers the frozen snapshot, falling back to the live tutor FK."""
+        tutor_name = self.tutor_name or (
+            self.tutor.get_full_name() if self.tutor_id and self.tutor else ""
+        )
+        tutor_first = tutor_name.split(" ")[0]
+        when = f"{self.date.strftime('%d.%m.%Y')} · {self.time}"
+        return f"mit {tutor_first} · {when}" if tutor_first else when
+
     def _charge_credit(self):
         """Deduct one credit from the student and record it on the ledger when a
         booking is created. Centralised here (rather than in the booking view) so
@@ -119,19 +141,8 @@ class Booking(models.Model):
         student = self.student
         student.credits -= 1
         student.save(update_fields=['credits'])
-        # Note which tutor the lesson is with, so the credit ledger shows it.
-        tutor_first = (self.tutor_name or "").split(" ")[0]
-        sub = f"{self.date.strftime('%d.%m.%Y')} · {self.time}"
-        if tutor_first:
-            sub = f"mit {tutor_first} · {sub}"
-        CreditTransaction.objects.create(
-            student=student,
-            student_slug=student.slug,
-            student_name=student.get_full_name() or student.username,
-            txn_type='book',
-            label='Stunde gebucht',
-            sub=sub,
-            amount=-1,
+        CreditTransaction.log(
+            student, txn_type='book', label='Stunde gebucht', sub=self.ledger_sub(), amount=-1,
         )
 
     def __str__(self):
@@ -194,6 +205,16 @@ class CreditTransaction(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    @classmethod
+    def log(cls, student, **fields):
+        """A ledger entry stamped with the student's identity snapshot."""
+        return cls.objects.create(
+            student=student,
+            student_slug=student.slug,
+            student_name=student.get_full_name() or student.username,
+            **fields,
+        )
+
     def __str__(self):
         return f'{self.student_slug}: {self.label}'
 
@@ -215,7 +236,12 @@ class Receipt(models.Model):
     billing_country = models.CharField(max_length=100, blank=True)
     date_str = models.CharField(max_length=20)
     credits = models.IntegerField()
-    unit_price_cents = models.IntegerField()  # in cents to avoid float
+    # Despite the name this holds the per-credit price in whole EUR (legacy).
+    unit_price_cents = models.IntegerField()
+    # Exact receipt total in cents for a custom-priced grant (e.g. a family deal:
+    # 10 credits for €355). NULL for standard receipts, whose total is
+    # credits × unit price. Negative on the Storno of a custom-priced purchase.
+    total_cents = models.IntegerField(null=True, blank=True)
     # Stripe Checkout session that paid for this receipt (empty for receipts the
     # tutor added manually). Used to make webhook/redirect crediting idempotent.
     stripe_session_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
@@ -229,6 +255,14 @@ class Receipt(models.Model):
     # cash purchases, when Stripe isn't involved, or if the refund could not be made.
     stripe_refund_id = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def amounts(self):
+        """``(unit_eur, total_eur)`` as shown on the receipt. Custom-priced
+        receipts derive the per-credit price from their exact total."""
+        if self.total_cents is not None:
+            total = self.total_cents / 100
+            return (round(total / self.credits, 2) if self.credits else 0.0), total
+        return self.unit_price_cents, self.credits * self.unit_price_cents
 
     class Meta:
         constraints = [

@@ -6,15 +6,10 @@ Google/Outlook can poll the URL without any login. One VEVENT per booking;
 times are emitted in UTC so no VTIMEZONE needs shipping (mirrors the
 single-event .ics that ``emails.build_ics`` attaches to confirmations).
 """
-from datetime import datetime, time as dt_time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta, timezone as dt_timezone
 
 from django.utils import timezone
 
-from .emails import INTRO_MINUTES, LESSON_MINUTES
-
-VIENNA = ZoneInfo("Europe/Vienna")
-UTC = ZoneInfo("UTC")
 _ICS_FMT = "%Y%m%dT%H%M%SZ"
 
 
@@ -24,12 +19,8 @@ def ics_escape(s):
 
 
 def _event_lines(booking, stamp):
-    start_local = datetime.combine(
-        booking.date, dt_time.fromisoformat(booking.time)
-    ).replace(tzinfo=VIENNA)
-    start = start_local.astimezone(UTC)
-    minutes = INTRO_MINUTES if booking.is_intro else LESSON_MINUTES
-    end = start + timedelta(minutes=minutes)
+    start = booking.start.astimezone(dt_timezone.utc)
+    end = start + timedelta(minutes=booking.minutes)
 
     with_name = booking.guest_name or booking.student_name or ""
     summary = f"{booking.title} — {with_name}" if with_name else booking.title
@@ -67,7 +58,7 @@ def build_tutor_feed(tutor, bookings):
     """A multi-event VCALENDAR of the tutor's bookings, ready to serve as a
     subscription feed. Cancelled bookings are deleted rows, so simply not
     emitting them makes subscribed calendars drop the event on the next poll."""
-    stamp = timezone.now().astimezone(UTC)
+    stamp = timezone.now().astimezone(dt_timezone.utc)
     first = (tutor.get_full_name() or tutor.username).split(" ")[0]
     lines = [
         "BEGIN:VCALENDAR",
