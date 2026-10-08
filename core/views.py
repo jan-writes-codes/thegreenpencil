@@ -24,7 +24,7 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
-    VideoConnection,
+    VideoConnection, ErrorCard,
 )
 from . import emails, video
 from .ical import build_tutor_feed
@@ -110,8 +110,9 @@ def booking_tutor_slug(b):
     return b.tutor.slug if b.tutor_id and b.tutor else b.tutor_slug
 
 
-def serialize_booking(b):
-    return {
+def serialize_booking(b, *, private=True):
+    """``private`` includes the tutor's own notes — never set for a student's view."""
+    data = {
         "pk": b.pk,
         "studentId": booking_student_slug(b),
         "tutorId": booking_tutor_slug(b),
@@ -119,7 +120,7 @@ def serialize_booking(b):
         "time": b.time,
         "title": b.title,
         "notes": b.notes,
-        "tutorNotes": b.tutor_notes,
+        "summary": b.summary,
         "callLink": b.call_link,
         # "requested" until the tutor confirms a student's own booking.
         "status": b.status,
@@ -129,6 +130,25 @@ def serialize_booking(b):
         "guestName": b.guest_name,
         "guestEmail": b.guest_email,
         "guestPhone": b.guest_phone,
+    }
+    if private:
+        data["tutorNotes"] = b.tutor_notes
+    return data
+
+
+def serialize_error_card(c):
+    return {
+        "id": c.pk,
+        "studentId": c.student.slug if c.student_id else "",
+        "bookingPk": c.booking_id,
+        "front": c.front,
+        "back": c.back,
+        "note": c.note,
+        "status": c.status,
+        "reviews": c.reviews,
+        "lastResult": c.last_result,
+        "created": timezone.localtime(c.created_at).strftime("%Y-%m-%d"),
+        "mastered": timezone.localtime(c.mastered_at).strftime("%Y-%m-%d") if c.mastered_at else "",
     }
 
 
@@ -922,7 +942,8 @@ def app_view(request):
             .exclude(student=user)
             .select_related("tutor")
         )
-        bookings_payload = [serialize_booking(b) for b in own_bookings] + [
+        # The tutor's private notes stay out of a student's payload.
+        bookings_payload = [serialize_booking(b, private=False) for b in own_bookings] + [
             blocker_booking(b) for b in other_bookings
         ]
     else:
@@ -968,6 +989,12 @@ def app_view(request):
                 for n in notes
             ]
 
+    # Error cards (Fehler-Training): a student gets their own, tutor/admin all.
+    cards_qs = ErrorCard.objects.select_related("student")
+    if is_student:
+        cards_qs = cards_qs.filter(student=user)
+    error_cards = [serialize_error_card(c) for c in cards_qs]
+
     # Active lessons: {slug: [lesson_ids]}
     active_lessons = {}
     for s in visible_students:
@@ -1010,6 +1037,7 @@ def app_view(request):
         "studentNotes": student_notes,
         "activeLessons": active_lessons,
         "lessonFiles": lesson_files,
+        "errorCards": error_cards,
         "settings": {
             "creditPrice": settings.credit_price,
             "packs": packs,
@@ -1441,6 +1469,8 @@ def api_booking_detail(request, pk):
     if not is_student:
         if "tutorNotes" in data:
             b.tutor_notes = data["tutorNotes"]
+        if "summary" in data:
+            b.summary = str(data["summary"] or "")[:5000]
         if "callLink" in data and data["callLink"] != b.call_link:
             # A hand-edited link supersedes the auto-created meeting: remove
             # the orphan from the tutor's account and drop the reference so a
@@ -1460,6 +1490,87 @@ def api_booking_detail(request, pk):
     if re_requested:
         emails.queue_email(emails.send_lesson_request_tutor, b.pk)
     return JsonResponse({"ok": True, "status": b.status})
+
+
+# ---------------------------------------------------------------------------
+# Fehler-Training (error cards)
+# ---------------------------------------------------------------------------
+
+def _card_text(data, key, required):
+    value = str(data.get(key) or "").strip()
+    if required and not value:
+        raise ValueError(f"{key} required")
+    return value[:1000]
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_error_cards(request):
+    """Tutor records a mistake from a lesson as a card in the student's error log."""
+    data = parse_body(request)
+    try:
+        student = User.objects.get(slug=data.get("studentSlug"), role="student")
+        front = _card_text(data, "front", True)
+        back = _card_text(data, "back", True)
+        note = _card_text(data, "note", False)
+    except (User.DoesNotExist, ValueError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    booking = None
+    if data.get("bookingPk"):
+        booking = Booking.objects.filter(pk=data["bookingPk"], student=student).first()
+        if booking is None:
+            return JsonResponse({"error": "unknown lesson"}, status=400)
+    card = ErrorCard.objects.create(
+        student=student, booking=booking, tutor=request.user,
+        front=front, back=back, note=note,
+    )
+    return JsonResponse({"card": serialize_error_card(card)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("tutor", "admin")
+def api_error_card_detail(request, pk):
+    """Edit a card's text, reopen a mastered card, or delete it."""
+    card = ErrorCard.objects.filter(pk=pk).select_related("student").first()
+    if not card:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        card.delete()
+        return JsonResponse({"ok": True})
+    data = parse_body(request)
+    try:
+        for key in ("front", "back"):
+            if key in data:
+                setattr(card, key, _card_text(data, key, True))
+        if "note" in data:
+            card.note = _card_text(data, "note", False)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    if data.get("status") == ErrorCard.STATUS_OPEN:
+        card.status, card.mastered_at = ErrorCard.STATUS_OPEN, None
+    card.save()
+    return JsonResponse({"card": serialize_error_card(card)})
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_error_card_review(request, pk):
+    """Record the result of reviewing a card together in a lesson: "known" marks
+    it mastered (done), "again" keeps it in the error log for next time."""
+    card = ErrorCard.objects.filter(pk=pk).select_related("student").first()
+    if not card:
+        return JsonResponse({"error": "not found"}, status=404)
+    result = parse_body(request).get("result")
+    if result not in ("known", "again"):
+        return JsonResponse({"error": "result must be known or again"}, status=400)
+    now = timezone.now()
+    card.reviews += 1
+    card.last_result = result
+    card.last_reviewed_at = now
+    if result == "known":
+        card.status, card.mastered_at = ErrorCard.STATUS_MASTERED, now
+    card.save()
+    return JsonResponse({"card": serialize_error_card(card)})
 
 
 # ---------------------------------------------------------------------------

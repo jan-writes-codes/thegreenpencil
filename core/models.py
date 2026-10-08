@@ -60,7 +60,10 @@ class Booking(models.Model):
     time = models.CharField(max_length=5)  # "HH:MM"
     title = models.CharField(max_length=200, default='English session')
     notes = models.TextField(blank=True)
-    tutor_notes = models.TextField(blank=True)
+    tutor_notes = models.TextField(blank=True)  # private to the tutor
+    # The tutor's recap for the student ("Was wir gemacht haben"), shown in the
+    # student's lesson overview. Unlike tutor_notes it is shared.
+    summary = models.TextField(blank=True)
     call_link = models.TextField(blank=True)
     # Free "intro" session booked by a visitor from the public landing page, who
     # has no account yet. The guest's contact details live here (not on a User),
@@ -400,3 +403,38 @@ class SiteSettings(models.Model):
 
     def __str__(self):
         return f'SiteSettings (credit_price={self.credit_price})'
+
+
+class ErrorCard(models.Model):
+    """One mistake a student made in a lesson, kept as an Anki-style card: the
+    front is what the student said/wrote, the back the correct version plus an
+    optional explanation. Open cards form the student's error log; they are
+    reviewed together in later lessons and only the tutor marks one mastered.
+    Cards not known again stay open and come back until they are."""
+
+    STATUS_OPEN = 'open'
+    STATUS_MASTERED = 'mastered'
+    STATUS_CHOICES = [(STATUS_OPEN, 'Offen'), (STATUS_MASTERED, 'Gemeistert')]
+
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='error_cards')
+    # The lesson the mistake came from (kept if the booking row disappears).
+    booking = models.ForeignKey(Booking, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='error_cards')
+    tutor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name='authored_error_cards')
+    front = models.TextField()            # the mistake, as the student made it
+    back = models.TextField()             # the correct version
+    note = models.TextField(blank=True)   # why / rule / tip
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN,
+                              db_index=True)
+    reviews = models.PositiveIntegerField(default=0)     # times reviewed with the tutor
+    last_result = models.CharField(max_length=10, blank=True)  # "known" / "again"
+    last_reviewed_at = models.DateTimeField(null=True, blank=True)
+    mastered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.student.slug}: {self.front[:40]}'
