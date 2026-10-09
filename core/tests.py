@@ -3699,6 +3699,49 @@ class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         payload = extract_payload(self.client.get(reverse("app")).content.decode())
         return [x for x in payload["bookings"] if x.get("pk") == self.b.pk][0]
 
+    def _material(self, content=b"%PDF-1.4 library"):
+        return LessonFile.objects.create(lesson_id="a1-1", original_name="lib.pdf", data=content,
+                                         size=len(content), content_type="application/pdf")
+
+    def test_material_linked_into_lesson_without_copy(self):
+        lf = self._material()
+        r = self._json("post", f"/api/bookings/{self.b.pk}/files/import/", {"materialId": lf.pk})
+        self.assertEqual(r.status_code, 200)
+        f = r.json()["file"]
+        self.assertEqual((f["name"], f["kind"], f["materialId"]), ("lib.pdf", "worksheet", lf.pk))
+        sf = SessionFile.objects.get(pk=f["id"])
+        self.assertIsNone(sf.data)  # stored once, in the library
+        # Importing again doesn't add a second copy.
+        again = self._json("post", f"/api/bookings/{self.b.pk}/files/import/", {"materialId": lf.pk})
+        self.assertEqual(again.json()["file"]["id"], f["id"])
+        self.assertEqual(SessionFile.objects.filter(booking=self.b).count(), 1)
+        # The student downloads it from the lesson, even without the topic unlocked.
+        self.client.force_login(self.maya)
+        dl = self.client.get(f["url"])
+        self.assertEqual(dl.status_code, 200)
+        self.assertEqual(b"".join(dl.streaming_content) if dl.streaming else dl.content, b"%PDF-1.4 library")
+
+    def test_deleting_material_keeps_linked_lesson_file(self):
+        lf = self._material()
+        fid = self._json("post", f"/api/bookings/{self.b.pk}/files/import/", {"materialId": lf.pk}).json()["file"]["id"]
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.delete(f"/api/lesson-files/{lf.pk}/").status_code, 200)
+        sf = SessionFile.objects.get(pk=fid)
+        self.assertIsNone(sf.material_id)
+        self.assertEqual(bytes(sf.data), b"%PDF-1.4 library")
+        self.assertEqual(self.client.get(f"/api/session-files/{fid}/").status_code, 200)
+
+    def test_removing_linked_file_from_lesson_keeps_material(self):
+        lf = self._material()
+        fid = self._json("post", f"/api/bookings/{self.b.pk}/files/import/", {"materialId": lf.pk}).json()["file"]["id"]
+        self.assertEqual(self.client.delete(f"/api/session-files/{fid}/").status_code, 200)
+        self.assertTrue(LessonFile.objects.filter(pk=lf.pk).exists())
+
+    def test_student_cannot_import_material(self):
+        lf = self._material()
+        r = self._json("post", f"/api/bookings/{self.b.pk}/files/import/", {"materialId": lf.pk}, actor=self.maya)
+        self.assertEqual(r.status_code, 403)
+
     def test_homework_set_by_tutor_ticked_by_student(self):
         self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "Workbook p. 34"})
         self._json("put", f"/api/bookings/{self.b.pk}/", {"homework": "hack", "homeworkDone": True},

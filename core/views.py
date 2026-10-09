@@ -167,6 +167,8 @@ def serialize_session_file(f):
         "size": f.size,
         "by": (f.uploaded_by.get_full_name() if f.uploaded_by_id and f.uploaded_by else ""),
         "url": f"/api/session-files/{f.pk}/",
+        # Linked from Lernmaterialien rather than uploaded to this lesson.
+        "materialId": f.material_id,
     }
 
 
@@ -1818,7 +1820,35 @@ def api_session_file_detail(request, file_id):
             return JsonResponse({"error": "forbidden"}, status=403)
         sf.delete()
         return JsonResponse({"ok": True})
+    if sf.data is None:
+        data = _lesson_file_bytes(sf.material) if sf.material_id else None
+        if data is None:
+            raise Http404
+        return _attachment(data, sf.name, sf.content_type)
     return _attachment(bytes(sf.data), sf.name, sf.content_type)
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_session_file_import(request, pk):
+    """Put a Lernmaterialien file into a lesson as a worksheet. The lesson only
+    links to it, so the file is stored once however many lessons use it."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    lf = LessonFile.objects.defer("data").filter(pk=parse_body(request).get("materialId")).first()
+    if not lf:
+        return JsonResponse({"error": "Datei nicht gefunden."}, status=404)
+    if not LessonFile.objects.filter(pk=lf.pk, data__isnull=False).exists():
+        return JsonResponse({"error": "Diese Datei ist nicht mehr verfügbar."}, status=400)
+    sf = SessionFile.objects.defer("data").filter(booking=b, material=lf).first()
+    if not sf:
+        sf = SessionFile.objects.create(
+            booking=b, kind=SessionFile.KIND_WORKSHEET, name=lf.original_name, size=lf.size,
+            data=None, material=lf, uploaded_by=request.user,
+            content_type=lf.content_type or mimetypes.guess_type(lf.original_name)[0] or "application/octet-stream",
+        )
+    return JsonResponse({"file": serialize_session_file(sf)})
 
 
 # ---------------------------------------------------------------------------
@@ -2531,9 +2561,7 @@ def api_topic_detail(request, lesson_id):
     if request.method == "DELETE":
         # The topic's files and every student's unlock go with it.
         for lf in LessonFile.objects.filter(lesson_id=lesson_id):
-            if lf.file:
-                lf.file.delete(save=False)  # legacy on-disk upload
-            lf.delete()
+            _delete_lesson_file(lf)
         ActiveLesson.objects.filter(lesson_id=lesson_id).delete()
         t.delete()
         return JsonResponse({"ok": True})
@@ -2549,6 +2577,34 @@ def api_topic_detail(request, lesson_id):
 # ---------------------------------------------------------------------------
 # Lesson files API (PDF materials, shared per lesson)
 # ---------------------------------------------------------------------------
+
+def _lesson_file_bytes(lf):
+    """A Lernmaterialien file's content, or None if it is gone."""
+    if lf.data is not None:
+        return bytes(lf.data)
+    if lf.file:  # legacy upload on the web server's disk (gone after a redeploy)
+        try:
+            with lf.file.open("rb") as fh:
+                return fh.read()
+        except (FileNotFoundError, ValueError):
+            return None
+    return None
+
+
+def _delete_lesson_file(lf):
+    """Delete a Lernmaterialien file. Lessons it was linked into get their own
+    copy first, so removing it from the library never empties a lesson."""
+    links = SessionFile.objects.defer("data").filter(material=lf, data__isnull=True)
+    if links.exists():
+        data = _lesson_file_bytes(lf)
+        if data is not None:
+            for sf in links:
+                sf.data = data
+                sf.save(update_fields=["data"])
+    if lf.file:
+        lf.file.delete(save=False)  # legacy on-disk upload
+    lf.delete()
+
 
 @require_http_methods(["POST"])
 @require_roles("tutor", "admin")
@@ -2581,9 +2637,7 @@ def api_lesson_file_detail(request, file_id):
         lf = LessonFile.objects.get(pk=file_id)
     except LessonFile.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
-    if lf.file:
-        lf.file.delete(save=False)  # legacy on-disk upload
-    lf.delete()
+    _delete_lesson_file(lf)
     return JsonResponse({"ok": True})
 
 

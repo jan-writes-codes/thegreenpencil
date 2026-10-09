@@ -516,7 +516,11 @@ class SessionFile(models.Model):
     name = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, blank=True)
     size = models.PositiveIntegerField(default=0)
-    data = models.BinaryField(editable=False)
+    # Empty when the file is a Lernmaterialien file linked into the lesson:
+    # the bytes are then read from ``material`` instead of being stored twice.
+    data = models.BinaryField(editable=False, null=True)
+    material = models.ForeignKey('LessonFile', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='session_links')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name='session_uploads')
     created_at = models.DateTimeField(auto_now_add=True)

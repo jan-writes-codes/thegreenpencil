@@ -638,6 +638,18 @@
   .cm-lvl-head + .skill-h.sm { margin-top: 2px; }
   .cm-les-n { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--faint); padding: 1px 7px; border-radius: 999px; background: rgba(36,53,40,0.06); }
 
+  /* Picker: a Lernmaterialien file into a lesson */
+  .mp-card { width: min(560px, 100%); }
+  .mp-list { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .mp-lvl { margin-top: 10px; }
+  .mp-topic { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 6px 2px 2px; }
+  .mp-file { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 9px; border-radius: 10px; text-align: left;
+    border: 1px solid transparent; background: transparent; color: var(--ink); font-family: var(--font-body); cursor: pointer; }
+  button.mp-file:hover { border-color: color-mix(in oklch, var(--c1) 40%, transparent); background: color-mix(in oklch, var(--c1) 7%, transparent); }
+  .mp-file.done { color: var(--faint); cursor: default; }
+  .mp-n { flex: 1; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); white-space: nowrap; }
+
   /* ---------- Lernmaterialien (tutor) ---------- */
   .mat-levels { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
   .mat-lvl { display: flex; align-items: center; gap: 9px; padding: 7px 12px 7px 7px; border-radius: 12px; cursor: pointer;
@@ -1401,6 +1413,7 @@
   <div class="modal-overlay" id="settleModal" hidden></div>
   <div class="modal-overlay" id="backdateModal" hidden></div>
   <div class="modal-overlay" id="lessonModal" hidden></div>
+  <div class="modal-overlay" id="matPickModal" hidden></div>
 
 {{ django_data|json_script:"django-data" }}
 <script>
@@ -3864,12 +3877,60 @@
       </div>
       <div class="sx-files">
         ${worksheets(b).map(f=>`<button class="sx-chip ${f.id===sx.fileId?"on":""}" data-sheet="${f.id}" title="${esc(f.name)}">${esc(f.name.replace(/\.[^.]+$/, ""))}</button>`).join("")}
-        ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label>` : ""}
+        ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label><button class="sx-chip add" id="sheetFromMat">+ Aus Lernmaterialien</button>` : ""}
       </div>`;
     $("#sessBack").onclick=leaveSession;
     if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
     bar.querySelectorAll("[data-sheet]").forEach(c=> c.onclick=()=>{ sx.fileId=+c.dataset.sheet; closeSxPop(); renderSession(); });
     bindSheetUpload(b, sx, $("#sheetUpload"));
+    if($("#sheetFromMat")) $("#sheetFromMat").onclick=()=>openMaterialPicker(b, sx);
+  }
+
+  // Tutor picks a Lernmaterialien file for this lesson. The lesson only links
+  // to it on the server, so the file isn't stored a second time.
+  function openMaterialPicker(b, sx){
+    const m=$("#matPickModal"); if(!m) return;
+    const linked=new Set((b.files||[]).map(f=>f.materialId).filter(Boolean));
+    let q="";
+    const close=()=>{ m.hidden=true; m.innerHTML=""; };
+    const listHtml=()=>{
+      const needle=q.trim().toLowerCase();
+      const out=curriculum().map(lvl=>{
+        const groups=skillGroups(lvl.lessons).map(g=>{
+          const rows=g.lessons.map(l=>{
+            const files=lessonFilesFor(l.id).filter(f=>!needle || f.name.toLowerCase().includes(needle) || l.t.toLowerCase().includes(needle));
+            if(!files.length) return "";
+            return `<div class="mp-topic">${esc(l.t)}</div>`+files.map(f=> linked.has(f.id)
+              ? `<div class="mp-file done"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="mp-n">${esc(f.name)}</span><span class="mp-tag">schon in der Stunde</span></div>`
+              : `<button class="mp-file" data-mat="${f.id}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="mp-n">${esc(f.name)}</span><span class="mp-tag">${esc(f.ext||"")}</span></button>`).join("");
+          }).join("");
+          return rows ? `<div class="skill-h sm">${g.t}</div>${rows}` : "";
+        }).join("");
+        return groups ? `<div class="mp-lvl"><div class="cm-lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="cm-lvl-name">${lvl.title}</span></div>${groups}</div>` : "";
+      }).join("");
+      return out || `<div class="empty-list">${needle ? "Nichts gefunden." : "Noch keine Dateien in den Lernmaterialien."}</div>`;
+    };
+    m.innerHTML=`<div class="modal-card mp-card" id="mpCard">
+      <button class="modal-x" id="mpX" aria-label="Schließen">×</button>
+      <div class="nm">Aus Lernmaterialien</div>
+      <p class="micro" style="text-align:left;margin:6px 0 12px;">Die Datei wird mit der Stunde verknüpft, nicht kopiert.</p>
+      <input class="bf-input" id="mpSearch" placeholder="Datei oder Thema suchen…" autocomplete="off">
+      <div class="mp-list" id="mpList">${listHtml()}</div>
+    </div>`;
+    m.hidden=false;
+    m.onclick=close;
+    $("#mpCard").onclick=e=>e.stopPropagation();
+    $("#mpX").onclick=close;
+    const bindList=()=> $("#mpList").querySelectorAll("[data-mat]").forEach(btn=> btn.onclick=async ()=>{
+      btn.disabled=true;
+      const r=await apiResult('POST', `/api/bookings/${b._pk}/files/import/`, { materialId: +btn.dataset.mat });
+      if(!r.ok || !r.data || !r.data.file){ btn.disabled=false; toast((r.data && r.data.error) || "Hinzufügen fehlgeschlagen"); return; }
+      if(!(b.files||[]).some(f=>f.id===r.data.file.id)) b.files=[...(b.files||[]), r.data.file];
+      sx.fileId=r.data.file.id; close(); renderSession(); toast(r.data.file.name+" hinzugefügt");
+    });
+    $("#mpSearch").oninput=e=>{ q=e.target.value; $("#mpList").innerHTML=listHtml(); bindList(); };
+    bindList();
+    $("#mpSearch").focus();
   }
 
   async function uploadSheet(b, sx, file){
@@ -3918,7 +3979,7 @@
     if(!f){
       tools.innerHTML=`<span class="sx-tname">Arbeitsblatt</span>`;
       pages.innerHTML = tutor
-        ? `<label class="sx-drop"><input type="file" id="sxDropInput" hidden><b>PDF hier ablegen oder auswählen</b><span>Das Arbeitsblatt, das ihr in der Stunde durchgeht. Darin markierst du dann Wörter und Fehler.</span></label>`
+        ? `<label class="sx-drop"><input type="file" id="sxDropInput" hidden><b>PDF hier ablegen oder auswählen</b><span>Das Arbeitsblatt, das ihr in der Stunde durchgeht. Darin markierst du dann Wörter und Fehler. Oder oben „Aus Lernmaterialien“ wählen.</span></label>`
         : `<div class="sx-drop static"><b>Kein Arbeitsblatt</b><span>Zu dieser Stunde wurde kein Arbeitsblatt hochgeladen.</span></div>`;
       bindSheetUpload(b, sx, $("#sxDropInput"));
       return;
