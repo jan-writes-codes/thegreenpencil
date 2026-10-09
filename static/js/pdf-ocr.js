@@ -2,10 +2,12 @@
  * Text recognition for scanned worksheets.
  *
  * A scanned PDF is just pictures of pages: pdf.js can show it, but there is no
- * text to select, so the tutor can't mark words or mistakes in it. Before such a
- * PDF is uploaded we run OCR (Tesseract, English + German) in the tutor's
- * browser and add the recognised words to each page as invisible text, the same
- * way scanner software makes "searchable PDFs". The pages look unchanged.
+ * text to select, so the tutor can't mark words or mistakes in it. The same goes
+ * for pictures inside other PDFs, e.g. a screenshot of the exercise pasted into
+ * tablet notes. Before such a PDF is uploaded we run OCR (Tesseract, English +
+ * German) in the tutor's browser and add the recognised words to each page as
+ * invisible text, the same way scanner software makes "searchable PDFs". Words
+ * that are already text are left alone. The pages look unchanged.
  *
  * It runs in the browser on purpose: the web server is small (Render free/starter
  * instance, no system packages), and OCR is far too CPU-heavy to run there.
@@ -22,12 +24,21 @@
 
   // Pages with fewer characters than this count as "no text layer".
   const MIN_CHARS_PER_PAGE = 20;
+  // A page that has text is still recognised if a picture covers at least this
+  // share of it: e.g. notes exported from a tablet, where the handwriting has
+  // text but the pasted exercise statement is only a screenshot.
+  const MIN_IMAGE_SHARE = 0.02;
+  // A recognised word that overlaps text already on the page by this much is
+  // left out, so nothing is added twice.
+  const MAX_OVERLAP = 0.3;
   // OCR is ~2–5 s per page on a laptop; past this we'd rather not block the tutor.
   const MAX_OCR_PAGES = 20;
   // Render pages so the longer side is about this many pixels (≈ 250 dpi on A4).
   const TARGET_PX = 2900;
-  // Recognised words below this confidence are usually noise (specks, lines).
-  const MIN_WORD_CONFIDENCE = 30;
+  // Recognised words below this confidence are usually noise (specks, grid
+  // lines, scribbles); so are "words" made only of strokes and dots.
+  const MIN_WORD_CONFIDENCE = 50;
+  const NOISE = /^[|!¦\/\\_\-—–~+.,:;'"`°]+$/;
 
   const scripts = new Map();
   function loadScript(src) {
@@ -40,16 +51,60 @@
     return scripts.get(src);
   }
 
-  // Which pages (1-based) have no usable text layer.
-  async function pagesWithoutText(doc) {
+  const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3],
+    m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+
+  // Area (in PDF points²) of the largest picture painted on the page.
+  async function largestImageArea(pdfjs, page) {
+    const OPS = pdfjs.OPS, list = await page.getOperatorList();
+    const paint = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintJpegXObject,
+      OPS.paintImageXObjectRepeat].filter(x => x !== undefined));
+    let ctm = [1, 0, 0, 1, 0, 0], max = 0;
+    const stack = [];
+    for (let i = 0; i < list.fnArray.length; i++) {
+      const fn = list.fnArray[i], args = list.argsArray[i];
+      if (fn === OPS.save) stack.push(ctm);
+      else if (fn === OPS.restore) ctm = stack.pop() || ctm;
+      else if (fn === OPS.transform) ctm = mul(ctm, args);
+      else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); if (args && args[0]) ctm = mul(ctm, args[0]); }
+      else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() || ctm;
+      else if (paint.has(fn)) max = Math.max(max, Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]));
+    }
+    return max;
+  }
+
+  // Which pages (1-based) need recognising: no text at all, or text plus a
+  // sizeable picture that may hold more text.
+  async function pagesToRecognize(pdfjs, doc) {
     const out = [];
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const tc = await page.getTextContent();
       const chars = tc.items.reduce((n, it) => n + (it.str || "").replace(/\s+/g, "").length, 0);
-      if (chars < MIN_CHARS_PER_PAGE) out.push(i);
+      if (chars < MIN_CHARS_PER_PAGE) { out.push(i); continue; }
+      const vp = page.getViewport({ scale: 1 });
+      if (await largestImageArea(pdfjs, page) >= MIN_IMAGE_SHARE * vp.width * vp.height) out.push(i);
     }
     return out;
+  }
+
+  // Boxes (canvas pixels, [x0, y0, x1, y1]) of the text already on the page.
+  async function existingTextBoxes(pdfjs, page, vp) {
+    const tc = await page.getTextContent();
+    return tc.items.filter(it => it.str && it.str.trim()).map(it => {
+      const t = pdfjs.Util.transform(vp.transform, it.transform);
+      const h = Math.hypot(t[2], t[3]), w = it.width * vp.scale;
+      return [t[4], t[5] - h, t[4] + w, t[5]];
+    });
+  }
+
+  function overlapsExisting(w, boxes) {
+    const { x0, y0, x1, y1 } = w.bbox, area = (x1 - x0) * (y1 - y0);
+    if (area <= 0) return true;
+    return boxes.some(b => {
+      const ix = Math.min(x1, b[2]) - Math.max(x0, b[0]), iy = Math.min(y1, b[3]) - Math.max(y0, b[1]);
+      return ix > 0 && iy > 0 && ix * iy >= MAX_OVERLAP * area;
+    });
   }
 
   async function renderPage(page) {
@@ -67,7 +122,7 @@
   function wordsOf(blocks) {
     const words = [];
     (blocks || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l =>
-      (l.words || []).forEach(w => { if (w.text && w.text.trim() && w.confidence >= MIN_WORD_CONFIDENCE) words.push(w); }))));
+      (l.words || []).forEach(w => { const t = (w.text || "").trim(); if (t && !NOISE.test(t) && w.confidence >= MIN_WORD_CONFIDENCE) words.push(w); }))));
     return words;
   }
 
@@ -121,7 +176,7 @@
       const bytes = new Uint8Array(await file.arrayBuffer());
       // pdf.js may detach the buffer it's given, so hand it a copy.
       const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
-      const todo = await pagesWithoutText(doc);
+      const todo = await pagesToRecognize(pdfjs, doc);
       if (!todo.length) return { file, status: "has-text" };
       if (todo.length > MAX_OCR_PAGES) return { file, status: "too-many-pages", pages: todo.length };
 
@@ -138,14 +193,16 @@
         workerBlobURL: false,
       });
 
-      let found = 0;
+      let found = 0, recognized = 0;
       for (let n = 0; n < todo.length; n++) {
         onProgress({ step: "page", page: n + 1, pages: todo.length });
         const page = await doc.getPage(todo[n]);
         const { canvas, vp } = await renderPage(page);
         const { data } = await worker.recognize(canvas, {}, { text: false, blocks: true });
         canvas.width = canvas.height = 0;  // free the bitmap right away
-        const words = wordsOf(data.blocks);
+        const existing = await existingTextBoxes(pdfjs, page, vp);
+        const all = wordsOf(data.blocks), words = all.filter(w => !overlapsExisting(w, existing));
+        recognized += all.length;
         if (!words.length) continue;
         const pdfPage = out.getPage(todo[n] - 1);
         pdfPage.node.normalize();  // wrap the page's own content in q/Q first
@@ -154,7 +211,8 @@
         found += words.length;
       }
       doc.destroy();
-      if (!found) return { file, status: "no-text-found" };
+      // Everything recognised was already text (e.g. a scan that was OCR'd before).
+      if (!found) return { file, status: recognized ? "has-text" : "no-text-found" };
       const saved = await out.save({ useObjectStreams: true });
       return { file: new File([saved], file.name, { type: "application/pdf" }), status: "ok", pages: todo.length };
     } catch (e) {
