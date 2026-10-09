@@ -3719,7 +3719,7 @@
       });
       const [ocr, pdfjs]=await Promise.all([pdfOcrReady, loadPdfJs()]);
       const r=await ocr.process(file, { pdfjs, vendor: VENDOR_BASE, onProgress: p=>{
-        if(p.step==="load") toast("Gescanntes PDF – Text wird erkannt…");
+        if(p.step==="load") toast("Text in Bildern wird erkannt…");
         else if(p.pages>1) toast(`Text wird erkannt… Seite ${p.page} von ${p.pages}`);
       } });
       if(r.status==="too-many-pages") toast(`Gescanntes PDF mit ${r.pages} Seiten – Texterkennung nur bis ${ocr.MAX_OCR_PAGES} Seiten. Markieren ist darin nicht möglich.`);
