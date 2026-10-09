@@ -642,6 +642,12 @@
   .lock-note svg { color: #bb4a2c; flex-shrink: 0; margin-top: 1px; }
   .lock-note span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
   .lock-note b { color: var(--ink); font-weight: 600; }
+  .done-note { display: flex; gap: 11px; align-items: flex-start; padding: 14px; border-radius: 13px; margin-bottom: 14px;
+    background: color-mix(in oklch, var(--good) 9%, transparent); border: 1px solid color-mix(in oklch, var(--good) 30%, transparent); }
+  .done-note svg { color: var(--good); flex-shrink: 0; margin-top: 1px; }
+  .done-note span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .done-note b { color: var(--ink); font-weight: 600; }
+  #openLessonBtn { display: block; text-align: center; text-decoration: none; margin-bottom: 6px; box-sizing: border-box; }
   .reschedule-move { display: flex; flex-direction: column; gap: 7px; padding: 14px 16px; border-radius: 14px;
     border: 1px solid var(--line-2); background: rgba(251,248,241,0.4); margin-bottom: 14px; }
   .reschedule-move .rm-old, .reschedule-move .rm-new { display: flex; flex-direction: column; }
@@ -1960,6 +1966,9 @@
     // ----- Manage an existing booking -----
     if (state.managing) {
       const b = state.managing, t = tutorById(b.tutorId), mod = canModify(b);
+      // A lesson that is over can't be changed any more; it links to its own
+      // lesson page (#stunde-<pk>) instead of the topics box and the actions.
+      const ended = lessonEnded(b), hasPage = ended && b._pk && !b.isIntro && b.status!=="requested";
       sumCard.innerHTML = `
         <div class="manage-eyebrow">Buchung verwalten</div>
         <div class="sum-head">
@@ -1971,6 +1980,13 @@
           <div class="sum-row"><span class="k">Zeit</span><span class="v hl">${b.time} – ${endTime(b.time)}</span></div>
           <div class="sum-row"><span class="k">Dauer</span><span class="v">45 Minuten</span></div>
         </div>
+        ${ended ? `
+          <div class="done-note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>
+            <span><b>Abgeschlossen.</b> Diese Stunde hat bereits stattgefunden.</span>
+          </div>
+          ${hasPage ? `<a class="btn" id="openLessonBtn" href="#stunde-${b._pk}"><span class="grainbtn"></span>Stunde öffnen →</a>` : ""}
+        ` : `
         ${b.callLink?`<a class="btn join-btn" href="${esc(b.callLink)}" target="_blank" rel="noopener"><span class="grainbtn"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px"><path d="M15 10l5-3v10l-5-3v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/></svg>Zum Call</a>`:`<div class="micro" style="text-align:left;margin:2px 0 0;">Dein Tutor stellt den Call-Link vor der Stunde hier ein.</div>`}
         <div class="notes-block">
           <label class="field-label">Themen für die Stunde</label>
@@ -1994,8 +2010,11 @@
           </div>
         `}
         <button class="btn-text" id="manageIcs">Zum Kalender (.ics)</button>
+        `}
         <button class="btn-text" id="manageBack">← Zurück zum Kalender</button>
       `;
+      if (hasPage) $("#openLessonBtn").onclick = (e)=>{ e.preventDefault(); state.managing=null; openSession(b._pk); };
+      if (ended) { $("#manageBack").onclick = ()=>{ state.managing=null; renderSummary(); }; return; }
       if (mod) {
         $("#reschBtn").onclick = ()=>startReschedule(b);
         $("#cancelBtn").onclick = ()=>cancelBooking(b);
