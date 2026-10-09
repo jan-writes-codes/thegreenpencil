@@ -972,6 +972,14 @@ class LessonFileTests(FluentDataMixin, TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(LessonFile.objects.count(), 0)
 
+    def test_oversize_request_refused_before_body_is_read(self):
+        self.client.force_login(self.davit)
+        with mock.patch("core.middleware.MAX_UPLOAD_REQUEST_BYTES", 100):
+            resp = self._upload()
+        self.assertEqual(resp.status_code, 413)
+        self.assertIn("zu groß", resp.json()["error"])
+        self.assertEqual(LessonFile.objects.count(), 0)
+
     def test_student_cannot_upload_or_delete(self):
         self.client.force_login(self.davit)
         lf_id = self._upload().json()["id"]
