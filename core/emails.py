@@ -162,6 +162,8 @@ def _ctx(booking, lang="de"):
         "guest_first": _first(booking.guest_name, "there" if en else "du"),
         "guest_email": booking.guest_email,
         "guest_phone": booking.guest_phone,
+        # The guest's public level-check result, when they took it first.
+        "level_check": booking.notes if booking.is_intro else "",
         # Join link for the video call — auto-created on the tutor's connected
         # Zoom/Teams account when the booking came in. Empty when the tutor has
         # no connection; the templates then fall back to "we'll be in touch".

@@ -2367,6 +2367,33 @@ class IntroBookingTests(FluentDataMixin, TestCase):
         ok = self._post(tutorSlug=other.slug, time="14:00")
         self.assertEqual(ok.status_code, 200, ok.content)
 
+    def test_level_check_page_is_public_and_linked(self):
+        resp = self.client.get(reverse("level_check"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Level-Check")
+        self.assertIn('href="/einstufung/"', self.client.get(reverse("landing")).content.decode())
+        self.assertIn("/einstufung/", self.client.get("/sitemap.xml").content.decode())
+
+    def test_level_check_result_lands_on_intro_booking(self):
+        resp = self._post(levelCheck={
+            "level": "B1", "toward": "B2", "gv": "15-18", "rd": "3-4",
+            "speak": "B1", "write": "A2", "listen": "B2",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content)
+        b = Booking.objects.latest("id")
+        self.assertEqual(
+            b.notes,
+            "Level-Check: B1, auf dem Weg zu B2 · Grammatik/Wortschatz 15/18 · Lesen 3/4"
+            " · Selbsteinschätzung: Sprechen B1, Schreiben A2, Hören B2",
+        )
+
+    def test_level_check_ignores_unknown_values(self):
+        self._post(levelCheck={"level": "<b>C2</b>", "gv": "99-1"})
+        self.assertEqual(Booking.objects.latest("id").notes, "")
+        self._post(email="other@example.at", time="15:00",
+                   levelCheck={"level": "A2", "gv": "x", "speak": "<script>"})
+        self.assertEqual(Booking.objects.latest("id").notes, "Level-Check: A2")
+
     def test_booking_error_carries_davit_contact(self):
         self._post(time="14:00")
         again = self._post(time="15:00")

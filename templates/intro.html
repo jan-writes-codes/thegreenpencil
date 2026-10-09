@@ -193,6 +193,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>
             {% translate "15-Minuten-Einheit · ganz ohne Einheiten · einmal pro Person" %}
           </div>
+          <div class="hero-note" id="lcNote" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            <span id="lcText"></span>
+          </div>
         </div>
       </section>
 
@@ -235,6 +239,21 @@
   const NOW = new Date(); NOW.setHours(0,0,0,0);
   const REAL = new Date();
   let state = { tutor: (TUTORS[0]||{}).slug || "", weekOffset: 0, selected: null, booking: false };
+
+  // Result handed over from the public level check (/einstufung/): sent along
+  // with the booking so the tutor sees the guest's level up front.
+  const LEVEL_CHECK = (function(){
+    const p = new URLSearchParams(window.location.search);
+    if(!p.get("level")) return null;
+    const lc = {};
+    ["level","toward","gv","rd","speak","write","listen"].forEach(k => { if(p.get(k)) lc[k] = p.get(k); });
+    return lc;
+  })();
+  if(LEVEL_CHECK && /^(A1|A2|B1|B2|C1|pre-A1)$/.test(LEVEL_CHECK.level)){
+    const lv = LEVEL_CHECK.level === "pre-A1" ? "Einstieg" : LEVEL_CHECK.level;
+    document.getElementById("lcText").textContent = `Dein Level-Check (${lv}) wird mit der Buchung an deinen Tutor geschickt.`;
+    document.getElementById("lcNote").hidden = false;
+  }
 
 {% include "_calendar.js" %}
   function bookedConflict(date,time,tid){
@@ -401,7 +420,7 @@
     fetch("{% url 'api_intro_booking' %}", {
       method:"POST",
       headers:{ "Content-Type":"application/json", "X-CSRFToken":CSRF },
-      body:JSON.stringify({ tutorSlug:sel.tutorSlug, date:sel.key, time:sel.time, name, email, phone }),
+      body:JSON.stringify({ tutorSlug:sel.tutorSlug, date:sel.key, time:sel.time, name, email, phone, levelCheck:LEVEL_CHECK }),
     }).then(async r=>{
       const data = await r.json().catch(()=>({}));
       state.booking=false;

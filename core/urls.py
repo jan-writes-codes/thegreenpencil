@@ -1,6 +1,6 @@
 from django.templatetags.static import static
 from django.urls import path
-from django.views.generic import RedirectView
+from django.views.generic import RedirectView, TemplateView
 from . import views
 
 # Public pages: German at their plain path, English under /en/ (fluent/urls.py
@@ -23,6 +23,9 @@ public_urlpatterns = [
 ]
 
 urlpatterns = [
+    # Free CEFR level check (runs entirely in the browser) feeding the intro booking.
+    # German only for now, so it sits outside the /en/ patterns.
+    path('einstufung/', TemplateView.as_view(template_name='level_check.html'), name='level_check'),
     path('app/', views.app_view, name='app'),
     path('login/', views.login_view, name='login'),
     # Tutor connects their Zoom/Teams account (OAuth redirect dance).

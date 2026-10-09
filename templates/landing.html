@@ -292,6 +292,8 @@
   h1.hero-h em { font-style: normal; color: var(--c1); position: relative; white-space: nowrap; }
   .hero-sub { font-size: clamp(16px, 1.9vw, 20px); color: var(--muted); max-width: 52ch; margin-top: 24px; text-wrap: pretty; }
   .hero-cta { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 34px; align-items: center; }
+  .hero-lc { font-size: 14.5px; color: var(--muted); margin-top: 16px; }
+  .hero-lc a { color: var(--c3); font-weight: 600; }
   .hero-note { font-size: 13.5px; color: var(--faint); display: flex; align-items: center; gap: 7px; }
   .hero-note svg { width: 15px; height: 15px; color: var(--good); }
 
@@ -469,6 +471,7 @@
             </a>
             <a class="btn ghost lg" href="#angebot">{% translate "Mehr erfahren" %}</a>
           </div>
+          {% if LANGUAGE_CODE != "en" %}<p class="hero-lc reveal">Unsicher, wo du stehst? <a href="{% url 'level_check' %}">Mach den kostenlosen Level-Check</a> (ca. 10 Minuten, ohne Anmeldung).</p>{% endif %}
           <div class="hero-note reveal" style="margin-top:22px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>
             {% translate "45-Minuten-Einheiten · flexible Termine · unverbindliches Kennenlernen" %}

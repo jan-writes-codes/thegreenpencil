@@ -769,6 +769,7 @@ def password_reset_view(request, uidb64, token):
 # API endpoints are intentionally excluded — they're gated or non-content.
 # Each is listed in German and English (/en/...), with hreflang alternates.
 SITEMAP_PATHS = ["/", "/faq/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
+SITEMAP_DE_ONLY = ["/einstufung/"]
 
 
 def robots_txt(request):
@@ -802,6 +803,8 @@ def sitemap_xml(request):
             for code, url in alts.items()
         )
         entries += [f"<url><loc>{url}</loc>{links}</url>" for url in alts.values()]
+    # German-only public pages: one entry, no alternates.
+    entries += [f"<url><loc>{request.build_absolute_uri(p)}</loc></url>" for p in SITEMAP_DE_ONLY]
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
@@ -868,6 +871,37 @@ def intro_view(request):
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _PHOTO_RE = re.compile(r"^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$")
+
+
+_CEFR = ("A1", "A2", "B1", "B2", "C1")
+_SCORE_RE = re.compile(r"^(\d{1,2})-(\d{1,2})$")
+
+
+def _level_check_note(lc):
+    """One-line summary of the guest's public level check for the tutor, built
+    only from whitelisted values (the client sends structured fields, never
+    free text). Empty when the guest didn't take the check."""
+    if not isinstance(lc, dict):
+        return ""
+    level = lc.get("level")
+    if level not in _CEFR + ("pre-A1",):
+        return ""
+    head = "unter A1 (Einstieg)" if level == "pre-A1" else level
+    toward = lc.get("toward")
+    if toward in _CEFR and toward != level:
+        head += f", auf dem Weg zu {toward}"
+    parts = [f"Level-Check: {head}"]
+    for key, label in (("gv", "Grammatik/Wortschatz"), ("rd", "Lesen")):
+        m = _SCORE_RE.match(str(lc.get(key) or ""))
+        if m and int(m.group(1)) <= int(m.group(2)) <= 40:
+            parts.append(f"{label} {m.group(1)}/{m.group(2)}")
+    selfs = [f"{label} {lc.get(key)}" for key, label in
+             (("speak", "Sprechen"), ("write", "Schreiben"), ("listen", "Hören"))
+             if lc.get(key) in _CEFR]
+    if selfs:
+        parts.append("Selbsteinschätzung: " + ", ".join(selfs))
+    return " · ".join(parts)
+
 
 def _intro_error(message, status):
     """Guest-facing booking error: always carries Davit's contact details (his
@@ -946,6 +980,7 @@ def api_intro_booking(request):
         student_name=name, student_slug="intro",
         # Capability token for the cancel links in both confirmation e-mails.
         cancel_token=secrets.token_urlsafe(24),
+        notes=_level_check_note(data.get("levelCheck")),
     )
     # Fire-and-forget: create the video call (when the tutor has Zoom/Teams
     # connected) and send both confirmations — a hiccup in either must never
