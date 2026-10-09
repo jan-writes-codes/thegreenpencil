@@ -30,6 +30,7 @@ const doLearning = process.argv.includes("--learning");
 const doPreview = process.argv.includes("--preview");
 const doBuy = process.argv.includes("--buy");
 const doQuickAdds = process.argv.includes("--quick-adds");
+const doMaterials = process.argv.includes("--materials");
 if (!file) {
   console.error("usage: node dom_probe.js <app.html> [--book]");
   process.exit(2);
@@ -257,6 +258,18 @@ setTimeout(() => {
           .map((a) => a.getAttribute("href")).filter(Boolean);
         finish({ preview: { fileLinks: links } });
       }, 80);
+    }, 80);
+    return;
+  }
+
+  if (doMaterials) {
+    // Tutor: open the Lernmaterialien tab (A1 is shown first).
+    const tab = document.querySelector('.tab[data-view="materials"]');
+    if (tab) tab.click();
+    setTimeout(() => {
+      const skills = [...document.querySelectorAll("#materialsContent .mat-skill-h h3")].map((h) => h.textContent.trim());
+      const topics = [...document.querySelectorAll("#materialsContent .mat-topic-t")].map((t) => t.textContent.trim());
+      finish({ materials: { skills, topics } });
     }, 80);
     return;
   }

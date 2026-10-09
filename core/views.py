@@ -24,7 +24,7 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
-    VideoConnection, ErrorCard, SessionExercise, SessionFile,
+    VideoConnection, ErrorCard, SessionExercise, SessionFile, CurriculumTopic,
 )
 from django.db.models import Prefetch
 from . import emails, video
@@ -262,6 +262,10 @@ def serialize_receipt(r):
         "isStorno": r.reverses_id is not None,
         "reversesNo": (r.reverses.number if r.reverses_id and r.reverses else ""),
     }
+
+
+def serialize_topic(t):
+    return {"id": t.lesson_id, "level": t.level, "skill": t.skill, "t": t.title}
 
 
 def serialize_lesson_file(lf):
@@ -1077,6 +1081,7 @@ def app_view(request):
         "studentNotes": student_notes,
         "activeLessons": active_lessons,
         "lessonFiles": lesson_files,
+        "topics": [serialize_topic(t) for t in CurriculumTopic.objects.all()],
         "errorCards": error_cards,
         "settings": {
             "creditPrice": settings.credit_price,
@@ -2380,12 +2385,79 @@ def api_lessons(request, slug):
 
 
 # ---------------------------------------------------------------------------
+# Topics API (the Lernmaterialien library: level × skill)
+# ---------------------------------------------------------------------------
+
+TOPIC_LEVELS = {c for c, _ in CurriculumTopic.LEVEL_CHOICES}
+TOPIC_SKILLS = {c for c, _ in CurriculumTopic.SKILL_CHOICES}
+
+
+def _topic_fields(data, topic=None):
+    """Validated level/skill/title from a request body; on edit, missing keys
+    keep the topic's current value. Returns (fields, error)."""
+    level = data.get("level", topic.level if topic else "")
+    skill = data.get("skill", topic.skill if topic else "")
+    title = (data.get("title", topic.title if topic else "") or "").strip()
+    if level not in TOPIC_LEVELS:
+        return None, "Unbekanntes Niveau."
+    if skill not in TOPIC_SKILLS:
+        return None, "Unbekannter Bereich."
+    if not title:
+        return None, "Bitte einen Titel eingeben."
+    return {"level": level, "skill": skill, "title": title[:200]}, None
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_topics(request):
+    fields, err = _topic_fields(parse_body(request))
+    if err:
+        return JsonResponse({"error": err}, status=400)
+    last = CurriculumTopic.objects.order_by("-position").first()
+    while True:
+        lesson_id = f"{fields['level'].lower()}-{secrets.token_hex(4)}"
+        if not CurriculumTopic.objects.filter(lesson_id=lesson_id).exists():
+            break
+    t = CurriculumTopic.objects.create(
+        lesson_id=lesson_id, position=(last.position + 1) if last else 0, **fields
+    )
+    return JsonResponse(serialize_topic(t))
+
+
+@require_http_methods(["PATCH", "DELETE"])
+@require_roles("tutor", "admin")
+def api_topic_detail(request, lesson_id):
+    try:
+        t = CurriculumTopic.objects.get(lesson_id=lesson_id)
+    except CurriculumTopic.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        # The topic's files and every student's unlock go with it.
+        for lf in LessonFile.objects.filter(lesson_id=lesson_id):
+            if lf.file:
+                lf.file.delete(save=False)  # legacy on-disk upload
+            lf.delete()
+        ActiveLesson.objects.filter(lesson_id=lesson_id).delete()
+        t.delete()
+        return JsonResponse({"ok": True})
+    fields, err = _topic_fields(parse_body(request), t)
+    if err:
+        return JsonResponse({"error": err}, status=400)
+    for k, v in fields.items():
+        setattr(t, k, v)
+    t.save()
+    return JsonResponse(serialize_topic(t))
+
+
+# ---------------------------------------------------------------------------
 # Lesson files API (PDF materials, shared per lesson)
 # ---------------------------------------------------------------------------
 
 @require_http_methods(["POST"])
 @require_roles("tutor", "admin")
 def api_lesson_files(request, lesson_id):
+    if not CurriculumTopic.objects.filter(lesson_id=lesson_id).exists():
+        return JsonResponse({"error": "Unbekanntes Thema."}, status=404)
     f = request.FILES.get("file")
     if not f:
         return JsonResponse({"error": "Keine Datei hochgeladen."}, status=400)

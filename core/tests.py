@@ -46,7 +46,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import (
     User, Booking, Receipt, CreditTransaction, ActiveLesson, LessonFile,
-    SiteSettings, AvailabilityOverride, ErrorCard, SessionExercise, SessionFile,
+    SiteSettings, AvailabilityOverride, ErrorCard, SessionExercise, SessionFile, CurriculumTopic,
 )
 
 
@@ -1026,6 +1026,74 @@ class LessonFileTests(FluentDataMixin, TestCase):
         self.assertFalse(LessonFile.objects.filter(pk=lf_id).exists())
 
 
+class CurriculumTopicTests(FluentDataMixin, TestCase):
+    def test_existing_lessons_are_seeded_as_topics(self):
+        self.assertEqual(CurriculumTopic.objects.count(), 20)
+        t = CurriculumTopic.objects.get(lesson_id="a1-2")
+        self.assertEqual((t.level, t.skill, t.title), ("A1", "grammar", "The present simple"))
+
+    def test_payload_carries_topics(self):
+        self.client.force_login(self.maya)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        self.assertIn({"id": "a1-2", "level": "A1", "skill": "grammar", "t": "The present simple"}, payload["topics"])
+
+    def test_tutor_adds_topic_and_can_unlock_and_upload(self):
+        self.client.force_login(self.davit)
+        r = self.client.post("/api/topics/", {"level": "B2", "skill": "liu", "title": "  Word formation  "},
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        t = r.json()
+        self.assertEqual((t["level"], t["skill"], t["t"]), ("B2", "liu", "Word formation"))
+        self.assertTrue(t["id"].startswith("b2-"))
+        self.assertEqual(self.client.post(f"/api/lessons/maya/", {"lessonId": t["id"], "on": True},
+                                          content_type="application/json").status_code, 200)
+        self.assertTrue(ActiveLesson.objects.filter(student=self.maya, lesson_id=t["id"]).exists())
+        up = self.client.post(f"/api/lesson-files/{t['id']}/",
+                              {"file": SimpleUploadedFile("wf.pdf", b"%PDF-1.4", content_type="application/pdf")})
+        self.assertEqual(up.status_code, 200)
+
+    def test_invalid_topic_rejected(self):
+        self.client.force_login(self.davit)
+        for body in ({"level": "C2", "skill": "liu", "title": "x"},
+                     {"level": "A1", "skill": "maths", "title": "x"},
+                     {"level": "A1", "skill": "reading", "title": "  "}):
+            r = self.client.post("/api/topics/", body, content_type="application/json")
+            self.assertEqual(r.status_code, 400, body)
+        self.assertEqual(CurriculumTopic.objects.count(), 20)
+
+    def test_upload_to_unknown_topic_rejected(self):
+        self.client.force_login(self.davit)
+        r = self.client.post("/api/lesson-files/zz-nope/",
+                             {"file": SimpleUploadedFile("a.pdf", b"%PDF-1.4", content_type="application/pdf")})
+        self.assertEqual(r.status_code, 404)
+
+    def test_rename_and_move_topic(self):
+        self.client.force_login(self.davit)
+        r = self.client.patch("/api/topics/a1-1/", {"title": "Hello!", "skill": "listening"},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        t = CurriculumTopic.objects.get(lesson_id="a1-1")
+        self.assertEqual((t.title, t.skill, t.level), ("Hello!", "listening", "A1"))
+
+    def test_delete_topic_removes_files_and_unlocks(self):
+        ActiveLesson.objects.create(student=self.maya, lesson_id="a1-3")
+        LessonFile.objects.create(lesson_id="a1-3", original_name="n.pdf", data=b"%PDF", size=4)
+        self.client.force_login(self.davit)
+        self.assertEqual(self.client.delete("/api/topics/a1-3/").status_code, 200)
+        self.assertFalse(CurriculumTopic.objects.filter(lesson_id="a1-3").exists())
+        self.assertFalse(ActiveLesson.objects.filter(lesson_id="a1-3").exists())
+        self.assertFalse(LessonFile.objects.filter(lesson_id="a1-3").exists())
+
+    def test_student_cannot_manage_topics(self):
+        self.client.force_login(self.maya)
+        self.assertEqual(self.client.post("/api/topics/", {"level": "A1", "skill": "reading", "title": "x"},
+                                          content_type="application/json").status_code, 403)
+        self.assertEqual(self.client.patch("/api/topics/a1-1/", {"title": "x"},
+                                           content_type="application/json").status_code, 403)
+        self.assertEqual(self.client.delete("/api/topics/a1-1/").status_code, 403)
+        self.assertTrue(CurriculumTopic.objects.filter(lesson_id="a1-1").exists())
+
+
 # --------------------------------------------------------------------------- #
 # Frontend (jsdom) tests — run the real init script in a headless DOM
 # --------------------------------------------------------------------------- #
@@ -1060,7 +1128,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 "to enable frontend tests"
             )
 
-    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False, quick_adds=False):
+    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False, quick_adds=False, materials=False):
         self._skip_if_unavailable()
         self.client.force_login(user)
         html = self.client.get(reverse("app")).content.decode()
@@ -1090,6 +1158,8 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 cmd.append("--buy")
             if quick_adds:
                 cmd.append("--quick-adds")
+            if materials:
+                cmd.append("--materials")
             out = subprocess.run(
                 cmd, capture_output=True, text=True, env=env, timeout=60
             )
@@ -1105,7 +1175,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
 class DomRoleTests(_DomProbeBase):
     EXPECTED = {
         "maya":  ("Maya Karlsson", {"book", "account", "lessons", "files", "errors"}),
-        "davit": ("Davit Petrosyan", {"teacher", "students"}),
+        "davit": ("Davit Petrosyan", {"teacher", "students", "materials"}),
         "admin": ("Studio Admin", {"admin"}),
     }
 
@@ -1251,6 +1321,15 @@ class DomLessonTests(_DomProbeBase):
         r = self.run_probe(self.davit, preview=True)
         self.assertEqual(r["initErrors"], [])
         self.assertIn(f"/api/lesson-files/download/{lf.pk}/", r["preview"]["fileLinks"])
+
+    def test_tutor_materials_tab_lists_skill_sections(self):
+        CurriculumTopic.objects.create(lesson_id="a1-test", level="A1", skill="listening", title="Airport announcements")
+        r = self.run_probe(self.davit, materials=True)
+        self.assertEqual(r["initErrors"], [])
+        m = r["materials"]
+        self.assertEqual(m["skills"], ["Listening", "Reading", "Grammar", "Language in Use", "Writing", "Speaking"])
+        self.assertIn("Airport announcements", m["topics"])
+        self.assertIn("The present simple", m["topics"])
 
 
 class DomQuickAddTests(_DomProbeBase):

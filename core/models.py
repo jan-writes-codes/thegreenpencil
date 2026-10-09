@@ -364,6 +364,33 @@ class ActiveLesson(models.Model):
         return f'{self.student.slug}: {self.lesson_id}'
 
 
+class CurriculumTopic(models.Model):
+    """A topic in the shared Lernmaterialien library: one level (A1–C1) and one
+    skill area. ``lesson_id`` is the key ActiveLesson and LessonFile point at,
+    so the original hard-coded lessons ('a1-1' …) keep their unlocks and files."""
+    LEVEL_CHOICES = [(l, l) for l in ('A1', 'A2', 'B1', 'B2', 'C1')]
+    SKILL_CHOICES = [
+        ('listening', 'Listening'),
+        ('reading', 'Reading'),
+        ('grammar', 'Grammar'),
+        ('liu', 'Language in Use'),
+        ('writing', 'Writing'),
+        ('speaking', 'Speaking'),
+    ]
+    lesson_id = models.CharField(max_length=20, unique=True)
+    level = models.CharField(max_length=2, choices=LEVEL_CHOICES)
+    skill = models.CharField(max_length=10, choices=SKILL_CHOICES)
+    title = models.CharField(max_length=200)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['level', 'position', 'id']
+
+    def __str__(self):
+        return f'{self.lesson_id}: {self.title}'
+
+
 def lesson_upload_path(instance, filename):
     return f'lessons/{instance.lesson_id}/{filename}'
 

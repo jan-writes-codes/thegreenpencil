@@ -63,6 +63,8 @@ urlpatterns = [
     path('api/custom-times/', views.api_custom_times),
     path('api/notes/<str:slug>/', views.api_notes),
     path('api/lessons/<str:slug>/', views.api_lessons),
+    path('api/topics/', views.api_topics),
+    path('api/topics/<str:lesson_id>/', views.api_topic_detail),
     path('api/lesson-files/download/<int:file_id>/', views.api_lesson_file_download),
     path('api/lesson-files/<int:file_id>/', views.api_lesson_file_detail),
     path('api/lesson-files/<str:lesson_id>/', views.api_lesson_files),

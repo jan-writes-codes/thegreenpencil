@@ -145,6 +145,7 @@
   .app[data-role="student"] .tab[data-view="errors"],
   .app[data-role="tutor"] .tab[data-view="teacher"],
   .app[data-role="tutor"] .tab[data-view="students"],
+  .app[data-role="tutor"] .tab[data-view="materials"],
   .app[data-role="admin"] .tab[data-view="admin"] { display: flex; }
   /* Students' nav in two groups: Organisation (Kalender, Konto) | Lernen. The
      learning group sits in its own tinted pill with a small label. */
@@ -186,6 +187,7 @@
     .app[data-role="student"] nav.tabs.open .tab[data-view="errors"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="teacher"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="students"],
+    .app[data-role="tutor"] nav.tabs.open .tab[data-view="materials"],
     .app[data-role="admin"] nav.tabs.open .tab[data-view="admin"] { display: flex; width: 100%; justify-content: flex-start; padding: 11px 14px; }
     .app[data-role="student"] nav.tabs.open .tab-group { flex-direction: column; align-items: stretch; margin: 6px 0 0;
       padding: 8px 0 0; background: none; box-shadow: none; border-top: 1px solid var(--line); border-radius: 0; }
@@ -610,6 +612,39 @@
   .cm-upload { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 600; color: var(--c1); cursor: pointer;
     padding: 3px 10px; border-radius: 999px; border: 1px dashed color-mix(in oklch, var(--c1) 45%, transparent); }
   .cm-upload:hover { background: color-mix(in oklch, var(--c1) 10%, transparent); }
+
+  .skill-h { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--c1); margin: 16px 2px 8px; }
+  .lvl-head + .skill-h { margin-top: 4px; }
+  .skill-h.sm { font-size: 10px; margin: 10px 2px 6px; }
+  .cm-lvl-head + .skill-h.sm { margin-top: 2px; }
+  .cm-les-n { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--faint); padding: 1px 7px; border-radius: 999px; background: rgba(36,53,40,0.06); }
+
+  /* ---------- Lernmaterialien (tutor) ---------- */
+  .mat-levels { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+  .mat-lvl { display: flex; align-items: center; gap: 9px; padding: 7px 12px 7px 7px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--glass); color: var(--muted); font-family: var(--font-body); transition: 0.14s; }
+  .mat-lvl:hover { border-color: color-mix(in oklch, var(--c1) 35%, transparent); }
+  .mat-lvl.on { color: var(--ink); border-color: color-mix(in oklch, var(--c1) 55%, transparent); background: color-mix(in oklch, var(--c1) 10%, transparent); }
+  .mat-lvl-t { font-size: 13.5px; font-weight: 500; }
+  .mat-lvl-n { font-size: 11px; color: var(--faint); }
+  @media (max-width: 560px) { .mat-lvl-t { display: none; } }
+  .mat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 760px) { .mat-grid { grid-template-columns: 1fr; } }
+  .mat-skill { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .mat-skill-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mat-skill-h h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--ink); }
+  .mat-skill-n { font-size: 11.5px; color: var(--faint); }
+  .mat-topics { display: flex; flex-direction: column; gap: 8px; }
+  .mat-topic { border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; display: flex; flex-direction: column; gap: 7px; background: rgba(251,248,241,0.4); }
+  .mat-topic-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .mat-topic-t { font-size: 13.5px; font-weight: 500; color: var(--ink); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .mat-topic-u { font-size: 11px; color: var(--faint); white-space: nowrap; }
+  .mat-ic { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 6px; }
+  .mat-ic:hover { color: var(--c1); background: rgba(36,53,40,0.06); }
+  .mat-ic.danger:hover { color: #b8492c; }
+  .mat-rename { flex: 1; min-width: 0; padding: 5px 8px; font-size: 13.5px; }
+  .mat-add { display: flex; gap: 8px; margin-top: auto; }
+  .mat-add .bf-input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; }
 
   .balance { padding: 28px; position: relative; }
   .balance .ring { position: absolute; right: -40px; top: -40px; width: 200px; height: 200px; border-radius: 50%;
@@ -1056,6 +1091,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.6-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6M18 19c0-2.3-1-4-2.6-4.6"/></svg>
           Schüler
         </button>
+        <button class="tab" data-view="materials">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5h6a2 2 0 0 1 2 2v13a1.5 1.5 0 0 0-1.5-1.5H4z"/><path d="M20 4.5h-6a2 2 0 0 0-2 2v13a1.5 1.5 0 0 1 1.5-1.5H20z"/></svg>
+          Lernmaterialien
+        </button>
         <button class="tab" data-view="admin">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.3 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H23a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
           Admin
@@ -1218,7 +1257,7 @@
           <div class="hello" data-hello></div>
           <div class="eyebrow">Tutor-Portal · Davit</div>
           <h1 class="title">Dein Studio.</h1>
-          <p class="sub">Trage Schüler in freie Zeiten in deinem Kalender ein und verwalte deine Stunden. Einheiten, Notizen und Lernmaterialien findest du im Tab <b>Schüler</b>.</p>
+          <p class="sub">Trage Schüler in freie Zeiten in deinem Kalender ein und verwalte deine Stunden. Einheiten und Notizen findest du im Tab <b>Schüler</b>, Themen und Dateien unter <b>Lernmaterialien</b>.</p>
 
           <div class="teach-grid">
             <div class="panel">
@@ -1250,6 +1289,16 @@
           <div class="section-h" style="margin-top:34px;"><h2>Abgeschlossene Stunden</h2></div>
           <div class="panel" style="padding: 8px 22px;"><div class="list" id="tutorCompleted"></div></div>
           <div class="fineprint">Einen Schüler einzutragen zieht eine Einheit ab (oder bucht eine Gratis-Stunde, wenn keine vorhanden ist). Eine Buchung zu entfernen gibt die Einheit zurück.</div>
+        </div>
+      </section>
+
+      <!-- ===================== LERNMATERIALIEN (tutor) ===================== -->
+      <section class="view" id="view-materials" data-screen-label="Materials">
+        <div class="wrap">
+          <div class="eyebrow">Tutor-Portal · Lernmaterialien</div>
+          <h1 class="title">Lernmaterialien.</h1>
+          <p class="sub">Alle Themen nach Niveau und Bereich. Lege neue Themen an und lade Dateien hoch — freigeschaltet werden sie pro Schüler im Tab <b>Schüler</b>.</p>
+          <div id="materialsContent"></div>
         </div>
       </section>
 
@@ -1492,6 +1541,8 @@
     errorCards: DJ.errorCards || [],  // Fehler-Training cards
     studentQuery: "",
     lessonFiles: DJ.lessonFiles || {},  // {lesson_id: [{id,name,url}]}
+    topics: DJ.topics || [],  // [{id, level, skill, t}] — the Lernmaterialien library
+    matLevel: "A1",  // level open in the Lernmaterialien view
   };
   const AVAIL = state.availability, CUSTOM = state.customTimes;
 
@@ -2885,8 +2936,8 @@
           <button class="mini-btn snote-btn" id="snoteAdd">Hinzufügen</button>
         </div>
         <div class="snote-log">${notesLogHtml(s)}</div>
-        <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2></div>
-        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} unter „Materialien“ zugreifen kann.</div>
+        <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2><span class="lnk" id="matGo">Themen &amp; Dateien verwalten →</span></div>
+        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Themen frei, auf die ${esc(s.name.split(' ')[0])} unter „Materialien“ zugreifen kann.</div>
         <div class="curric-mgr">${curriculumMgrHtml(s)}</div>
         <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Materialien</button>
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
@@ -2922,8 +2973,7 @@
     $("#snoteInput").addEventListener("keydown", e=>{ if(e.key==="Enter") addStudentNote(s); });
     $("#studentModal").querySelectorAll(".cm-les[data-lesson]").forEach(b=> b.onclick=()=>{ toggleLesson(s, b.dataset.lesson); renderStudentModal(); });
     $("#studentModal").querySelectorAll("[data-lvl-all]").forEach(b=> b.onclick=()=>{ toggleLevel(s, b.dataset.lvlAll); renderStudentModal(); });
-    $("#studentModal").querySelectorAll("[data-upload]").forEach(inp=> inp.onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; uploadLessonFile(inp.dataset.upload, f, ()=>renderStudentModal()); });
-    $("#studentModal").querySelectorAll("[data-rmfile]").forEach(b=> b.onclick=()=>{ removeLessonFile(b.dataset.lesson, +b.dataset.rmfile, ()=>renderStudentModal()); });
+    $("#matGo").onclick=()=>{ closeStudentModal(); setView("materials"); };
     const prevToggle=$("#prevToggle");
     if(prevToggle) prevToggle.onclick=()=>{
       const p=$("#learnPreview"), show=p.hidden;
@@ -3424,42 +3474,30 @@
   }
 
   // ---------- Learning files / curriculum ----------
-  const CURRICULUM = [
-    { level:"A1", title:"Anfänger", lessons:[
-      { id:"a1-1", t:"Greetings & introductions" },
-      { id:"a1-2", t:"The present simple" },
-      { id:"a1-3", t:"Numbers, dates & telling time" },
-      { id:"a1-4", t:"Everyday objects & places" },
-    ]},
-    { level:"A2", title:"Grundstufe", lessons:[
-      { id:"a2-1", t:"Past simple & regular verbs" },
-      { id:"a2-2", t:"Comparatives & superlatives" },
-      { id:"a2-3", t:"\u2018Going to\u2019 & future plans" },
-      { id:"a2-4", t:"Food, travel & directions" },
-    ]},
-    { level:"B1", title:"Mittelstufe", lessons:[
-      { id:"b1-1", t:"Present perfect in context" },
-      { id:"b1-2", t:"First & second conditionals" },
-      { id:"b1-3", t:"Reported speech basics" },
-      { id:"b1-4", t:"Phrasal verbs that matter" },
-    ]},
-    { level:"B2", title:"Obere Mittelstufe", lessons:[
-      { id:"b2-1", t:"The passive voice" },
-      { id:"b2-2", t:"Relative clauses" },
-      { id:"b2-3", t:"Narrative tenses" },
-      { id:"b2-4", t:"Formal & informal register" },
-    ]},
-    { level:"C1", title:"Fortgeschritten", lessons:[
-      { id:"c1-1", t:"Inversion & emphasis" },
-      { id:"c1-2", t:"Hedging & academic style" },
-      { id:"c1-3", t:"Nuanced & idiomatic vocabulary" },
-      { id:"c1-4", t:"Discourse markers & cohesion" },
-    ]},
+  // Topics live on the server (DJ.topics); each has a level and a skill area.
+  const LEVELS = [
+    { level:"A1", title:"Anfänger" },
+    { level:"A2", title:"Grundstufe" },
+    { level:"B1", title:"Mittelstufe" },
+    { level:"B2", title:"Obere Mittelstufe" },
+    { level:"C1", title:"Fortgeschritten" },
   ];
+  const SKILLS = [
+    { id:"listening", t:"Listening" },
+    { id:"reading", t:"Reading" },
+    { id:"grammar", t:"Grammar" },
+    { id:"liu", t:"Language in Use" },
+    { id:"writing", t:"Writing" },
+    { id:"speaking", t:"Speaking" },
+  ];
+  function topicsOf(level, skill){ return state.topics.filter(t=>t.level===level && (!skill || t.skill===skill)); }
+  function curriculum(){ return LEVELS.map(l=>({ ...l, lessons: topicsOf(l.level) })); }
+  // A level's topics split into skill groups, skipping empty ones.
+  function skillGroups(lessons){ return SKILLS.map(sk=>({ ...sk, lessons: lessons.filter(l=>l.skill===sk.id) })).filter(g=>g.lessons.length); }
   function activeSet(s){ if(!s.activeLessons) s.activeLessons=[]; return s.activeLessons; }
   function isActive(s,id){ return activeSet(s).includes(id); }
   function toggleLesson(s,id,on){ const set=activeSet(s), has=set.includes(id); if(on==null) on=!has; if(on&&!has) set.push(id); if(!on&&has) set.splice(set.indexOf(id),1); api('POST', '/api/lessons/' + s.id + '/', { lessonId: id, on }); }
-  function toggleLevel(s,level){ const lvl=CURRICULUM.find(x=>x.level===level); if(!lvl) return; const allOn=lvl.lessons.every(l=>isActive(s,l.id)); lvl.lessons.forEach(l=>toggleLesson(s,l.id,!allOn)); }
+  function toggleLevel(s,level){ const ls=topicsOf(level); if(!ls.length) return; const allOn=ls.every(l=>isActive(s,l.id)); ls.forEach(l=>toggleLesson(s,l.id,!allOn)); }
   function fileIcon(kind){
     if(kind==="audio") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="19" cy="16" r="3"/></svg>';
     if(kind==="image") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
@@ -3489,55 +3527,136 @@
   function renderFiles(){
     const el=$("#filesContent"); if(!el) return;
     const s=studentById(state.currentUser); if(!s) return;
-    if(activeSet(s).length===0){ el.innerHTML = `<div class="panel" style="padding:42px 30px; text-align:center;"><div class="empty-list" style="font-style:normal;">Noch keine Lektionen freigeschaltet \u2014 dein Tutor schaltet Materialien frei, sobald du weiterkommst.</div></div>`; return; }
-    el.innerHTML = CURRICULUM.map(lvl=>{
+    if(activeSet(s).length===0){ el.innerHTML = `<div class="panel" style="padding:42px 30px; text-align:center;"><div class="empty-list" style="font-style:normal;">Noch keine Lektionen freigeschaltet — dein Tutor schaltet Materialien frei, sobald du weiterkommst.</div></div>`; return; }
+    el.innerHTML = curriculum().filter(lvl=>lvl.lessons.length).map(lvl=>{
       const act = lvl.lessons.filter(l=>isActive(s,l.id)).length;
       return `<div class="lvl-sec">
-        <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span><span class="lvl-count">${act} / ${lvl.lessons.length} unlocked</span></div>
-        <div class="lesson-list">${lvl.lessons.map(l=>lessonRow(s,l)).join("")}</div>
+        <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span><span class="lvl-count">${act} / ${lvl.lessons.length} freigeschaltet</span></div>
+        ${skillGroups(lvl.lessons).map(g=>`<div class="skill-h">${g.t}</div><div class="lesson-list">${g.lessons.map(l=>lessonRow(s,l)).join("")}</div>`).join("")}
       </div>`;
     }).join("");
     el.querySelectorAll(".lesson:not(.locked) .les-head").forEach(h=> h.onclick=()=>h.closest(".lesson").classList.toggle("open"));
   }
   function lessonRow(s,l){
-    if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${l.t}</span><span class="les-tag">Gesperrt</span></div></div>`;
+    if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${esc(l.t)}</span><span class="les-tag">Gesperrt</span></div></div>`;
     const files=lessonFilesFor(l.id);
     const filesHtml = files.length
       ? files.map(f=>`<a class="file-row" href="${esc(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext||'FILE')}</span></a>`).join("")
       : `<div class="micro" style="text-align:left;padding:8px 4px;">Noch keine Materialien — dein Tutor hat für diese Lektion noch keine Dateien hinzugefügt.</div>`;
-    return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${l.t}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
+    return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${esc(l.t)}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
       <div class="les-files">${filesHtml}</div></div>`;
   }
   // Read-only render of a student's Learning tab exactly as they see it — only
   // the lessons they've unlocked, with their downloadable materials.
   function lessonPreviewHtml(s){
-    const secs = CURRICULUM.map(lvl=>{
+    const secs = curriculum().map(lvl=>{
       const ls = lvl.lessons.filter(l=>isActive(s,l.id));
       if(!ls.length) return "";
       return `<div class="lvl-sec" style="margin-top:14px;">
         <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span></div>
-        <div class="lesson-list">${ls.map(l=>lessonRow(s,l)).join("")}</div></div>`;
+        ${skillGroups(ls).map(g=>`<div class="skill-h">${g.t}</div><div class="lesson-list">${g.lessons.map(l=>lessonRow(s,l)).join("")}</div>`).join("")}</div>`;
     }).filter(Boolean).join("");
     return secs || `<div class="empty-list">Noch keine Lektionen freigeschaltet — oben welche aktivieren.</div>`;
   }
+  // Student modal: switch topics on/off for this student. Files and new topics
+  // are managed in the Lernmaterialien tab.
   function curriculumMgrHtml(s){
-    return CURRICULUM.map(lvl=>{
+    const lvls = curriculum().filter(lvl=>lvl.lessons.length);
+    if(!lvls.length) return `<div class="empty-list">Noch keine Themen — lege sie unter „Lernmaterialien“ an.</div>`;
+    return lvls.map(lvl=>{
       const allOn=lvl.lessons.every(l=>isActive(s,l.id));
       return `<div class="cm-lvl">
         <div class="cm-lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="cm-lvl-name">${lvl.title}</span><button class="cm-all" data-lvl-all="${lvl.level}">${allOn?"Alle entfernen":"Alle freischalten"}</button></div>
-        <div class="cm-lessons">${lvl.lessons.map(l=>{
-          const on=isActive(s,l.id);
-          const files=lessonFilesFor(l.id);
-          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
-          return `<div class="cm-les-wrap">
-            <button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${l.t}</span></button>
-            <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>
-          </div>`;
-        }).join("")}</div>
+        ${skillGroups(lvl.lessons).map(g=>`<div class="skill-h sm">${g.t}</div>
+        <div class="cm-lessons">${g.lessons.map(l=>{
+          const on=isActive(s,l.id), n=lessonFilesFor(l.id).length;
+          return `<button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${esc(l.t)}</span>${n?`<span class="cm-les-n" title="${n} Datei${n===1?"":"en"}">${n}</span>`:""}</button>`;
+        }).join("")}</div>`).join("")}
       </div>`;
     }).join("");
   }
 
+  // ---------- Lernmaterialien (tutor): the topic library ----------
+  function unlockedCount(id){ return state.students.filter(s=>isActive(s,id)).length; }
+  function renderMaterials(){
+    const el=$("#materialsContent"); if(!el) return;
+    if(!LEVELS.some(l=>l.level===state.matLevel)) state.matLevel="A1";
+    const lvl=LEVELS.find(l=>l.level===state.matLevel);
+    const levelsHtml = LEVELS.map(l=>{
+      const n=topicsOf(l.level).length;
+      return `<button class="mat-lvl ${l.level===lvl.level?'on':''}" data-mat-lvl="${l.level}"><span class="lvl-badge ${l.level.toLowerCase()}">${l.level}</span><span class="mat-lvl-t">${l.title}</span><span class="mat-lvl-n">${n}</span></button>`;
+    }).join("");
+    const skillsHtml = SKILLS.map(sk=>{
+      const ls=topicsOf(lvl.level, sk.id);
+      const topicsHtml = ls.map(l=>{
+        const files=lessonFilesFor(l.id), u=unlockedCount(l.id);
+        const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
+        return `<div class="mat-topic" data-topic="${l.id}">
+          <div class="mat-topic-h"><span class="mat-topic-t">${esc(l.t)}</span>
+            <span class="mat-topic-u" title="Für so viele Schüler freigeschaltet">${u} Schüler</span>
+            <button class="mat-ic" data-rename="${l.id}" title="Umbenennen" aria-label="Thema umbenennen">✎</button>
+            <button class="mat-ic danger" data-deltopic="${l.id}" title="Thema löschen" aria-label="Thema löschen">×</button></div>
+          <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>
+        </div>`;
+      }).join("");
+      return `<div class="panel mat-skill">
+        <div class="mat-skill-h"><h3>${sk.t}</h3><span class="mat-skill-n">${ls.length} ${ls.length===1?"Thema":"Themen"}</span></div>
+        <div class="mat-topics">${topicsHtml || `<div class="empty-list" style="padding:4px 0 2px;">Noch keine Themen.</div>`}</div>
+        <div class="mat-add"><input class="bf-input" data-add-input="${sk.id}" placeholder="Neues Thema in ${sk.t}…" maxlength="200"><button class="mini-btn" data-add-topic="${sk.id}">Hinzufügen</button></div>
+      </div>`;
+    }).join("");
+    el.innerHTML = `<div class="mat-levels">${levelsHtml}</div><div class="mat-grid">${skillsHtml}</div>`;
+    el.querySelectorAll("[data-mat-lvl]").forEach(b=> b.onclick=()=>{ state.matLevel=b.dataset.matLvl; renderMaterials(); });
+    el.querySelectorAll("[data-add-topic]").forEach(b=> b.onclick=()=>addTopic(b.dataset.addTopic));
+    el.querySelectorAll("[data-add-input]").forEach(inp=> inp.addEventListener("keydown", e=>{ if(e.key==="Enter") addTopic(inp.dataset.addInput); }));
+    el.querySelectorAll("[data-upload]").forEach(inp=> inp.onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; uploadLessonFile(inp.dataset.upload, f, renderMaterials); });
+    el.querySelectorAll("[data-rmfile]").forEach(b=> b.onclick=()=>{
+      if(!window.confirm("Diese Datei entfernen?")) return;
+      removeLessonFile(b.dataset.lesson, +b.dataset.rmfile, renderMaterials);
+    });
+    el.querySelectorAll("[data-rename]").forEach(b=> b.onclick=()=>startRenameTopic(b.dataset.rename));
+    el.querySelectorAll("[data-deltopic]").forEach(b=> b.onclick=()=>deleteTopic(b.dataset.deltopic));
+  }
+  function addTopic(skill){
+    const inp=document.querySelector(`#materialsContent [data-add-input="${skill}"]`);
+    const title=(inp && inp.value || "").trim(); if(!title) return;
+    apiResult('POST', '/api/topics/', { level: state.matLevel, skill, title }).then(r=>{
+      if(!r.ok || !r.data || r.data.error){ toast((r.data && r.data.error) || "Thema konnte nicht angelegt werden"); return; }
+      state.topics.push(r.data); renderMaterials(); toast("Thema „"+r.data.t+"“ angelegt");
+    });
+  }
+  function startRenameTopic(id){
+    const row=document.querySelector(`#materialsContent .mat-topic[data-topic="${id}"]`); const t=state.topics.find(x=>x.id===id);
+    if(!row || !t) return;
+    const span=row.querySelector(".mat-topic-t");
+    const inp=document.createElement("input"); inp.className="bf-input mat-rename"; inp.value=t.t; inp.maxLength=200;
+    span.replaceWith(inp); inp.focus(); inp.select();
+    let done=false;
+    const finish=(save)=>{
+      if(done) return; done=true;
+      const title=inp.value.trim();
+      if(!save || !title || title===t.t){ renderMaterials(); return; }
+      apiResult('PATCH', '/api/topics/'+id+'/', { title }).then(r=>{
+        if(r.ok && r.data && !r.data.error){ t.t=r.data.t; } else toast((r.data && r.data.error) || "Umbenennen fehlgeschlagen");
+        renderMaterials();
+      });
+    };
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter") finish(true); if(e.key==="Escape") finish(false); });
+    inp.addEventListener("blur", ()=>finish(true));
+  }
+  function deleteTopic(id){
+    const t=state.topics.find(x=>x.id===id); if(!t) return;
+    const n=lessonFilesFor(id).length, u=unlockedCount(id);
+    const extra=[n?`${n} Datei${n===1?"":"en"}`:"", u?`die Freischaltung bei ${u} Schüler${u===1?"":"n"}`:""].filter(Boolean).join(" und ");
+    if(!window.confirm(`Thema „${t.t}“ löschen?`+(extra?`\n\nDabei werden auch ${extra} entfernt.`:""))) return;
+    apiResult('DELETE', '/api/topics/'+id+'/').then(r=>{
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      state.topics=state.topics.filter(x=>x.id!==id);
+      delete state.lessonFiles[id];
+      state.students.forEach(s=>{ const a=activeSet(s), i=a.indexOf(id); if(i>=0) a.splice(i,1); });
+      renderMaterials(); toast("Thema gelöscht");
+    });
+  }
   // ---------- Stunden, session pages & Training ----------
   // A lesson counts as "had" once it has ended; unconfirmed requests never do.
   function lessonEnded(b){ return bookingStart(b).getTime() + lessonMins(b)*60000 <= Date.now(); }
@@ -4278,6 +4397,7 @@
     // Leaving a session page drops its #stunde-… address.
     if(v!=="session" && location.hash.startsWith("#stunde-")) history.replaceState(null, "", location.pathname + location.search);
     if(v==="students") renderRoster();
+    if(v==="materials") renderMaterials();
     document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
     document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
     $("#creditsPill").style.display = (state.role==="student") ? "" : "none";
