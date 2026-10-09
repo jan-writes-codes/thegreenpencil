@@ -1842,6 +1842,13 @@ def api_session_exercise_detail(request, ex_id):
     return JsonResponse({"exercise": serialize_exercise(e)})
 
 
+def _session_file_bytes(sf):
+    """A lesson file's content: its own bytes, or the Lernmaterialien file it links to."""
+    if sf.data is not None:
+        return bytes(sf.data)
+    return _lesson_file_bytes(sf.material) if sf.material_id else None
+
+
 @require_http_methods(["GET"])
 @require_roles("student", "tutor", "admin")
 def api_session_pdf(request, pk):
@@ -1852,7 +1859,7 @@ def api_session_pdf(request, pk):
     if not b:
         raise Http404
     try:
-        pdf = render_lesson_pdf(b)
+        pdf = render_lesson_pdf(b, sheet_bytes=_session_file_bytes)
     except Exception:
         logger.exception("lesson pdf failed for booking %s", b.pk)
         return JsonResponse({"error": "pdf_unavailable"}, status=503)
@@ -1900,12 +1907,10 @@ def api_session_file_detail(request, file_id):
             return JsonResponse({"error": "forbidden"}, status=403)
         sf.delete()
         return JsonResponse({"ok": True})
-    if sf.data is None:
-        data = _lesson_file_bytes(sf.material) if sf.material_id else None
-        if data is None:
-            raise Http404
-        return _attachment(data, sf.name, sf.content_type)
-    return _attachment(bytes(sf.data), sf.name, sf.content_type)
+    data = _session_file_bytes(sf)
+    if data is None:
+        raise Http404
+    return _attachment(data, sf.name, sf.content_type)
 
 
 @require_http_methods(["POST"])

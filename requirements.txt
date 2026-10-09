@@ -9,6 +9,7 @@ stripe>=8,<13            # Stripe Checkout for self-service credit top-ups (opti
 
 # --- PDF receipts ---
 reportlab>=4,<6          # renders the Beleg / Storno credit note as a formatted PDF
+pypdf>=4,<7              # appends the worksheets (with highlights) to the lesson PDF export
 
 # --- Transactional email ---
 django-anymail[resend]>=10,<13   # ESP-agnostic email backend (Resend) + delivery webhooks

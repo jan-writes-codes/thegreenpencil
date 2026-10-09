@@ -24,6 +24,7 @@ Map of bug -> guarding test:
 """
 import hashlib
 import hmac
+import io
 import json
 import os
 import re
@@ -3725,6 +3726,49 @@ class LessonPdfTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         empty = Booking.objects.create(student=self.maya, tutor=self.davit,
                                        date=date(2026, 5, 29), time="09:00")
         self.assertEqual(self._get(self.davit, empty.pk).status_code, 200)
+
+    @staticmethod
+    def _sheet(pages=2, rotate=0):
+        from reportlab.pdfgen import canvas
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf)
+        for n in range(pages):
+            c.setPageRotation(rotate)
+            c.drawString(72, 700, f"Worksheet page {n + 1}")
+            c.showPage()
+        c.save()
+        return buf.getvalue()
+
+    def _pages(self, resp):
+        from pypdf import PdfReader
+        return len(PdfReader(io.BytesIO(resp.content)).pages)
+
+    def test_worksheets_follow_the_overview_with_highlights(self):
+        overview = self._pages(self._get(self.davit))
+        sheet = SessionFile.objects.create(booking=self.b, kind="worksheet", name="Unit7.pdf",
+                                           data=self._sheet(rotate=90), size=1)
+        ErrorCard.objects.create(student=self.maya, booking=self.b, kind="vocab", front="bypass",
+                                 back="Umfahrung", source_file=sheet, page=2,
+                                 rects=[[0.1, 0.2, 0.15, 0.02], ["bad"]])
+        resp = self._get(self.maya)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self._pages(resp), overview + 2)
+
+    def test_linked_material_and_broken_or_other_files(self):
+        overview = self._pages(self._get(self.davit))
+        lf = LessonFile.objects.create(lesson_id="a1-g-01", original_name="Lib.pdf",
+                                       data=self._sheet(pages=1), size=1)
+        SessionFile.objects.create(booking=self.b, kind="worksheet", name="Lib.pdf",
+                                   data=None, material=lf, size=1)
+        SessionFile.objects.create(booking=self.b, kind="worksheet", name="broken.pdf",
+                                   data=b"not a pdf", size=1)
+        SessionFile.objects.create(booking=self.b, kind="worksheet", name="list.docx",
+                                   data=b"x", size=1)
+        SessionFile.objects.create(booking=self.b, kind="homework", name="hw.pdf",
+                                   data=self._sheet(pages=1), size=1)
+        resp = self._get(self.davit)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self._pages(resp), overview + 1)  # only the library sheet
 
 
 class ErrorCardTests(FrozenTodayMixin, FluentDataMixin, TestCase):
