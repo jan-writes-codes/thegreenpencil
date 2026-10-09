@@ -353,7 +353,9 @@
   @media (max-width: 820px) { .about-grid { grid-template-columns: 1fr; gap: 34px; } }
   .portrait-wrap { position: relative; max-width: 340px; }
   @media (max-width: 820px) { .portrait-wrap { width: 100%; max-width: 300px; margin: 0 auto; } }
-  .portrait { width: 100%; height: auto; aspect-ratio: 3 / 4; display: block; object-fit: cover; border-radius: 22px; box-shadow: var(--shadow); }
+  .portrait-frame { aspect-ratio: 3 / 4; overflow: hidden; border-radius: 22px; box-shadow: var(--shadow); }
+  /* Zoomed ~12% toward the face so it doesn't feel so far away; the frame keeps its size. */
+  .portrait { width: 100%; height: 100%; display: block; object-fit: cover; transform: scale(1.12); transform-origin: 41% 48%; }
   .portrait-tag { position: absolute; left: 18px; bottom: 18px; z-index: 5; background: rgba(251,248,241,0.9); backdrop-filter: blur(8px);
     border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; box-shadow: 0 10px 24px -16px rgba(31,60,34,0.6); }
   .portrait-tag .pt-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
@@ -491,7 +493,7 @@
         <div class="wrap">
           <div class="about-grid">
             <div class="portrait-wrap reveal">
-              <img class="portrait" src="{% static 'davit.webp' %}" alt="Davit Hovakimyan" width="588" height="784" loading="lazy" decoding="async">
+              <div class="portrait-frame"><img class="portrait" src="{% static 'davit.webp' %}" alt="Davit Hovakimyan" width="588" height="784" loading="lazy" decoding="async"></div>
               <div class="portrait-tag">
                 <div class="pt-name">Davit Hovakimyan</div>
                 <div class="pt-role">{% translate "Englisch-Tutor &amp; Psychologiestudent" %}</div>
