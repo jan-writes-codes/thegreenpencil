@@ -3683,12 +3683,35 @@
   async function uploadSheet(b, sx, file){
     if(!file) return;
     if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); return; }
+    if(isPdf(file)) file = await recognizeScannedPdf(file);
     toast("Wird hochgeladen…");
     const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
     if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
     b.files=[...(b.files||[]), r.file];
     if(r.file.kind==="worksheet") sx.fileId=r.file.id;
     renderSession(); toast("Hochgeladen");
+  }
+  // A scanned worksheet has no text to mark, so recognise it first (in this
+  // browser, see static/js/pdf-ocr.js). Any problem: upload the original.
+  const PDF_OCR_SRC = "{% static 'js/pdf-ocr.js' %}", VENDOR_BASE = "{% static 'vendor/' %}";
+  let pdfOcrReady = null;
+  async function recognizeScannedPdf(file){
+    try {
+      if(!pdfOcrReady) pdfOcrReady = new Promise((res, rej)=>{
+        const s=document.createElement("script"); s.src=PDF_OCR_SRC;
+        s.onload=()=>res(window.PdfOcr); s.onerror=()=>{ pdfOcrReady=null; rej(new Error("pdf-ocr")); };
+        document.head.appendChild(s);
+      });
+      const [ocr, pdfjs]=await Promise.all([pdfOcrReady, loadPdfJs()]);
+      const r=await ocr.process(file, { pdfjs, vendor: VENDOR_BASE, onProgress: p=>{
+        if(p.step==="load") toast("Gescanntes PDF – Text wird erkannt…");
+        else if(p.pages>1) toast(`Text wird erkannt… Seite ${p.page} von ${p.pages}`);
+      } });
+      if(r.status==="too-many-pages") toast(`Gescanntes PDF mit ${r.pages} Seiten – Texterkennung nur bis ${ocr.MAX_OCR_PAGES} Seiten. Markieren ist darin nicht möglich.`);
+      else if(r.status==="failed" || r.status==="no-text-found") toast("Text konnte nicht erkannt werden – das PDF wird unverändert hochgeladen.");
+      if(r.file.size > 10*1024*1024) return file;
+      return r.file;
+    } catch(e){ return file; }
   }
   function bindSheetUpload(b, sx, input){ if(input) input.onchange=()=>{ uploadSheet(b, sx, input.files[0]); input.value=""; }; }
 

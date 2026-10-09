@@ -39,6 +39,8 @@ MIDDLEWARE = [
     # WhiteNoise serves collected static files in production (DEBUG off). It must
     # come right after SecurityMiddleware and before everything else.
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    # Turn away oversized uploads before their body is read.
+    'core.middleware.UploadSizeLimitMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
