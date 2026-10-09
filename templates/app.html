@@ -519,6 +519,29 @@
   .flash-actions { display: flex; gap: 10px; margin-top: 24px; }
   .flash-actions .btn { flex: 1; margin: 0; }
   .flash-actions[hidden], .flash-back[hidden] { display: none; }
+  .flash-strip { display: flex; gap: 4px; justify-content: center; margin-bottom: 18px; }
+  .flash-strip i { flex: 1; max-width: 26px; min-width: 4px; height: 5px; border-radius: 4px; background: rgba(36,53,40,0.12); transition: background 0.2s; }
+  .flash-strip i.k { background: var(--good); } .flash-strip i.a { background: var(--c2); } .flash-strip i.c { background: var(--ink); }
+  .flash-try { margin-top: 18px; text-align: center; }
+  .flash-try[hidden] { display: none; }
+  .fb-yours { margin-bottom: 14px; }
+  .fb-yours .fy { font-size: 16px; color: var(--ink); line-height: 1.4; overflow-wrap: anywhere; }
+  .fb-yours.ok .fy { color: var(--good); font-weight: 600; }
+  .flash-actions .kbd { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1.5; border: 1px solid currentColor; border-bottom-width: 2px;
+    border-radius: 5px; padding: 0 5px; margin-left: 8px; opacity: 0.55; vertical-align: 1px; }
+  @media (hover: none) { .flash-actions .kbd { display: none; } }
+  /* Training page: one start block, then a tab per deck */
+  .train-hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 26px; padding: 20px 22px;
+    background: linear-gradient(130deg, color-mix(in oklch, var(--c1) 13%, var(--glass)), color-mix(in oklch, var(--c2) 12%, var(--glass))); }
+  .train-hero .n { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; }
+  .train-hero .l { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .train-hero .btn { width: auto; margin: 0; padding: 12px 22px; }
+  .deck-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+  .deck-tabs { display: inline-flex; gap: 3px; padding: 4px; border-radius: 14px; background: rgba(36,53,40,0.06); }
+  .deck-tabs button { font: 600 14px var(--font-body); color: var(--muted); border: 0; background: transparent; padding: 8px 16px; border-radius: 10px; cursor: pointer; }
+  .deck-tabs button.on { background: #fbf8f1; color: var(--ink); box-shadow: 0 1px 4px rgba(31,60,34,0.12); }
+  .deck-tabs .c { font-size: 11.5px; background: rgba(36,53,40,0.08); border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
+  .deck-bar .btn { width: auto; margin: 0; padding: 9px 18px; }
 
   /* ---------- Learning files ---------- */
   .lvl-sec { margin-top: 26px; }
@@ -4098,10 +4121,10 @@
   }
 
   // ----- Training (student): mistakes and vocabulary decks -----
+  // One start block that practises everything open, then a tab per deck.
   function deckHtml(kind, cards){
-    const d=DECKS[kind], open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
-    return `<div class="section-h" style="margin-top:30px;"><h2>${d.title}</h2>${open.length ? `<button class="btn" data-practice="${kind}" style="width:auto;margin:0;padding:9px 18px;"><span class="grainbtn"></span>Üben · ${open.length}</button>` : ""}</div>
-      <div class="err-stats" style="margin-top:0;">
+    const open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
+    return `<div class="err-stats" style="margin-top:14px;">
         <div class="panel err-stat open"><div class="n">${open.length}</div><div class="l">offen</div></div>
         <div class="panel err-stat done"><div class="n">${done.length}</div><div class="l">gemeistert</div></div>
       </div>
@@ -4113,55 +4136,105 @@
   function renderErrors(){
     const el=$("#errorsContent"); if(!el) return;
     const mine=state.errorCards.filter(c=>c.studentId===state.currentUser);
-    el.innerHTML = deckHtml("error", mine.filter(c=>cardKind(c)==="error")) + deckHtml("vocab", mine.filter(c=>cardKind(c)==="vocab"));
-    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(mine.filter(c=>cardKind(c)===btn.dataset.practice && c.status==="open"), "practice"));
+    const deck=k=>mine.filter(c=>cardKind(c)===k), openOf=k=>deck(k).filter(c=>c.status==="open");
+    const open=mine.filter(c=>c.status==="open"), oe=openOf("error").length, ov=openOf("vocab").length;
+    if(!state.trainTab) state.trainTab = (oe || !ov) ? "error" : "vocab";
+    const kind=state.trainTab;
+    const hero = !mine.length ? "" : open.length
+      ? `<div class="panel train-hero"><div><div class="n">${open.length} ${open.length===1?"Karte":"Karten"} offen</div><div class="l">${[oe ? `${oe} Fehler` : "", ov ? `${ov} ${ov===1?"Wort":"Wörter"}` : ""].filter(Boolean).join(" · ")} · gemischt üben</div></div><button class="btn" data-practice="all"><span class="grainbtn"></span>Jetzt üben →</button></div>`
+      : `<div class="panel train-hero"><div><div class="n">Alles gemeistert</div><div class="l">Neue Karten kommen aus deinen nächsten Stunden.</div></div></div>`;
+    const kOpen=openOf(kind).length;
+    el.innerHTML = hero + `<div class="deck-bar"><div class="deck-tabs" role="tablist">${["error","vocab"].map(k=>`<button role="tab" aria-selected="${k===kind}" class="${k===kind?"on":""}" data-deck="${k}">${DECKS[k].title}${openOf(k).length ? `<span class="c">${openOf(k).length}</span>` : ""}</button>`).join("")}</div>
+        ${kOpen ? `<button class="btn ghost" data-practice="${kind}">Nur ${kind==="vocab" ? "Wörter" : "Fehler"} üben · ${kOpen}</button>` : ""}</div>`
+      + deckHtml(kind, deck(kind));
+    el.querySelectorAll("[data-deck]").forEach(t=> t.onclick=()=>{ state.trainTab=t.dataset.deck; renderErrors(); });
+    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(btn.dataset.practice==="all" ? open : openOf(btn.dataset.practice), "practice"));
     el.querySelectorAll("[data-gosession]").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); openSession(+a.dataset.gosession); });
   }
 
   // Flashcards. "practice": the student checks themselves; nothing is saved and
   // cards they didn't know come back at the end. "review": the tutor goes through
   // them with the student — "Gemeistert" closes a card, "Noch nicht" keeps it open.
+  // Keys: Space/Enter shows the answer, ← = Nochmal, → = Gewusst, Esc closes.
+  let flashKeys=null;
   function openFlashcards(cards, mode, onDone){
     if(!cards.length) return;
-    const deck=cards.slice().sort(()=>Math.random()-0.5);
-    let i=0, known=0, again=0;
-    const m=$("#lessonModal");
-    const finish=()=>{ closeLessonModal(); if(onDone) onDone(); };
+    const deck=cards.slice().sort(()=>Math.random()-0.5), marks=[];
+    let i=0, known=0, again=0, busy=false;
+    const m=$("#lessonModal"), practice=mode==="practice";
+    const canHover=window.matchMedia && window.matchMedia("(hover: hover)").matches;
+    const strip=()=>`<div class="flash-strip" role="progressbar" aria-valuemin="0" aria-valuemax="${deck.length}" aria-valuenow="${Math.min(i, deck.length)}" aria-label="Karte ${Math.min(i+1, deck.length)} von ${deck.length}">${deck.map((_, j)=>`<i class="${marks[j] || (j===i ? "c" : "")}"></i>`).join("")}</div>`;
+    const norm=t=>String(t||"").toLowerCase().replace(/[.,!?;:"'„“”‚‘’()\-–—]/g, " ").replace(/\s+/g, " ").trim();
+    const onKey=(e)=>{
+      if(m.hidden || flashKeys!==onKey){ document.removeEventListener("keydown", onKey); return; }
+      if(e.metaKey || e.ctrlKey || e.altKey) return;
+      if(e.key==="Escape"){ e.preventDefault(); finish(); return; }
+      const onBtn=e.target && e.target.tagName==="BUTTON", typing=e.target && e.target.id==="flashTry";
+      const rateEl=$("#flashRate"), revealed=rateEl && !rateEl.hidden;
+      if(!$("#flashShow")) return;   // end screen: the focused button handles keys
+      if(!revealed){
+        if((e.key===" " && !typing && !onBtn) || (e.key==="Enter" && !onBtn)){ e.preventDefault(); reveal(); }
+        return;
+      }
+      if(e.key==="ArrowLeft"){ e.preventDefault(); $("#flashAgain").click(); }
+      else if(e.key==="ArrowRight"){ e.preventDefault(); $("#flashKnown").click(); }
+    };
+    if(flashKeys) document.removeEventListener("keydown", flashKeys);
+    flashKeys=onKey; document.addEventListener("keydown", onKey);
+    const finish=()=>{ document.removeEventListener("keydown", onKey); if(flashKeys===onKey) flashKeys=null; closeLessonModal(); if(onDone) onDone(); };
+    const reveal=()=>{
+      const c=deck[i], tryEl=$("#flashTry"), mine=tryEl ? tryEl.value.trim() : "";
+      if(mine){
+        const ok=norm(mine)===norm(c.back);
+        $("#flashYours").innerHTML=`<div class="fb-yours ${ok?"ok":""}"><div class="flash-lab">Deine Antwort</div><div class="fy">${esc(mine)}${ok ? " ✓" : ""}</div></div>`;
+      }
+      if(tryEl) tryEl.hidden=true;
+      $("#flashBack").hidden=false; $("#flashReveal").hidden=true; $("#flashRate").hidden=false;
+      $("#flashKnown").focus();
+    };
     const show=()=>{
       if(i>=deck.length){
-        m.innerHTML=`<div class="modal-card" id="flashWrap"><div class="flash-card">
+        m.innerHTML=`<div class="modal-card" id="flashWrap"><div class="flash-card">${strip()}
           <div class="flash-lab">Geschafft</div>
           <div class="flash-front" style="color:var(--ink);">${mode==="review" ? `${known} gemeistert · ${again} ${again===1?"bleibt":"bleiben"} offen` : `${known} ${known===1?"Karte":"Karten"} geübt`}</div>
-          ${mode==="practice" ? `<p class="micro" style="margin-top:14px;">Als gemeistert hakt dein Tutor die Karten in eurer nächsten Stunde ab.</p>` : ""}
+          ${practice ? `<p class="micro" style="margin-top:14px;">Als gemeistert hakt dein Tutor die Karten in eurer nächsten Stunde ab.</p>` : ""}
           <button class="btn" id="flashClose" style="margin-top:22px;"><span class="grainbtn"></span>Schließen</button></div></div>`;
         $("#flashWrap").onclick=e=>e.stopPropagation();
         $("#flashClose").onclick=finish;
+        $("#flashClose").focus();
         return;
       }
       const c=deck[i], vocab=cardKind(c)==="vocab";
       m.innerHTML=`<div class="modal-card" id="flashWrap"><button class="modal-x" id="flashX" aria-label="Schließen">×</button><div class="flash-card">
-        <div class="flash-prog">Karte ${i+1} von ${deck.length}${mode==="review" ? " · gemeinsam wiederholen" : ""}</div>
+        ${strip()}${mode==="review" ? `<div class="flash-prog">Gemeinsam wiederholen</div>` : ""}
         <div class="flash-lab">${vocab ? "Was bedeutet …" : "Was ist hier falsch?"}</div>
         <div class="flash-front" ${vocab ? 'style="color:var(--ink);"' : ""}>${esc(c.front)}</div>
-        <div class="flash-back" id="flashBack" hidden><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
-        <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen</button></div>
+        ${practice ? `<input class="bf-input flash-try" id="flashTry" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${vocab ? "Bedeutung eintippen (optional)" : "Richtig schreiben (optional)"}" aria-label="Deine Antwort">` : ""}
+        <div class="flash-back" id="flashBack" hidden><div id="flashYours"></div><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
+        <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen<span class="kbd">Enter</span></button></div>
         <div class="flash-actions" id="flashRate" hidden>
-          <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}</button>
-          <button class="btn" id="flashKnown"><span class="grainbtn"></span>${mode==="review" ? "Gemeistert ✓" : "Gewusst"}</button>
+          <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}<span class="kbd">←</span></button>
+          <button class="btn" id="flashKnown"><span class="grainbtn"></span>${mode==="review" ? "Gemeistert ✓" : "Gewusst"}<span class="kbd">→</span></button>
         </div></div></div>`;
       m.hidden=false;
       $("#flashWrap").onclick=e=>e.stopPropagation();
       $("#flashX").onclick=finish;
-      $("#flashShow").onclick=()=>{ $("#flashBack").hidden=false; $("#flashReveal").hidden=true; $("#flashRate").hidden=false; };
+      $("#flashShow").onclick=reveal;
+      // Phones would pop the keyboard on every card, so only desktops jump into the field.
+      if($("#flashTry") && canHover) $("#flashTry").focus(); else $("#flashShow").focus();
       const rate=async (result)=>{
-        if(mode==="review"){
-          const r=await apiResult('POST', `/api/error-cards/${c.id}/review/`, { result });
-          if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
-          Object.assign(c, r.data.card);
-        }
-        if(result==="known") known++;
-        else { again++; if(mode==="practice") deck.push(c); }
-        i++; show();
+        if(busy) return; busy=true;
+        try{
+          if(mode==="review"){
+            const r=await apiResult('POST', `/api/error-cards/${c.id}/review/`, { result });
+            if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
+            Object.assign(c, r.data.card);
+          }
+          marks[i] = result==="known" ? "k" : "a";
+          if(result==="known") known++;
+          else { again++; if(practice) deck.push(c); }
+          i++; show();
+        } finally { busy=false; }
       };
       $("#flashAgain").onclick=()=>rate("again");
       $("#flashKnown").onclick=()=>rate("known");
@@ -4224,7 +4297,7 @@
   function showTabsForRole(role){ const app=document.querySelector(".app"); if(app) app.dataset.role=role||""; }
   function resetTransient(){
     state.selected=null; state.managing=null; state.justBooked=null; state.justAction="booked";
-    state.studentQuery=""; state.activityAll=false;
+    state.studentQuery=""; state.activityAll=false; state.trainTab=null;
     if($("#studentSearch")) $("#studentSearch").value="";
     state.rescheduling=null; state.teacherSel=null; state.teacherManage=null; state.teacherStudent=null; state.editAvail=false;
     state.weekOffset=0; state.tWeekOffset=0;
