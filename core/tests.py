@@ -3722,9 +3722,9 @@ class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
 
 
 class CreateAdminFromEnvTests(TestCase):
-    """`createadmin --from-env` (and its `bootstrap_admin` alias) runs in every Render build."""
+    """`createadmin --from-env` runs in every Render build."""
 
-    def _run(self, cmd="createadmin", **env):
+    def _run(self, **env):
         from io import StringIO
         from django.core.management import call_command
         out = StringIO()
@@ -3732,8 +3732,7 @@ class CreateAdminFromEnvTests(TestCase):
             for k in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME"):
                 if k not in env:
                     os.environ.pop(k, None)
-            kwargs = {"from_env": True} if cmd == "createadmin" else {}
-            call_command(cmd, stdout=out, **kwargs)
+            call_command("createadmin", from_env=True, stdout=out)
         return out.getvalue()
 
     def test_skips_when_env_unset(self):
@@ -3748,8 +3747,3 @@ class CreateAdminFromEnvTests(TestCase):
         self.assertTrue(u.check_password("pw-123456"))
         self.assertIn("already exists", self._run(**env))
         self.assertEqual(User.objects.filter(email="boss@example.at").count(), 1)
-
-    def test_bootstrap_admin_alias_still_works(self):
-        self._run("bootstrap_admin", ADMIN_EMAIL="a@b.at", ADMIN_PASSWORD="pw-123456")
-        self.assertEqual(User.objects.get(email="a@b.at").role, "admin")
-        self.assertIn("already exists", self._run("bootstrap_admin", ADMIN_EMAIL="a@b.at", ADMIN_PASSWORD="x"))
