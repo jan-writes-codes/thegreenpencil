@@ -289,6 +289,7 @@ setTimeout(() => {
       if (!root()) return finish({ schoolTests: { error: "no tests section" } });
       const rows = [...root().querySelectorAll(".st-row")].map((r) => r.textContent.replace(/\s+/g, " ").trim());
       const timeline = [...document.querySelectorAll("#studentModal .lesson-hist .li")].map((r) => r.textContent.replace(/\s+/g, " ").trim());
+      const stats = [...document.querySelectorAll(isStudent ? "#myProgress .pf-stat" : "#studentModal .pf-stat")].map((r) => r.textContent.replace(/\s+/g, " ").trim());
       root().querySelector("#testAdd").click();
       setTimeout(() => {
         const r = root();
@@ -299,7 +300,7 @@ setTimeout(() => {
         setTimeout(() => {
           const post = apiCalls.find((c) => c.url.endsWith("/api/school-tests/") && c.method === "POST");
           const after = [...root().querySelectorAll(".st-row")].map((x) => x.textContent.replace(/\s+/g, " ").trim());
-          finish({ schoolTests: { rows, timeline, rosterSub: rosterSub || null, post: post ? post.body : null, after } });
+          finish({ schoolTests: { rows, timeline, stats, rosterSub: rosterSub || null, post: post ? post.body : null, after } });
         }, 80);
       }, 40);
     }, 80);

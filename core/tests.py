@@ -3975,3 +3975,15 @@ class SchoolTestDomTests(_DomProbeBase):
         self.assertEqual(st["rows"], [])
         self.assertEqual(st["post"]["topic"], "Past tenses")
         self.assertEqual(len(st["after"]), 1)
+
+    def test_progress_tiles(self):
+        b = Booking.objects.create(student=self.maya, tutor=self.davit, date=timezone.localdate() - timedelta(days=3),
+                                   time="10:00", homework="Workbook p. 12", homework_done=True)
+        ErrorCard.objects.create(student=self.maya, booking=b, front="He go.", back="He goes.",
+                                 status=ErrorCard.STATUS_MASTERED)
+        ErrorCard.objects.create(student=self.maya, booking=b, front="I am agree.", back="I agree.")
+        SchoolTest.objects.create(student=self.maya, date=timezone.localdate() - timedelta(days=1), grade=2)
+        for user in (self.davit, self.maya):
+            stats = self.run_probe(user, school_tests=True)["schoolTests"]["stats"]
+            self.assertEqual(stats, ["1Stunde", "1/2Fehler gemeistert", "0neue Wörter",
+                                     "1/1Hausaufgaben erledigt", "2letzte Note · Schularbeit"], user)
