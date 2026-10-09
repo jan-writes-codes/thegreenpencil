@@ -2453,7 +2453,7 @@ class IntroCalendarFrontendTests(FluentDataMixin, TestCase):
                     tutor=self.davit, date=date(2026, month, day), time=time, is_open=True
                 )
 
-    def _probe(self, iso_now):
+    def _probe(self, iso_now, url=None):
         if not self._node:
             self.skipTest("node not found on PATH — skipping jsdom frontend tests")
         if not self._has_jsdom:
@@ -2461,7 +2461,7 @@ class IntroCalendarFrontendTests(FluentDataMixin, TestCase):
                 "jsdom not installed — run `cd tests/frontend && npm install` "
                 "to enable frontend tests"
             )
-        html = self.client.get(reverse("intro")).content.decode()
+        html = self.client.get(url or reverse("intro")).content.decode()
         with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as fh:
             fh.write(html)
             path = fh.name
@@ -2509,6 +2509,14 @@ class IntroCalendarFrontendTests(FluentDataMixin, TestCase):
         # It advanced to the upcoming week (29 Jun–3 Jul), not the elapsed one.
         self.assertIn("29", r["dayNumbers"])
         self.assertNotIn("22", r["dayNumbers"])
+
+    def test_english_intro_page_runs(self):
+        # The English page swaps in translated strings (some inside the JS), so
+        # it must still boot and show the same slots as the German one.
+        self._open_davit((6, 24), (6, 25), (6, 26))
+        r = self._probe("2026-06-24T08:00:00", url="/en/intro/")
+        self.assertEqual(r["initErrors"], [], "init must not throw")
+        self.assertEqual(r["slotCount"], 6)
 
     def test_midweek_stays_on_current_week(self):
         # Wed 24 Jun 2026 morning: the current week still has bookable days, so
@@ -4077,3 +4085,114 @@ class SchoolTestDomTests(_DomProbeBase):
             stats = self.run_probe(user, school_tests=True)["schoolTests"]["stats"]
             self.assertEqual(stats, ["1Stunde", "1/2Fehler gemeistert", "0neue Wörter",
                                      "1/1Hausaufgaben erledigt", "2letzte Note · Schularbeit"], user)
+
+
+# --------------------------------------------------------------------------- #
+# English version of the public pages (German default, English under /en/)
+# --------------------------------------------------------------------------- #
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_ASYNC=False,
+)
+class EnglishSiteTests(FluentDataMixin, TestCase):
+    PUBLIC = ["/", "/faq/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
+
+    def test_public_pages_exist_in_both_languages(self):
+        for path in self.PUBLIC:
+            de = self.client.get(path)
+            en = self.client.get("/en" + path)
+            self.assertEqual(de.status_code, 200, path)
+            self.assertEqual(en.status_code, 200, "/en" + path)
+            self.assertContains(de, '<html lang="de"')
+            self.assertContains(en, '<html lang="en"')
+
+    def test_german_stays_the_default_whatever_the_browser_asks_for(self):
+        resp = self.client.get("/", HTTP_ACCEPT_LANGUAGE="en-GB,en;q=0.9")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '<html lang="de"')
+        self.assertContains(resp, "Englisch, das <em>sitzen bleibt</em>")
+
+    def test_landing_is_translated_and_links_stay_in_english(self):
+        html = self.client.get("/en/").content.decode()
+        self.assertIn("English that <em>sticks</em>", html)
+        self.assertNotIn("sitzen bleibt", html)
+        # Navigation keeps the visitor on the English pages.
+        self.assertIn('href="/en/intro/"', html)
+        self.assertIn('href="/en/faq/"', html)
+        self.assertIn('href="/en/impressum/"', html)
+        # Prices come from the same packs, with English units.
+        self.assertIn("per lesson", html)
+        self.assertNotIn("pro Einheit", html)
+
+    def test_language_switch_points_to_the_same_page(self):
+        de = self.client.get("/faq/").content.decode()
+        en = self.client.get("/en/faq/").content.decode()
+        self.assertIn('class="lang-switch" href="/en/faq/"', de)
+        self.assertIn('class="lang-switch" href="/faq/"', en)
+        self.assertIn('hreflang="en" href="https://thegreenpencil.at/en/faq/"', de)
+        self.assertIn('<link rel="canonical" href="https://thegreenpencil.at/en/faq/"', en)
+
+    def test_english_legal_pages_point_to_the_binding_german_text(self):
+        for path in ["/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]:
+            self.assertContains(self.client.get("/en" + path), "courtesy translation")
+
+    def test_app_and_login_stay_german_only(self):
+        self.assertEqual(self.client.get("/en/login/").status_code, 404)
+        self.assertEqual(self.client.get("/en/app/").status_code, 404)
+        self.assertNotContains(self.client.get("/login/"), 'class="lang-switch"')
+
+    def _book(self, prefix):
+        d = date.today() + timedelta(days=5)
+        return self.client.post(
+            prefix + "/api/intro-bookings/",
+            data=json.dumps({
+                "tutorSlug": "davit", "date": d.isoformat(), "time": "14:00",
+                "name": "Sam Guest", "email": "sam@example.com", "phone": "+43 660 1234567",
+            }),
+            content_type="application/json",
+        )
+
+    def test_english_booking_errors_are_english(self):
+        resp = self.client.post(
+            "/en/api/intro-bookings/", data=json.dumps({"tutorSlug": "davit"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Please enter your name.", resp.json()["error"])
+        self.assertIn("get in touch with Davit", resp.json()["error"])
+
+    def test_english_guest_gets_english_confirmation_and_cancel_link(self):
+        from django.core import mail
+        self.assertEqual(self._book("/en").status_code, 200)
+        msg = [m for m in mail.outbox if m.to == ["sam@example.com"]][0]
+        self.assertIn("Your trial lesson is confirmed", msg.subject)
+        self.assertIn("You're all set, Sam!", msg.body)
+        token = Booking.objects.latest("id").cancel_token
+        self.assertIn(f"https://thegreenpencil.at/en/cancel/{token}/", msg.body)
+        self.assertEqual([a[0] for a in msg.attachments], ["trial-lesson.ics"])
+
+    def test_german_guest_still_gets_german_confirmation(self):
+        from django.core import mail
+        self.assertEqual(self._book("").status_code, 200)
+        msg = [m for m in mail.outbox if m.to == ["sam@example.com"]][0]
+        self.assertIn("Schnupperstunde ist bestätigt", msg.subject)
+        token = Booking.objects.latest("id").cancel_token
+        self.assertIn(f"https://thegreenpencil.at/cancel/{token}/", msg.body)
+
+    def test_english_cancel_page_and_mail(self):
+        from django.core import mail
+        self._book("/en")
+        token = Booking.objects.latest("id").cancel_token
+        page = self.client.get(f"/en/cancel/{token}/")
+        self.assertContains(page, "Cancel your trial lesson?")
+        mail.outbox.clear()
+        done = self.client.post(f"/en/cancel/{token}/")
+        self.assertContains(done, "Trial lesson cancelled")
+        msg = [m for m in mail.outbox if m.to == ["sam@example.com"]][0]
+        self.assertIn("Cancelled: your trial lesson", msg.subject)
+
+    def test_sitemap_lists_both_languages(self):
+        body = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("<loc>http://testserver/en/faq/</loc>", body)
+        self.assertIn("<loc>http://testserver/faq/</loc>", body)
+        self.assertIn('hreflang="en"', body)

@@ -19,8 +19,10 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.translation import get_language, gettext
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.views.generic import TemplateView
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
@@ -721,12 +723,23 @@ def landing_view(request):
             "price": raw.get("price", ""),
             "per_unit": round(total / n) if total and n > 0 else None,
             "feat": is_popular,
-            "tag": "Beliebteste Wahl" if is_popular else "",
+            "tag": gettext("Beliebteste Wahl") if is_popular else "",
         })
     # The popular pack's per-unit price is the headline figure in the pricing
     # copy — it's what nearly every student actually pays.
     featured = next((p for p in packs if p["feat"] and p["per_unit"]), None)
     return render(request, "landing.html", {"packs": packs, "featured": featured})
+
+
+class LocalizedTemplateView(TemplateView):
+    """A content page whose English text lives in its own template
+    (templates/en/<name>) rather than in the translation catalogue: the FAQ and
+    legal pages are long prose, which reads and edits better as a whole page."""
+
+    def get_template_names(self):
+        if get_language() == "en":
+            return [f"en/{self.template_name}"]
+        return [self.template_name]
 
 
 def login_view(request):
@@ -754,7 +767,8 @@ def password_reset_view(request, uidb64, token):
 
 # Public, crawler-facing pages worth listing in the sitemap. The booking app and
 # API endpoints are intentionally excluded — they're gated or non-content.
-SITEMAP_PATHS = ["/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
+# Each is listed in German and English (/en/...), with hreflang alternates.
+SITEMAP_PATHS = ["/", "/faq/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
 
 
 def robots_txt(request):
@@ -766,6 +780,7 @@ def robots_txt(request):
         "Allow: /",
         "Disallow: /app/",
         "Disallow: /api/",
+        "Disallow: /en/api/",
         f"Sitemap: {sitemap_url}",
         "",
     ])
@@ -773,15 +788,25 @@ def robots_txt(request):
 
 
 def sitemap_xml(request):
-    # Minimal XML sitemap of the public pages, with absolute URLs.
-    urls = "".join(
-        f"<url><loc>{request.build_absolute_uri(p)}</loc></url>"
-        for p in SITEMAP_PATHS
-    )
+    # Minimal XML sitemap of the public pages, with absolute URLs. Every page
+    # is listed once per language, each entry naming all its language versions.
+    def alternates(path):
+        return {code: request.build_absolute_uri(("" if code == "de" else f"/{code}") + path)
+                for code, _name in dj_settings.LANGUAGES}
+
+    entries = []
+    for p in SITEMAP_PATHS:
+        alts = alternates(p)
+        links = "".join(
+            f'<xhtml:link rel="alternate" hreflang="{code}" href="{url}"/>'
+            for code, url in alts.items()
+        )
+        entries += [f"<url><loc>{url}</loc>{links}</url>" for url in alts.values()]
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        f"{urls}</urlset>"
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+        'xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+        f"{''.join(entries)}</urlset>"
     )
     return HttpResponse(body, content_type="application/xml")
 
@@ -844,14 +869,12 @@ def intro_view(request):
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _PHOTO_RE = re.compile(r"^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$")
 
-# Shown to guests on every booking error so they always have a way to reach a
-# human: Davit's mobile and e-mail.
-_INTRO_CONTACT = "Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at"
-
-
 def _intro_error(message, status):
-    """Guest-facing booking error: always carries Davit's contact details."""
-    return JsonResponse({"error": f"{message} {_INTRO_CONTACT}"}, status=status)
+    """Guest-facing booking error: always carries Davit's contact details (his
+    mobile and e-mail), so guests always have a way to reach a human. The
+    endpoint also lives under /en/, where the messages come out in English."""
+    contact = gettext("Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at")
+    return JsonResponse({"error": f"{message} {contact}"}, status=status)
 
 
 @require_http_methods(["POST"])
@@ -863,7 +886,7 @@ def api_intro_booking(request):
     touches a User row. Capped at one intro per e-mail.
     """
     if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
-        return _intro_error(TOO_MANY, 429)
+        return _intro_error(gettext("Zu viele Versuche — bitte warte ein paar Minuten."), 429)
     expire_booking_requests()  # expired requests free their slots
     data = parse_body(request)
     name = (data.get("name") or "").strip()
@@ -874,29 +897,29 @@ def api_intro_booking(request):
     time_str = (data.get("time") or "").strip()
 
     if not name:
-        return _intro_error("Bitte gib deinen Namen ein.", 400)
+        return _intro_error(gettext("Bitte gib deinen Namen ein."), 400)
     try:
         validate_email(email)
     except ValidationError:
-        return _intro_error("Bitte gib eine gültige E-Mail-Adresse ein.", 400)
+        return _intro_error(gettext("Bitte gib eine gültige E-Mail-Adresse ein."), 400)
     # Phone is required so the tutor can reach the guest (WhatsApp / callback).
     if len(re.sub(r"[^0-9]", "", phone)) < 6:
         return _intro_error(
-            "Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen).", 400
+            gettext("Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen)."), 400
         )
     if not _TIME_RE.match(time_str):
-        return _intro_error("Ungültige Uhrzeit.", 400)
+        return _intro_error(gettext("Ungültige Uhrzeit."), 400)
 
     tutor = User.objects.filter(role="tutor", slug=tutor_slug).first()
     if tutor is None:
-        return _intro_error("Tutor nicht gefunden.", 400)
+        return _intro_error(gettext("Tutor nicht gefunden."), 400)
     try:
         booking_date = date.fromisoformat(date_key)
     except (ValueError, AttributeError, TypeError):
-        return _intro_error("Ungültiger Termin.", 400)
+        return _intro_error(gettext("Ungültiger Termin."), 400)
 
     if booking_date < timezone.localdate():
-        return _intro_error("Dieser Termin liegt in der Vergangenheit.", 400)
+        return _intro_error(gettext("Dieser Termin liegt in der Vergangenheit."), 400)
 
     # One free intro per e-mail *per tutor* — a guest may try a Schnupperstunde
     # with each tutor once, but not book the same tutor twice.
@@ -904,15 +927,15 @@ def api_intro_booking(request):
         is_intro=True, tutor=tutor, guest_email__iexact=email
     ).exists():
         return _intro_error(
-            "Für diese E-Mail wurde bei diesem Tutor bereits eine Schnupperstunde gebucht.",
+            gettext("Für diese E-Mail wurde bei diesem Tutor bereits eine Schnupperstunde gebucht."),
             409,
         )
     # Slot must be free and not explicitly closed by the tutor.
     conflict = _slot_unavailable(tutor, booking_date, time_str)
     if conflict == "slot_taken":
-        return _intro_error("Dieser Termin ist bereits vergeben.", 409)
+        return _intro_error(gettext("Dieser Termin ist bereits vergeben."), 409)
     if conflict:
-        return _intro_error("Dieser Termin ist nicht verfügbar.", 409)
+        return _intro_error(gettext("Dieser Termin ist nicht verfügbar."), 409)
 
     booking = Booking.objects.create(
         tutor=tutor, student=None,
@@ -928,7 +951,7 @@ def api_intro_booking(request):
     # connected) and send both confirmations — a hiccup in either must never
     # fail the booking itself. One queued job so the call link exists before
     # the e-mails render.
-    emails.queue_email(emails.send_intro_notifications, booking.pk)
+    emails.queue_email(emails.send_intro_notifications, booking.pk, get_language())
     return JsonResponse({
         "ok": True,
         "tutorName": tutor.get_full_name() or tutor.username,
@@ -956,13 +979,13 @@ def booking_cancel_view(request, token):
     within_24h = (not booking.is_intro and not booking.is_requested
                   and _booking_within_24h(booking))
     if request.method == "POST":
-        when = emails.when(booking)
+        when = emails.when(booking, get_language())
         refund_txn, _ = _cancel_booking(booking, forfeit=within_24h)
         return render(request, "intro_cancel.html", {
             "state": "done", "when": when, "is_intro": booking.is_intro,
             "refunded": refund_txn is not None,
         })
-    ctx = emails._booking_ctx(booking, "deinem Tutor")
+    ctx = emails._booking_ctx(booking, gettext("deinem Tutor"), lang=get_language())
     return render(request, "intro_cancel.html", {
         "state": "confirm",
         "is_intro": booking.is_intro,

@@ -1,6 +1,6 @@
-{% load static %}
+{% load static i18n %}
 <!DOCTYPE html>
-<html lang="de"><head>
+<html lang="{{ LANGUAGE_CODE }}"><head>
 {% include "_consent.html" %}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -8,14 +8,15 @@
      top/bottom bar backdrops, so they always match the rendered page. A
      declared #f5f2ea sat warm against the grain-tinted page and painted a
      permanent off-tone strip along the screen edges. -->
-<title>Englisch-Nachhilfe in Wien &amp; online | The Green Pencil</title>
-<meta name="description" content="Persönliche Englisch-Nachhilfe mit Davit in Wien &amp; online — für Schüler*innen, Studierende und Erwachsene, von A1 bis C1, von Schularbeit bis Matura. Erste Stunde unverbindlich.">
-<meta name="keywords" content="Englisch Nachhilfe Wien, Englisch Nachhilfe online, Englischunterricht Wien, Englisch Einzelunterricht, Matura Englisch, Schularbeit Englisch, Prüfungsvorbereitung Englisch, Englisch für Erwachsene, Nachprüfung Englisch">
+<title>{% translate "Englisch-Nachhilfe in Wien &amp; online | The Green Pencil" %}</title>
+<meta name="description" content="{% translate "Persönliche Englisch-Nachhilfe mit Davit in Wien &amp; online — für Schüler*innen, Studierende und Erwachsene, von A1 bis C1, von Schularbeit bis Matura. Erste Stunde unverbindlich." %}">
+<meta name="keywords" content="{% translate "Englisch Nachhilfe Wien, Englisch Nachhilfe online, Englischunterricht Wien, Englisch Einzelunterricht, Matura Englisch, Schularbeit Englisch, Prüfungsvorbereitung Englisch, Englisch für Erwachsene, Nachprüfung Englisch" %}">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Davit Hovakimyan">
 <meta name="geo.region" content="AT-9">
 <meta name="geo.placename" content="Wien">
-<link rel="canonical" href="https://thegreenpencil.at/">
+<link rel="canonical" href="{{ canonical_url }}">
+{% include "_hreflang.html" %}
 <!-- Favicon: the green pencil mark. Root /favicon.ico (raster) is what Google
      Search uses for the result icon; the SVG is preferred by modern browsers. -->
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -24,36 +25,38 @@
 <link rel="apple-touch-icon" href="{% static 'favicon-192.png' %}">
 <!-- Open Graph / social -->
 <meta property="og:type" content="website">
-<meta property="og:locale" content="de_AT">
-<meta property="og:title" content="Englisch-Nachhilfe in Wien &amp; online — The Green Pencil">
-<meta property="og:description" content="Persönlicher Englisch-Unterricht mit Davit — strukturiert, ruhig und in deinem Tempo. Von der Schularbeit bis zur Matura, für alle Niveaus A1–C1.">
-<meta property="og:site_name" content="The Green Pencil — Englisch-Nachhilfe">
-<meta property="og:url" content="https://thegreenpencil.at/">
+<meta property="og:locale" content="{% if LANGUAGE_CODE == "en" %}en_GB{% else %}de_AT{% endif %}">
+<meta property="og:locale:alternate" content="{% if LANGUAGE_CODE == "en" %}de_AT{% else %}en_GB{% endif %}">
+<meta property="og:title" content="{% translate "Englisch-Nachhilfe in Wien &amp; online — The Green Pencil" %}">
+<meta property="og:description" content="{% translate "Persönlicher Englisch-Unterricht mit Davit — strukturiert, ruhig und in deinem Tempo. Von der Schularbeit bis zur Matura, für alle Niveaus A1–C1." %}">
+<meta property="og:site_name" content="{% translate "The Green Pencil — Englisch-Nachhilfe" %}">
+<meta property="og:url" content="{{ canonical_url }}">
 <meta property="og:image" content="https://thegreenpencil.at{% static 'og_image.png' %}">
-<meta property="og:image:alt" content="The Green Pencil — Englisch-Nachhilfe">
+<meta property="og:image:alt" content="{% translate "The Green Pencil — Englisch-Nachhilfe" %}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Englisch-Nachhilfe in Wien &amp; online — The Green Pencil">
-<meta name="twitter:description" content="Persönlicher Englisch-Unterricht mit Davit — strukturiert, ruhig und in deinem Tempo. Für Schüler*innen, Studierende und Erwachsene.">
+<meta name="twitter:title" content="{% translate "Englisch-Nachhilfe in Wien &amp; online — The Green Pencil" %}">
+<meta name="twitter:description" content="{% translate "Persönlicher Englisch-Unterricht mit Davit — strukturiert, ruhig und in deinem Tempo. Für Schüler*innen, Studierende und Erwachsene." %}">
 <meta name="twitter:image" content="https://thegreenpencil.at{% static 'og_image.png' %}">
 <!-- Structured data: local service -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "EducationalOrganization",
-  "name": "The Green Pencil — Englisch-Nachhilfe mit Davit Hovakimyan",
-  "description": "Englisch-Nachhilfe in Wien und online. Einzelunterricht und Prüfungsvorbereitung für Schüler*innen, Studierende und Erwachsene — von der Schularbeit bis zur Matura, für alle Niveaus A1–C1.",
-  "areaServed": { "@type": "City", "name": "Wien" },
+  "name": "{% translate "The Green Pencil — Englisch-Nachhilfe mit Davit Hovakimyan" %}",
+  "description": "{% translate "Englisch-Nachhilfe in Wien und online. Einzelunterricht und Prüfungsvorbereitung für Schüler*innen, Studierende und Erwachsene — von der Schularbeit bis zur Matura, für alle Niveaus A1–C1." %}",
+  "areaServed": { "@type": "City", "name": "{% translate "Wien" %}" },
   "email": "davit18h@gmail.com",
   "telephone": "+436763975535",
   "founder": { "@type": "Person", "name": "Davit Hovakimyan" },
   "knowsLanguage": ["en", "de"],
+  "url": "{{ canonical_url }}",
   "makesOffer": {
     "@type": "Offer",
     "itemOffered": {
       "@type": "Service",
-      "name": "Englisch-Nachhilfe — Einzelunterricht und Prüfungsvorbereitung",
-      "serviceType": "Englisch-Nachhilfe und Prüfungsvorbereitung",
-      "areaServed": "Wien, Österreich"
+      "name": "{% translate "Englisch-Nachhilfe — Einzelunterricht und Prüfungsvorbereitung" %}",
+      "serviceType": "{% translate "Englisch-Nachhilfe und Prüfungsvorbereitung" %}",
+      "areaServed": "{% translate "Wien, Österreich" %}"
     }
   }
 }
@@ -66,18 +69,18 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "Für wen ist die Englisch-Nachhilfe geeignet?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Für Schüler*innen, Studierende und Erwachsene — alle Altersstufen und alle Niveaus von A1 bis C1, vom ersten Satz bis zur Matura." }
+      "name": "{% translate "Für wen ist die Englisch-Nachhilfe geeignet?" %}",
+      "acceptedAnswer": { "@type": "Answer", "text": "{% translate "Für Schüler*innen, Studierende und Erwachsene — alle Altersstufen und alle Niveaus von A1 bis C1, vom ersten Satz bis zur Matura." %}" }
     },
     {
       "@type": "Question",
-      "name": "Wie schnell kann ich mit der Englisch-Nachhilfe starten?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Sofort. Du wählst einfach einen freien Termin im Kalender — die erste Einheit ist ein unverbindliches Kennenlernen, in dem wir deinen Lernstand und dein Ziel anschauen." }
+      "name": "{% translate "Wie schnell kann ich mit der Englisch-Nachhilfe starten?" %}",
+      "acceptedAnswer": { "@type": "Answer", "text": "{% translate "Sofort. Du wählst einfach einen freien Termin im Kalender — die erste Einheit ist ein unverbindliches Kennenlernen, in dem wir deinen Lernstand und dein Ziel anschauen." %}" }
     },
     {
       "@type": "Question",
-      "name": "Findet die Englisch-Nachhilfe online statt?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Ja. Der Unterricht findet bequem online per Video statt — flexibel, ortsunabhängig und ganz in deinem Tempo." }
+      "name": "{% translate "Findet die Englisch-Nachhilfe online statt?" %}",
+      "acceptedAnswer": { "@type": "Answer", "text": "{% translate "Ja. Der Unterricht findet bequem online per Video statt — flexibel, ortsunabhängig und ganz in deinem Tempo." %}" }
     }
   ]
 }
@@ -216,7 +219,17 @@
   .wordmark span { color: var(--accent); }
   .wordmark .sub { display: block; font-family: var(--font-body); font-size: 10px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
   .top-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-  .top-nav a.navlink { font-size: 14.5px; color: var(--muted); text-decoration: none; padding: 8px 13px; border-radius: 10px; transition: 0.16s; }
+  .top-nav a.navlink { font-size: 14.5px; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 10px; transition: 0.16s; white-space: nowrap; }
+  .top .btn { white-space: nowrap; }
+  /* Language switch: in the nav row on wider screens; on phones the bar has no
+     room for it, so it sits next to the hero eyebrow instead. */
+  .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+  .hero-top .eyebrow { margin-bottom: 0; }
+  .hero-top .lang-switch { display: none; }
+  @media (max-width: 600px) {
+    .top-nav .lang-switch { display: none; }
+    .hero-top .lang-switch { display: inline-flex; }
+  }
   .top-nav a.navlink:hover { color: var(--ink); background: rgba(36,53,40,0.05); }
   /* Below ~1080px the full link row no longer fits next to the brand and CTA
      (it used to overflow and get cut off on tablets) — switch to the compact
@@ -421,19 +434,20 @@
     <div class="wrap top-in">
       <a class="brand" href="#top">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">the green <span>pencil</span><span class="sub">{% translate "Englisch-Nachhilfe" %}</span></div>
       </a>
       <nav class="top-nav">
-        <a class="navlink" href="#ueber-mich">Über mich</a>
-        <a class="navlink" href="#angebot">Angebot</a>
-        <a class="navlink" href="#ansatz">Ansatz</a>
-        <a class="navlink" href="#preise">Preise</a>
-        <a class="navlink" href="#stimmen">Stimmen</a>
-        <a class="navlink" href="/faq/">FAQ</a>
-        <a class="btn ghost btn-icon" href="{% url 'login' %}" aria-label="Anmelden" title="Anmelden">
+        <a class="navlink" href="#ueber-mich">{% translate "Über mich" %}</a>
+        <a class="navlink" href="#angebot">{% translate "Angebot" %}</a>
+        <a class="navlink" href="#ansatz">{% translate "Ansatz" %}</a>
+        <a class="navlink" href="#preise">{% translate "Preise" %}</a>
+        <a class="navlink" href="#stimmen">{% translate "Stimmen" %}</a>
+        <a class="navlink" href="{% url 'faq' %}">FAQ</a>
+        {% include "_lang_switch.html" %}
+        <a class="btn ghost btn-icon" href="{% url 'login' %}" aria-label="{% translate "Anmelden" %}" title="{% translate "Anmelden" %}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4z"></path><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"></path></svg>
         </a>
-        <a class="btn" href="{% url 'intro' %}">Stunde buchen</a>
+        <a class="btn" href="{% url 'intro' %}">{% translate "Stunde buchen" %}</a>
       </nav>
     </div>
   </header>
@@ -443,25 +457,28 @@
       <!-- HERO -->
       <section class="hero">
         <div class="wrap">
-          <div class="eyebrow reveal"><span class="dot"></span>Englisch-Nachhilfe in Wien · online</div>
-          <h1 class="hero-h reveal">Englisch, das <em>sitzen bleibt</em> — damit du es nicht musst.</h1>
-          <p class="hero-sub reveal">Persönlicher Englisch-Unterricht mit lernpsychologischem Fundament — für Schüler*innen aller Altersstufen, Studierende und Erwachsene. Vom ersten Satz bis zur Prüfung: Schritt für Schritt, in deinem Tempo.</p>
+          <div class="hero-top">
+            <div class="eyebrow reveal"><span class="dot"></span>{% translate "Englisch-Nachhilfe in Wien · online" %}</div>
+            {% include "_lang_switch.html" %}
+          </div>
+          <h1 class="hero-h reveal">{% translate "Englisch, das <em>sitzen bleibt</em> — damit du es nicht musst." %}</h1>
+          <p class="hero-sub reveal">{% translate "Persönlicher Englisch-Unterricht mit lernpsychologischem Fundament — für Schüler*innen aller Altersstufen, Studierende und Erwachsene. Vom ersten Satz bis zur Prüfung: Schritt für Schritt, in deinem Tempo." %}</p>
           <div class="hero-cta reveal">
-            <a class="btn lg" href="{% url 'intro' %}"><span class="grainbtn"></span>Kostenloses Kennenlerngespräch buchen
+            <a class="btn lg" href="{% url 'intro' %}"><span class="grainbtn"></span>{% translate "Kostenloses Kennenlerngespräch buchen" %}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
             </a>
-            <a class="btn ghost lg" href="#angebot">Mehr erfahren</a>
+            <a class="btn ghost lg" href="#angebot">{% translate "Mehr erfahren" %}</a>
           </div>
           <div class="hero-note reveal" style="margin-top:22px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>
-            45-Minuten-Einheiten · flexible Termine · unverbindliches Kennenlernen
+            {% translate "45-Minuten-Einheiten · flexible Termine · unverbindliches Kennenlernen" %}
           </div>
 
           <div class="stats reveal">
-            <div class="stat"><div class="num">3.000+</div><div class="lbl">gehaltene Unterrichtsstunden</div></div>
-            <div class="stat"><div class="num">80+</div><div class="lbl">Schüler*innen aller Altersstufen und Schulformen (AHS, HAK, HTL, NMS, VS, …)</div></div>
-            <div class="stat"><div class="num">A1–C1</div><div class="lbl">alle Niveaus, vom Start bis fortgeschritten</div></div>
-            <div class="stat"><div class="num">Bilingual</div><div class="lbl">Englisch auf Muttersprachniveau</div></div>
+            <div class="stat"><div class="num">{% translate "3.000+" %}</div><div class="lbl">{% translate "gehaltene Unterrichtsstunden" %}</div></div>
+            <div class="stat"><div class="num">80+</div><div class="lbl">{% translate "Schüler*innen aller Altersstufen und Schulformen (AHS, HAK, HTL, NMS, VS, …)" %}</div></div>
+            <div class="stat"><div class="num">A1–C1</div><div class="lbl">{% translate "alle Niveaus, vom Start bis fortgeschritten" %}</div></div>
+            <div class="stat"><div class="num">{% translate "Bilingual" %}</div><div class="lbl">{% translate "Englisch auf Muttersprachniveau" %}</div></div>
           </div>
         </div>
       </section>
@@ -474,20 +491,20 @@
               <img class="portrait" src="{% static 'davit.webp' %}" alt="Davit Hovakimyan" width="588" height="784" loading="lazy" decoding="async">
               <div class="portrait-tag">
                 <div class="pt-name">Davit Hovakimyan</div>
-                <div class="pt-role">Englisch-Tutor &amp; Psychologiestudent</div>
+                <div class="pt-role">{% translate "Englisch-Tutor &amp; Psychologiestudent" %}</div>
               </div>
             </div>
             <div class="about-body reveal">
-              <div class="sec-eyebrow">Über mich</div>
-              <h2 class="sec-h" style="margin-bottom:20px;">Hallo, ich bin Davit.</h2>
-              <p class="lead">Ich bin zweisprachig mit Englisch aufgewachsen und unterrichte seit 2021 als selbstständiger Tutor — mit Leidenschaft für die Sprache und dafür, wie Menschen am besten lernen.</p>
-              <p>Im <strong>Psychologiestudium</strong> an der Universität Wien lernte ich auch, wie Menschen am besten lernen. Dieses Wissen fließt direkt in meinen Unterricht ein: Ich achte auf Motivation, Selbstvertrauen und nachhaltiges Lernen — damit Fortschritt sich gut anfühlt und auch bleibt.</p>
-              <p>In über <strong>3.000 Stunden mit mehr als 80 Schüler*innen</strong> habe ich gelernt, dass es nicht die eine richtige Methode gibt. Ich passe meinen Unterricht an jeden Menschen an — geduldig, klar und auf Augenhöhe.</p>
+              <div class="sec-eyebrow">{% translate "Über mich" %}</div>
+              <h2 class="sec-h" style="margin-bottom:20px;">{% translate "Hallo, ich bin Davit." %}</h2>
+              <p class="lead">{% translate "Ich bin zweisprachig mit Englisch aufgewachsen und unterrichte seit 2021 als selbstständiger Tutor — mit Leidenschaft für die Sprache und dafür, wie Menschen am besten lernen." %}</p>
+              <p>{% translate "Im <strong>Psychologiestudium</strong> an der Universität Wien lernte ich auch, wie Menschen am besten lernen. Dieses Wissen fließt direkt in meinen Unterricht ein: Ich achte auf Motivation, Selbstvertrauen und nachhaltiges Lernen — damit Fortschritt sich gut anfühlt und auch bleibt." %}</p>
+              <p>{% translate "In über <strong>3.000 Stunden mit mehr als 80 Schüler*innen</strong> habe ich gelernt, dass es nicht die eine richtige Methode gibt. Ich passe meinen Unterricht an jeden Menschen an — geduldig, klar und auf Augenhöhe." %}</p>
               <div class="chips">
-                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Englisch (Muttersprache)</span>
-                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Psychologie, Uni Wien</span>
-                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Stoffwiederholung &amp; Prüfungsvorbereitung</span>
-                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Deutsch &amp; Armenisch fließend</span>
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>{% translate "Englisch (Muttersprache)" %}</span>
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>{% translate "Psychologie, Uni Wien" %}</span>
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>{% translate "Stoffwiederholung &amp; Prüfungsvorbereitung" %}</span>
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>{% translate "Deutsch &amp; Armenisch fließend" %}</span>
               </div>
             </div>
           </div>
@@ -497,29 +514,29 @@
       <!-- ANGEBOT -->
       <section class="block" id="angebot">
         <div class="wrap">
-          <div class="sec-eyebrow reveal">Das Angebot</div>
-          <h2 class="sec-h reveal">Unterricht, der zu deinem Ziel passt.</h2>
-          <p class="sec-lead reveal">Ob du selbstbewusster sprechen, eine Prüfung bestehen oder einfach wieder Freude an der Sprache finden willst — wir setzen genau dort an, wo du gerade stehst.</p>
+          <div class="sec-eyebrow reveal">{% translate "Das Angebot" %}</div>
+          <h2 class="sec-h reveal">{% translate "Unterricht, der zu deinem Ziel passt." %}</h2>
+          <p class="sec-lead reveal">{% translate "Ob du selbstbewusster sprechen, eine Prüfung bestehen oder einfach wieder Freude an der Sprache finden willst — wir setzen genau dort an, wo du gerade stehst." %}</p>
           <div class="offer-grid">
             <div class="offer reveal" style="--oc: #2f9152">
               <div class="oc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11a6 6 0 0 1 12 0v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-7z"></path><path d="M10 5.6a2 2 0 0 1 4 0V6"></path><rect x="9" y="13" width="6" height="7" rx="1"></rect><path d="M9 12h6"></path></svg></div>
-              <h3>Zusammenarbeit mit Teens</h3>
-              <p>Schule im Griff, ohne Stress. Fokus auf <strong>Schularbeiten, Tests und Matura</strong> — mit klarer Struktur, ehrlichem Feedback und der Motivation, dranzubleiben.</p>
+              <h3>{% translate "Zusammenarbeit mit Teens" %}</h3>
+              <p>{% translate "Schule im Griff, ohne Stress. Fokus auf <strong>Schularbeiten, Tests und Matura</strong> — mit klarer Struktur, ehrlichem Feedback und der Motivation, dranzubleiben." %}</p>
             </div>
             <div class="offer reveal" style="--oc: #d0925a">
               <div class="oc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14c.8 1.2 2 2 3.5 2s2.7-.8 3.5-2"></path><path d="M9 9.5h.01"></path><path d="M15 9.5h.01"></path></svg></div>
-              <h3>Zusammenarbeit mit Kindern</h3>
-              <p>Spielerisch zur Sprache. Fokus auf eine <strong>solide Basis und Freude am Englisch</strong> — mit Geschichten, Spielen und vielen kleinen Erfolgserlebnissen.</p>
+              <h3>{% translate "Zusammenarbeit mit Kindern" %}</h3>
+              <p>{% translate "Spielerisch zur Sprache. Fokus auf eine <strong>solide Basis und Freude am Englisch</strong> — mit Geschichten, Spielen und vielen kleinen Erfolgserlebnissen." %}</p>
             </div>
             <div class="offer reveal" style="--oc: #4f7cb0">
               <div class="oc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L3 8l9 4 9-4-9-4z"></path><path d="M7 10.5V15c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4.5"></path><path d="M21 8v5"></path></svg></div>
-              <h3>Zusammenarbeit mit Studierenden</h3>
-              <p>Englisch auf akademischem Niveau. Fokus auf <strong>Präsentationen, Arbeiten und Fachvokabular</strong> — präzise formulieren und souverän auftreten.</p>
+              <h3>{% translate "Zusammenarbeit mit Studierenden" %}</h3>
+              <p>{% translate "Englisch auf akademischem Niveau. Fokus auf <strong>Präsentationen, Arbeiten und Fachvokabular</strong> — präzise formulieren und souverän auftreten." %}</p>
             </div>
             <div class="offer reveal" style="--oc: #9a6aa6">
               <div class="oc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
-              <h3>Zusammenarbeit mit Berufstätigen</h3>
-              <p>Englisch, das im Job trägt. Fokus auf <strong>Meetings, E-Mails und Verhandlungssicherheit</strong> — flexibel terminiert und auf deine Branche zugeschnitten.</p>
+              <h3>{% translate "Zusammenarbeit mit Berufstätigen" %}</h3>
+              <p>{% translate "Englisch, das im Job trägt. Fokus auf <strong>Meetings, E-Mails und Verhandlungssicherheit</strong> — flexibel terminiert und auf deine Branche zugeschnitten." %}</p>
             </div>
           </div>
         </div>
@@ -530,24 +547,24 @@
       <section class="block" id="ansatz">
         <div class="wrap">
           <div class="approach reveal">
-            <div class="sec-eyebrow">Mein Ansatz</div>
-            <h2 class="sec-h">Lernen mit Köpfchen — und Geduld.</h2>
-            <p class="sec-lead">Drei Grundsätze, die jeden Unterricht prägen.</p>
+            <div class="sec-eyebrow">{% translate "Mein Ansatz" %}</div>
+            <h2 class="sec-h">{% translate "Lernen mit Köpfchen — und Geduld." %}</h2>
+            <p class="sec-lead">{% translate "Drei Grundsätze, die jeden Unterricht prägen." %}</p>
             <div class="appr-grid">
               <div class="appr">
                 <div class="ap-n">01</div>
-                <h4>Lernpsychologisch fundiert</h4>
-                <p>Ich nutze, was die Forschung über Motivation und Gedächtnis weiß — damit du effizienter lernst und Gelerntes wirklich verankerst.</p>
+                <h4>{% translate "Lernpsychologisch fundiert" %}</h4>
+                <p>{% translate "Ich nutze, was die Forschung über Motivation und Gedächtnis weiß — damit du effizienter lernst und Gelerntes wirklich verankerst." %}</p>
               </div>
               <div class="appr">
                 <div class="ap-n">02</div>
-                <h4>Individuell angepasst</h4>
-                <p>Keine Schablone. Tempo, Themen und Methoden richten sich nach dir — ob du strukturiert übst oder lieber im Gespräch lernst.</p>
+                <h4>{% translate "Individuell angepasst" %}</h4>
+                <p>{% translate "Keine Schablone. Tempo, Themen und Methoden richten sich nach dir — ob du strukturiert übst oder lieber im Gespräch lernst." %}</p>
               </div>
               <div class="appr">
                 <div class="ap-n">03</div>
-                <h4>Nachhaltig &amp; motivierend</h4>
-                <p>Kleine Erfolge, die sich summieren. Wir bauen gemeinsam dein Selbstvertrauen auf, damit du dranbleibst und Freude an der Sprache behältst.</p>
+                <h4>{% translate "Nachhaltig &amp; motivierend" %}</h4>
+                <p>{% translate "Kleine Erfolge, die sich summieren. Wir bauen gemeinsam dein Selbstvertrauen auf, damit du dranbleibst und Freude an der Sprache behältst." %}</p>
               </div>
             </div>
           </div>
@@ -557,41 +574,41 @@
       <!-- PREISE -->
       <section class="block" id="preise">
         <div class="wrap">
-          <div class="sec-eyebrow reveal">Preise</div>
-          <h2 class="sec-h reveal">Faire Preise, klare Pakete.</h2>
-          <p class="sec-lead reveal">{% if featured %}Mit dem {{ featured.n }}er-Paket zahlst du <strong>€{{ featured.per_unit }} pro Einheit</strong> — so lernen fast alle meine Schüler*innen. {% endif %}1 Einheit dauert 45 Minuten. Keine Abos, keine versteckten Kosten.</p>
+          <div class="sec-eyebrow reveal">{% translate "Preise" %}</div>
+          <h2 class="sec-h reveal">{% translate "Faire Preise, klare Pakete." %}</h2>
+          <p class="sec-lead reveal">{% if featured %}{% blocktranslate with n=featured.n price=featured.per_unit %}Mit dem {{ n }}er-Paket zahlst du <strong>€{{ price }} pro Einheit</strong> — so lernen fast alle meine Schüler*innen.{% endblocktranslate %} {% endif %}{% translate "1 Einheit dauert 45 Minuten. Keine Abos, keine versteckten Kosten." %}</p>
           <div class="price-grid">
             {% for pack in packs %}
             <div class="price-card reveal{% if pack.feat %} feat{% endif %}">
               {% if pack.tag %}<div class="pc-tag">{{ pack.tag }}</div>{% endif %}
-              <div class="pc-credits">{{ pack.n }} {% if pack.n == 1 %}Einheit{% else %}Einheiten{% endif %}</div>
+              <div class="pc-credits">{% blocktranslate count n=pack.n %}{{ n }} Einheit{% plural %}{{ n }} Einheiten{% endblocktranslate %}</div>
               {% if pack.feat and pack.per_unit %}
-              <div class="pc-price">€{{ pack.per_unit }}<span class="pc-unit">/ Einheit</span></div>
-              <div class="pc-each">{{ pack.price }} für {{ pack.n }} Einheiten</div>
+              <div class="pc-price">€{{ pack.per_unit }}<span class="pc-unit">{% translate "/ Einheit" %}</span></div>
+              <div class="pc-each">{% blocktranslate with price=pack.price n=pack.n %}{{ price }} für {{ n }} Einheiten{% endblocktranslate %}</div>
               {% else %}
               <div class="pc-price">{{ pack.price }}</div>
-              {% if pack.per_unit %}<div class="pc-each">€{{ pack.per_unit }} pro Einheit</div>{% endif %}
+              {% if pack.per_unit %}<div class="pc-each">{% blocktranslate with price=pack.per_unit %}€{{ price }} pro Einheit{% endblocktranslate %}</div>{% endif %}
               {% endif %}
               <div class="pc-card-cta">
-                <a class="btn{% if not pack.feat %} ghost{% endif %}" href="{% url 'intro' %}"><span class="grainbtn"></span>Loslegen</a>
+                <a class="btn{% if not pack.feat %} ghost{% endif %}" href="{% url 'intro' %}"><span class="grainbtn"></span>{% translate "Loslegen" %}</a>
               </div>
             </div>
             {% endfor %}
           </div>
-          <p class="price-note reveal">Das <strong>erste Kennenlerngespräch mit mir ist kostenlos</strong> und unverbindlich — ganz ohne Zahlungsdaten. Einheiten buchst du erst, wenn du weitermachen möchtest.</p>
+          <p class="price-note reveal">{% translate "Das <strong>erste Kennenlerngespräch mit mir ist kostenlos</strong> und unverbindlich — ganz ohne Zahlungsdaten. Einheiten buchst du erst, wenn du weitermachen möchtest." %}</p>
         </div>
       </section>
 
       <!-- STIMMEN / REVIEWS -->
       <section class="block" id="stimmen">
         <div class="wrap">
-          <div class="sec-eyebrow reveal">Stimmen</div>
-          <h2 class="sec-h reveal">Stimmen anderer Schüler*Innen</h2>
-          <p class="sec-lead reveal">Was Schüler*innen und Eltern über den Unterricht mit Davit sagen.</p>
+          <div class="sec-eyebrow reveal">{% translate "Stimmen" %}</div>
+          <h2 class="sec-h reveal">{% translate "Stimmen anderer Schüler*Innen" %}</h2>
+          <p class="sec-lead reveal">{% translate "Was Schüler*innen und Eltern über den Unterricht mit Davit sagen." %}</p>
           <div class="reviews-grid">
 
             <div class="review reveal">
-              <div class="review-stars" aria-label="5 von 5 Sternen">
+              <div class="review-stars" aria-label="{% translate "5 von 5 Sternen" %}">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
@@ -599,20 +616,20 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
               </div>
               <div class="review-quote">
-                <p>Davit hat meine Tochter (erste Klasse TGM) während der Sommerferien (!) dazu motiviert, sich über sechs Wochen regelmäßig mit Englisch zu beschäftigen. Er ist sehr sympathisch, nett und zuverlässig in der Kommunikation mit mir. Außerdem ist er sehr strukturiert und der Online-Unterricht funktioniert sehr gut — am Anfang war ich diesbezüglich skeptisch.</p>
-                <p>Vor allem aber sagt meine Tochter, dass der Unterricht mit Davit Spaß macht und er die Dinge sehr gut erklären kann, so dass sie alles gut versteht. Alles in allem können wir Davit nur wärmstens empfehlen!</p>
+                <p>{% translate "Davit hat meine Tochter (erste Klasse TGM) während der Sommerferien (!) dazu motiviert, sich über sechs Wochen regelmäßig mit Englisch zu beschäftigen. Er ist sehr sympathisch, nett und zuverlässig in der Kommunikation mit mir. Außerdem ist er sehr strukturiert und der Online-Unterricht funktioniert sehr gut — am Anfang war ich diesbezüglich skeptisch." %}</p>
+                <p>{% translate "Vor allem aber sagt meine Tochter, dass der Unterricht mit Davit Spaß macht und er die Dinge sehr gut erklären kann, so dass sie alles gut versteht. Alles in allem können wir Davit nur wärmstens empfehlen!" %}</p>
               </div>
               <div class="review-by">
                 <div class="review-av" aria-hidden="true">H</div>
                 <div>
                   <div class="review-name">Helga</div>
-                  <div class="review-role">Mutter einer Schülerin · TGM, 1. Klasse</div>
+                  <div class="review-role">{% translate "Mutter einer Schülerin · TGM, 1. Klasse" %}</div>
                 </div>
               </div>
             </div>
 
             <div class="review reveal">
-              <div class="review-stars" aria-label="5 von 5 Sternen">
+              <div class="review-stars" aria-label="{% translate "5 von 5 Sternen" %}">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
@@ -620,20 +637,20 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
               </div>
               <div class="review-quote">
-                <p>Davit ist ein professioneller, einfühlsamer und sehr motivierter Lehrer. Er hat es geschafft, nach schlechten Noten und negativen Erfahrungen in der Schule meinen Sohn aus dem Motivationstief zu holen.</p>
-                <p>Er geht auf die Probleme des Schülers immer sehr gut ein und erklärt die Inhalte verständlich. Mein Sohn kam mit ihm sehr gut zurecht und hat sich in Englisch deutlich verbessert. Einfach nur zu empfehlen. Danke Davit!</p>
+                <p>{% translate "Davit ist ein professioneller, einfühlsamer und sehr motivierter Lehrer. Er hat es geschafft, nach schlechten Noten und negativen Erfahrungen in der Schule meinen Sohn aus dem Motivationstief zu holen." %}</p>
+                <p>{% translate "Er geht auf die Probleme des Schülers immer sehr gut ein und erklärt die Inhalte verständlich. Mein Sohn kam mit ihm sehr gut zurecht und hat sich in Englisch deutlich verbessert. Einfach nur zu empfehlen. Danke Davit!" %}</p>
               </div>
               <div class="review-by">
                 <div class="review-av" aria-hidden="true">V</div>
                 <div>
                   <div class="review-name">Vesna</div>
-                  <div class="review-role">Mutter eines Schülers</div>
+                  <div class="review-role">{% translate "Mutter eines Schülers" %}</div>
                 </div>
               </div>
             </div>
 
             <div class="review reveal">
-              <div class="review-stars" aria-label="5 von 5 Sternen">
+              <div class="review-stars" aria-label="{% translate "5 von 5 Sternen" %}">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
@@ -641,14 +658,14 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9l6.6-.8z"/></svg>
               </div>
               <div class="review-quote">
-                <p>Nicht nur, dass seine Muttersprache Englisch ist — er beherrscht auch Deutsch ebenso sehr gut. Bei ihm habe ich das Gefühl, die netteste Englisch-Nachhilfe von ganz Wien an meiner Seite zu haben.</p>
-                <p>In kürzester Zeit habe ich mich dank ihm sehr verbessert. Von ihm zu lernen macht mir Spaß und motiviert mich, auch weil er sehr verständnisvoll und freundlich ist. Er holt einen dort ab, wo man gerade steht. Mit ihm habe ich das Gefühl gewonnen, die Matura schaffen zu können :-)</p>
+                <p>{% translate "Nicht nur, dass seine Muttersprache Englisch ist — er beherrscht auch Deutsch ebenso sehr gut. Bei ihm habe ich das Gefühl, die netteste Englisch-Nachhilfe von ganz Wien an meiner Seite zu haben." %}</p>
+                <p>{% translate "In kürzester Zeit habe ich mich dank ihm sehr verbessert. Von ihm zu lernen macht mir Spaß und motiviert mich, auch weil er sehr verständnisvoll und freundlich ist. Er holt einen dort ab, wo man gerade steht. Mit ihm habe ich das Gefühl gewonnen, die Matura schaffen zu können :-)" %}</p>
               </div>
               <div class="review-by">
                 <div class="review-av" aria-hidden="true">D</div>
                 <div>
                   <div class="review-name">Doris</div>
-                  <div class="review-role">Matura-Vorbereitung</div>
+                  <div class="review-role">{% translate "Matura-Vorbereitung" %}</div>
                 </div>
               </div>
             </div>
@@ -661,13 +678,13 @@
       <section class="block">
         <div class="wrap">
           <div class="cta-band reveal">
-            <h2>Bereit für dein kostenloses Kennenlerngespräch?</h2>
-            <p>Such dir einfach einen Termin im Kalender aus. Die erste Einheit ist ein unverbindliches Kennenlernen — wir schauen, wo du stehst und wohin du willst.</p>
+            <h2>{% translate "Bereit für dein kostenloses Kennenlerngespräch?" %}</h2>
+            <p>{% translate "Such dir einfach einen Termin im Kalender aus. Die erste Einheit ist ein unverbindliches Kennenlernen — wir schauen, wo du stehst und wohin du willst." %}</p>
             <div class="hero-cta">
-              <a class="btn lg" href="{% url 'intro' %}"><span class="grainbtn"></span>Jetzt Termin buchen
+              <a class="btn lg" href="{% url 'intro' %}"><span class="grainbtn"></span>{% translate "Jetzt Termin buchen" %}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
               </a>
-              <a class="btn ghost lg" href="/faq/">Häufige Fragen ansehen</a>
+              <a class="btn ghost lg" href="{% url 'faq' %}">{% translate "Häufige Fragen ansehen" %}</a>
             </div>
           </div>
         </div>
@@ -679,14 +696,15 @@
         <div>
           <a class="brand" href="#top" style="margin-bottom:14px;">
             <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-            <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+            <div class="wordmark">the green <span>pencil</span><span class="sub">{% translate "Englisch-Nachhilfe" %}</span></div>
           </a>
-          <div class="foot-legal">Englisch-Nachhilfe mit Davit Hovakimyan · Wien, Österreich</div>
-          <div class="foot-legal" style="margin-top:8px;"><a href="{% url 'agb' %}" style="color:var(--c1);text-decoration:none;">AGB</a> · <a href="{% url 'widerruf' %}" style="color:var(--c1);text-decoration:none;">Widerruf</a> · <a href="{% url 'impressum' %}" style="color:var(--c1);text-decoration:none;">Impressum</a> · <a href="{% url 'datenschutz' %}" style="color:var(--c1);text-decoration:none;">Datenschutz</a> · <a href="#" onclick="openCookieSettings();return false;" style="color:var(--c1);text-decoration:none;">Cookie-Einstellungen</a></div>
+          <div class="foot-legal">{% translate "Englisch-Nachhilfe mit Davit Hovakimyan · Wien, Österreich" %}</div>
+          <div class="foot-legal" style="margin-top:8px;"><a href="{% url 'agb' %}" style="color:var(--c1);text-decoration:none;">{% translate "AGB" %}</a> · <a href="{% url 'widerruf' %}" style="color:var(--c1);text-decoration:none;">{% translate "Widerruf" %}</a> · <a href="{% url 'impressum' %}" style="color:var(--c1);text-decoration:none;">{% translate "Impressum" %}</a> · <a href="{% url 'datenschutz' %}" style="color:var(--c1);text-decoration:none;">{% translate "Datenschutz" %}</a> · <a href="#" onclick="openCookieSettings();return false;" style="color:var(--c1);text-decoration:none;">{% translate "Cookie-Einstellungen" %}</a></div>
+          <div class="foot-legal" style="margin-top:8px;">{% if LANGUAGE_CODE == "en" %}<a href="{{ lang_urls.de }}" hreflang="de" lang="de" style="color:var(--c1);text-decoration:none;">Deutsche Version</a>{% else %}<a href="{{ lang_urls.en }}" hreflang="en" lang="en" style="color:var(--c1);text-decoration:none;">English version</a>{% endif %}</div>
         </div>
         <div class="foot-contact">
           <a href="mailto:davit@thegreenpencil.at"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>davit@thegreenpencil.at</a>
-          <a href="https://wa.me/436763975535?text=Hallo%20Davit%2C%20ich%20habe%20eine%20Frage%20zur%20Englisch-Nachhilfe." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21h.004c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 1.82c2.16 0 4.19.84 5.72 2.37a8.04 8.04 0 0 1 2.37 5.72c0 4.46-3.63 8.09-8.1 8.09a8.06 8.06 0 0 1-4.11-1.13l-.29-.17-3.05.8.81-2.97-.19-.31a8.02 8.02 0 0 1-1.24-4.31c0-4.46 3.63-8.09 8.09-8.09zm-3.6 4.27c-.17 0-.45.06-.69.31s-.91.89-.91 2.17.93 2.52 1.06 2.69c.13.17 1.83 2.79 4.43 3.91.62.27 1.1.43 1.48.55.62.2 1.19.17 1.64.1.5-.07 1.54-.63 1.76-1.24s.22-1.13.15-1.24c-.06-.11-.24-.17-.5-.31s-1.54-.76-1.78-.85c-.24-.09-.41-.13-.59.13s-.68.85-.83 1.02c-.15.17-.31.2-.57.07s-1.09-.4-2.08-1.28c-.77-.69-1.29-1.53-1.44-1.79s-.02-.4.11-.53c.12-.12.26-.31.39-.46s.17-.26.26-.43c.09-.17.04-.32-.02-.46s-.59-1.42-.81-1.94c-.21-.51-.43-.44-.59-.45z"></path></svg>+43 676 397 5535</a>
+          <a href="https://wa.me/436763975535?text={% translate "Hallo%20Davit%2C%20ich%20habe%20eine%20Frage%20zur%20Englisch-Nachhilfe." %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21h.004c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 1.82c2.16 0 4.19.84 5.72 2.37a8.04 8.04 0 0 1 2.37 5.72c0 4.46-3.63 8.09-8.1 8.09a8.06 8.06 0 0 1-4.11-1.13l-.29-.17-3.05.8.81-2.97-.19-.31a8.02 8.02 0 0 1-1.24-4.31c0-4.46 3.63-8.09 8.09-8.09zm-3.6 4.27c-.17 0-.45.06-.69.31s-.91.89-.91 2.17.93 2.52 1.06 2.69c.13.17 1.83 2.79 4.43 3.91.62.27 1.1.43 1.48.55.62.2 1.19.17 1.64.1.5-.07 1.54-.63 1.76-1.24s.22-1.13.15-1.24c-.06-.11-.24-.17-.5-.31s-1.54-.76-1.78-.85c-.24-.09-.41-.13-.59.13s-.68.85-.83 1.02c-.15.17-.31.2-.57.07s-1.09-.4-2.08-1.28c-.77-.69-1.29-1.53-1.44-1.79s-.02-.4.11-.53c.12-.12.26-.31.39-.46s.17-.26.26-.43c.09-.17.04-.32-.02-.46s-.59-1.42-.81-1.94c-.21-.51-.43-.44-.59-.45z"></path></svg>+43 676 397 5535</a>
         </div>
       </div>
     </footer>

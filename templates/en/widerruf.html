@@ -1,0 +1,70 @@
+{% extends "legal_base.html" %}
+{% block title %}Right of withdrawal{% endblock %}
+{% block content %}
+<h1>Right of withdrawal</h1>
+<p class="updated muted">For consumers in distance contracts · under the Austrian Distance and Off-Premises Contracts Act (FAGG)</p>
+{% include "en/_translation_note.html" %}
+
+<h2>Right of withdrawal</h2>
+<p>
+  As a consumer, you have the right to withdraw from this contract within <strong>fourteen days</strong>
+  without giving any reason. The withdrawal period is fourteen days from the day the contract is
+  concluded (when buying lessons: from the day you purchased the lessons).
+</p>
+<p>
+  To exercise your right of withdrawal, you must inform us
+</p>
+<p>
+  Davit Hovakimyan, Kraygasse 94/2/6, 1220 Vienna, Austria<br>
+  Email: <a href="mailto:davit18h@gmail.com">davit18h@gmail.com</a> · Phone: +43&nbsp;676&nbsp;397&nbsp;5535
+</p>
+<p>
+  of your decision to withdraw from this contract by means of a clear statement (e.g. a letter sent by
+  post or an email). You can use the model withdrawal form below, but you do not have to.
+</p>
+<p>
+  To meet the withdrawal deadline, it is sufficient for you to send your notice of withdrawal before the
+  withdrawal period has expired.
+</p>
+
+<h2>Effects of withdrawal</h2>
+<p>
+  If you withdraw from this contract, we will refund all payments we have received from you without undue
+  delay and at the latest within fourteen days from the day on which we receive your notice of withdrawal.
+  We will use the same means of payment that you used for the original transaction, unless expressly
+  agreed otherwise with you; in no case will you be charged any fees for this refund.
+</p>
+
+<h2>Services starting before the withdrawal period ends</h2>
+<p>
+  If you want lessons, or the use of purchased lessons, to begin <em>before</em> the withdrawal period
+  has expired, you confirm this expressly before your first booking. If you have expressly requested a
+  lesson that has already started or been fully delivered, you must pay an amount proportionate to the
+  services already provided if you withdraw. Your right of withdrawal expires for lessons that have been
+  fully delivered where delivery began with your express consent before the end of the withdrawal period
+  (§&nbsp;10, §&nbsp;16 FAGG).
+</p>
+
+<h2>Model withdrawal form</h2>
+<p class="muted">(If you wish to withdraw from the contract, please fill in this form and send it back to us.)</p>
+<div style="border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:rgba(251,248,241,0.5);">
+  <p>To: Davit Hovakimyan, Kraygasse 94/2/6, 1220 Vienna, Austria, davit18h@gmail.com</p>
+  <p>
+    I/We (*) hereby withdraw from the contract concluded by me/us (*) for the purchase of the
+    following lessons/service (*):
+  </p>
+  <p>_______________________________________________</p>
+  <p>Ordered on (*) / received on (*): _______________</p>
+  <p>Name of consumer(s): _______________</p>
+  <p>Address of consumer(s): _______________</p>
+  <p>Date: _______________</p>
+  <p>Signature (only if this form is sent on paper): _______________</p>
+  <p class="muted" style="font-size:13px;">(*) Delete as appropriate.</p>
+</div>
+
+<p class="muted" style="margin-top:28px;font-size:14px;">
+  See also our <a href="{% url 'agb' %}">terms and conditions</a>, the
+  <a href="{% url 'impressum' %}">legal notice</a> and the
+  <a href="{% url 'datenschutz' %}">privacy policy</a>.
+</p>
+{% endblock %}

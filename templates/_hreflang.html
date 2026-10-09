@@ -1,0 +1,7 @@
+{% comment %}
+  hreflang alternates so search engines pair the German and English version of
+  a public page. German is the default (x-default).
+{% endcomment %}
+{% if has_translation %}<link rel="alternate" hreflang="de" href="{{ lang_abs_urls.de }}">
+<link rel="alternate" hreflang="en" href="{{ lang_abs_urls.en }}">
+<link rel="alternate" hreflang="x-default" href="{{ lang_abs_urls.de }}">{% endif %}

@@ -1,0 +1,123 @@
+{% extends "legal_base.html" %}
+{% block title %}Terms and conditions{% endblock %}
+{% block content %}
+<h1>General terms and conditions</h1>
+<p class="updated muted">As of: July 2026</p>
+{% include "en/_translation_note.html" %}
+
+<h2>1. Scope and contracting party</h2>
+<p>
+  These terms apply to all contracts for English tutoring and exam preparation, and to the use of the
+  online booking system, concluded between you and
+</p>
+<p>
+  Davit Hovakimyan, Kraygasse 94/2/6, 1220 Vienna, Austria<br>
+  Email: <a href="mailto:davit18h@gmail.com">davit18h@gmail.com</a> · Phone: +43&nbsp;676&nbsp;397&nbsp;5535
+</p>
+<p>
+  (hereinafter “we” / “The Green Pencil”). We do not accept any deviating terms unless we have expressly
+  agreed to them in writing.
+</p>
+
+<h2>2. Subject of the contract</h2>
+<p>
+  The subject of the contract is the provision of one-to-one English lessons (online or in person) and of
+  an account in the booking system for scheduling lessons and managing purchased lessons (“lesson
+  credits”). The exact scope, the available packages and the current prices are as shown on the website
+  at the time of booking.
+</p>
+
+<h2>3. Conclusion of the contract</h2>
+<p>
+  The packages and prices shown on the website are a non-binding invitation to make an offer. By booking
+  or buying lessons, you make a binding offer. The contract is concluded when we confirm it (e.g. by a
+  booking or payment confirmation by email, or by crediting the lessons to your account).
+</p>
+
+<h2>4. Prices and payment</h2>
+<p>
+  The prices shown on the website at the time of booking apply. As teaching services of a private tutor,
+  our services are exempt from VAT under §&nbsp;6(1)(11) of the Austrian VAT Act (UStG); no VAT is
+  charged. You can pay either through the payment provider Stripe (card payment) or as agreed directly
+  with the tutor. We provide a receipt for every payment.
+</p>
+
+<h2>5. Lesson credits and validity</h2>
+<p>
+  Purchased lessons are credited to your account and can be redeemed for lesson appointments. Lesson
+  credits are valid for booking lessons for <strong>three years from purchase</strong>. This time limit
+  allows lesson times to be planned and lessons to be organised across the school year.
+</p>
+<p>
+  After this period, the amount you paid is <strong>not</strong> forfeited: within the statutory
+  limitation period, you can request a refund of the amount paid for lessons you have not yet redeemed.
+  To that extent, no forfeiture clause applies to your detriment. Lesson credits cannot be transferred to
+  third parties.
+</p>
+
+<h2>6. Appointments, cancellation and rescheduling</h2>
+<p>
+  You book appointments through the booking system. You can cancel or reschedule an appointment free of
+  charge <strong>up to 24&nbsp;hours</strong> before the lesson starts. For later cancellations or if you
+  do not show up, the lesson credit is forfeited so that the freed-up slot can be offered fairly to
+  others. If we have to cancel an appointment for reasons within our control, the lesson will of course be
+  credited back to you or a replacement appointment offered.
+</p>
+
+<h2>7. Right of withdrawal for consumers</h2>
+<p>
+  If you are a consumer within the meaning of the Austrian Consumer Protection Act, you have a statutory
+  right of withdrawal for contracts concluded online. The details, the deadline, the effects of withdrawal
+  and a model withdrawal form can be found in our
+  <a href="{% url 'widerruf' %}">information on the right of withdrawal</a>.
+</p>
+
+<h2>8. Minors</h2>
+<p>
+  Where lessons are for students who are minors, the contract is concluded by their parents or legal
+  guardians, or with their consent. The parents or legal guardians are responsible for fulfilling the
+  contractual obligations (in particular payment).
+</p>
+
+<h2>9. Users’ obligations</h2>
+<p>
+  You must provide truthful information when registering, keep your login details confidential and not
+  misuse the booking system.
+</p>
+
+<h2>10. Warranty and liability</h2>
+<p>
+  The statutory warranty provisions apply. We are liable without limitation for damage resulting from
+  injury to life, body or health, and for intent and gross negligence. For slight negligence, we are only
+  liable for breach of an essential contractual obligation, and only up to the damage that is typical and
+  foreseeable for this type of contract. We do not guarantee any particular learning or exam result.
+</p>
+
+<h2>11. Data protection</h2>
+<p>
+  Information on how we process your personal data can be found in our
+  <a href="{% url 'datenschutz' %}">privacy policy</a>.
+</p>
+
+<h2>12. Dispute resolution</h2>
+<p>
+  The European Commission provides a platform for online dispute resolution (ODR):
+  <a href="https://ec.europa.eu/consumers/odr" rel="noopener">ec.europa.eu/consumers/odr</a>. We are not
+  obliged, and generally not willing, to take part in dispute resolution proceedings before a consumer
+  arbitration body.
+</p>
+
+<h2>13. Final provisions</h2>
+<p>
+  Austrian law applies, excluding the UN Convention on Contracts for the International Sale of Goods.
+  Mandatory consumer protection provisions of the country of your habitual residence remain unaffected.
+  Should any provision of these terms be invalid, the validity of the remaining provisions remains
+  unaffected.
+</p>
+
+<p class="muted" style="margin-top:28px;font-size:14px;">
+  See also our <a href="{% url 'widerruf' %}">right of withdrawal</a>, the
+  <a href="{% url 'impressum' %}">legal notice</a> and the
+  <a href="{% url 'datenschutz' %}">privacy policy</a>.
+</p>
+{% endblock %}
