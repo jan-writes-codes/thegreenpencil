@@ -74,5 +74,6 @@ urlpatterns = [
     path('api/lesson-files/<str:lesson_id>/', views.api_lesson_files),
     path('api/users/', views.api_users),
     path('api/users/<str:slug>/', views.api_user_detail),
+    path('api/users/<str:slug>/avatar/', views.api_user_avatar),
     path('api/settings/', views.api_settings),
 ]

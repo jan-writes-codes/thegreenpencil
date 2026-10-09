@@ -12,6 +12,10 @@ class User(AbstractUser):
     initials = models.CharField(max_length=4, default='')
     credits = models.IntegerField(default=0)
     photo = models.TextField(blank=True, null=True)  # base64 data URL
+    # Self-chosen profile picture: an emoji on a solid background colour. Shown
+    # when there's no photo; empty means the initials avatar.
+    avatar_emoji = models.CharField(max_length=16, blank=True, default='')
+    avatar_bg = models.CharField(max_length=7, blank=True, default='')
     color1 = models.CharField(max_length=20, default='#c2714d')
     color2 = models.CharField(max_length=20, default='#a85535')
     billing_name = models.CharField(max_length=200, blank=True)

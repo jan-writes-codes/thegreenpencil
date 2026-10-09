@@ -376,6 +376,48 @@ class ProfilePhotoPersistenceTests(FluentDataMixin, TestCase):
         self.assertIsNone(self.maya.photo)
 
 
+class EmojiAvatarTests(FluentDataMixin, TestCase):
+    def put_avatar(self, slug, body):
+        return self.client.put(f"/api/users/{slug}/avatar/", data=json.dumps(body),
+                               content_type="application/json")
+
+    def test_student_sets_own_avatar_and_it_replaces_photo(self):
+        self.maya.photo = "data:image/png;base64,iVBORw0KGgo="
+        self.maya.save()
+        self.client.force_login(self.maya)
+        resp = self.put_avatar("maya", {"emoji": "🦊", "bg": "#F6C945"})
+        self.assertEqual(resp.status_code, 200)
+        self.maya.refresh_from_db()
+        self.assertEqual((self.maya.avatar_emoji, self.maya.avatar_bg), ("🦊", "#f6c945"))
+        self.assertIsNone(self.maya.photo)
+        payload = extract_payload(self.client.get(reverse("app")).content.decode())
+        self.assertEqual(payload["currentUser"]["avatarEmoji"], "🦊")
+        self.assertEqual(payload["currentUser"]["avatarBg"], "#f6c945")
+
+    def test_tutor_sets_student_avatar_and_can_reset(self):
+        self.client.force_login(self.davit)
+        self.assertEqual(self.put_avatar("ines", {"emoji": "🐼", "bg": "#8fb8f2"}).status_code, 200)
+        self.assertEqual(self.put_avatar("ines", {"emoji": ""}).status_code, 200)
+        self.ines.refresh_from_db()
+        self.assertEqual((self.ines.avatar_emoji, self.ines.avatar_bg), ("", ""))
+
+    def test_student_cannot_set_someone_elses_avatar(self):
+        self.client.force_login(self.maya)
+        self.assertEqual(self.put_avatar("ines", {"emoji": "🐼", "bg": "#8fb8f2"}).status_code, 403)
+        self.assertEqual(self.put_avatar("davit", {"emoji": "🐼", "bg": "#8fb8f2"}).status_code, 403)
+
+    def test_tutor_cannot_set_another_tutors_avatar(self):
+        other = make_user("ana", "tutor", first_name="Ana", last_name="T")
+        self.client.force_login(self.davit)
+        self.assertEqual(self.put_avatar(other.slug, {"emoji": "🐼", "bg": "#8fb8f2"}).status_code, 403)
+
+    def test_rejects_text_and_bad_colours(self):
+        self.client.force_login(self.maya)
+        self.assertEqual(self.put_avatar("maya", {"emoji": "<b>", "bg": "#ffffff"}).status_code, 400)
+        self.assertEqual(self.put_avatar("maya", {"emoji": "🦊", "bg": "red;x:y"}).status_code, 400)
+        self.assertEqual(self.put_avatar("maya", {"emoji": "🦊" * 20, "bg": "#ffffff"}).status_code, 400)
+
+
 # --------------------------------------------------------------------------- #
 # Booking persistence + cross-user visibility  (Bug A, backend half)
 # --------------------------------------------------------------------------- #

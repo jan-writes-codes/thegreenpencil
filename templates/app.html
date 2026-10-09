@@ -902,6 +902,25 @@
 
   /* ---------- User menu + auth ---------- */
   button.avatar { cursor: pointer; font-family: var(--font-body); padding: 0; }
+  /* ---------- Emoji avatar ---------- */
+  .av-emoji { font-size: 1.75em; line-height: 1; font-weight: 400; }
+  .av-edit { position: relative; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; flex: 0 0 auto; }
+  .av-edit::after { content: "✎"; position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; background: var(--bg-2); border: 1px solid var(--line); color: var(--ink); }
+  .av-edit:hover .avatar { box-shadow: 0 0 0 3px rgba(48,144,80,0.35); }
+  .av-preview { display: flex; justify-content: center; margin: 6px 0 16px; }
+  .av-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 16px; }
+  .av-grid button { aspect-ratio: 1; font-size: 22px; line-height: 1; border-radius: 10px; border: 1px solid var(--line);
+    background: transparent; cursor: pointer; padding: 0; display: grid; place-items: center; }
+  .av-grid button.on { border-color: var(--ink); background: rgba(36,53,40,0.08); }
+  .av-colors { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-bottom: 18px; }
+  .av-colors button { width: 100%; aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .av-colors button.on { border-color: var(--ink); }
+  .av-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .av-actions .btn { width: auto; padding: 12px 26px; }
+  .av-actions .btn-text { width: auto; }
+  @media (max-width: 420px) { .av-grid, .av-colors { grid-template-columns: repeat(6, 1fr); } }
   .user-wrap { position: relative; }
   .user-menu { position: absolute; top: 46px; right: 0; width: 234px; background: var(--bg-2); border: 1px solid var(--line);
     border-radius: 14px; box-shadow: var(--shadow); padding: 8px; z-index: 65; animation: fade 0.15s ease; }
@@ -1150,6 +1169,7 @@
             <div class="avatar" id="umAvatar" style="background: conic-gradient(from 140deg, #7cb342, #309050, #4cb56b, #7cb342); width:40px; height:40px;">MK</div>
             <div><div class="um-name" id="umName">Maya Karlsson</div><div class="um-mail" id="umMail">maya@fluent.at</div></div>
           </div>
+          <button class="um-item" id="avatarPickBtn" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>Profilbild ändern</button>
           <button class="um-item" id="logoutBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Abmelden</button>
         </div>
       </div>
@@ -1422,6 +1442,7 @@
   <div class="modal-overlay" id="backdateModal" hidden></div>
   <div class="modal-overlay" id="lessonModal" hidden></div>
   <div class="modal-overlay" id="matPickModal" hidden></div>
+  <div class="modal-overlay" id="avatarModal" hidden></div>
 
 {{ django_data|json_script:"django-data" }}
 <script>
@@ -1480,6 +1501,7 @@
     c: [t.color1 || "#309050", t.color2 || "#277a42"],
     i: t.initials || "T",
     photo: t.photo || null,  // so the booking calendar shows the tutor's photo, not just initials
+    avatarEmoji: t.avatarEmoji || "", avatarBg: t.avatarBg || "",
   })) : [
     { id: "davit", name: "Davit", role: "Englisch-Tutor · Konversation & Prüfungen", c: ["#309050","#277a42"], i: "D" },
   ];
@@ -1489,7 +1511,7 @@
   const tutorAccounts = (DJ.tutors || []).map(t => ({
     id: t.slug, role: "tutor", name: t.name, email: t.email,
     i: t.initials || "T", c: [t.color1 || "#309050", t.color2 || "#277a42"],
-    photo: t.photo || null,
+    photo: t.photo || null, avatarEmoji: t.avatarEmoji || "", avatarBg: t.avatarBg || "",
   }));
   // The tutor "I" am when in the teacher view: the logged-in tutor if a tutor is
   // signed in, otherwise the first tutor (the one an admin impersonates by default).
@@ -1497,6 +1519,7 @@
     id: DJ.currentUser.slug, role: "tutor", name: DJ.currentUser.name,
     email: DJ.currentUser.email, i: DJ.currentUser.initials,
     c: [DJ.currentUser.color1, DJ.currentUser.color2], photo: DJ.currentUser.photo || null,
+    avatarEmoji: DJ.currentUser.avatarEmoji || "", avatarBg: DJ.currentUser.avatarBg || "",
   } : (tutorAccounts[0] || { id:"davit", role:"tutor", name:"Davit Petrosyan", email:"davit@fluent.at", i:"DV", c:["#309050","#277a42"], photo:null });
   const ADMIN = (DJ.role === "admin" && DJ.currentUser) ? {
     id: DJ.currentUser.slug,
@@ -1506,6 +1529,7 @@
     i: DJ.currentUser.initials,
     c: [DJ.currentUser.color1, DJ.currentUser.color2],
     photo: DJ.currentUser.photo || null,
+    avatarEmoji: DJ.currentUser.avatarEmoji || "", avatarBg: DJ.currentUser.avatarBg || "",
   } : { id:"admin", role:"admin", name:"Studio Admin", email:"admin@fluent.at", i:"AD", c:["#8a7cb0","#5f5188"], photo:null };
 
 {% include "_calendar.js" %}
@@ -1736,7 +1760,9 @@
   // for yet); the server is authoritative, so we don't clamp here.
   function setStudentCredits(id, val){ const s=studentById(id); if(!s) return; s.credits=val; if(id===state.currentUser){ state.credits=s.credits; updateCredits(); } }
   function addStudentCredits(id, n){ const s=studentById(id); if(!s) return; setStudentCredits(id, s.credits + n); }
-  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
+  // Avatar contents: a photo (as background) wins, then a chosen emoji, else initials.
+  function avatarText(t){ if(t && !t.photo && t.avatarEmoji) return `<span class="av-emoji">${esc(t.avatarEmoji)}</span>`; return esc((t && t.i) || ""); }
+  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; if(t && t.avatarEmoji && /^#[0-9a-f]{6}$/i.test(t.avatarBg||"")) return `background:${t.avatarBg};`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
 
   // ---------- Render tutors ----------
   function renderTutors() {
@@ -1744,7 +1770,7 @@
     TUTORS.forEach(t => {
       const chip = document.createElement("div");
       chip.className = "tutor-chip" + (t.id===state.tutor ? " sel" : "");
-      chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+      chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
         <div><div class="tn">${esc(t.name)}</div><div class="tm">${t.role}</div></div>`;
       chip.onclick = () => { state.tutor = t.id; state.selected = null; renderTutors(); renderWeek(); renderSummary(); };
       tutorsEl.appendChild(chip);
@@ -2050,7 +2076,7 @@
         sumCard.innerHTML = `
           <div class="manage-eyebrow">Stunde umbuchen</div>
           <div class="sum-head">
-            <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+            <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
             <div><div class="nm">${esc(b.title)}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
           </div>
           <div class="pick-prompt">
@@ -2097,7 +2123,7 @@
       sumCard.innerHTML = `
         <div class="manage-eyebrow">Buchung verwalten</div>
         <div class="sum-head">
-          <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+          <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
           <div><div class="nm">${esc(b.title)}</div><div class="rl">with ${esc(t.name)}</div></div>
         </div>
         <div class="sum-rows">
@@ -2163,7 +2189,7 @@
     const noCredit = state.credits < 1;
     sumCard.innerHTML = `
       <div class="sum-head">
-        <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+        <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
         <div><div class="nm">${esc(t.name)}</div><div class="rl">${t.role}</div></div>
       </div>
       <div class="sum-rows">
@@ -2418,7 +2444,7 @@
       const mod = canModify(b);
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
+        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${avatarText(t)}</div>
         <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip" title="Wartet auf Bestätigung durch deinen Tutor">Angefragt</span>':""}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
           ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
@@ -2777,7 +2803,7 @@
       const first = esc(s.name.split(" ")[0]);
       card.innerHTML=`
         <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":(bk.status==="requested"?"Anfrage · wartet auf dich":"Gebuchte Zeit")}</div>
-        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${avatarText(s)}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
         ${bk.status==="requested" && bk._pk ? `<div style="display:flex;gap:8px;margin:4px 0 14px;"><button class="btn" id="tReqConfirm" style="flex:1;"><span class="grainbtn"></span>Bestätigen</button><button class="btn ghost" id="tReqDecline" style="flex:1;">Ablehnen</button></div>` : ""}
         ${ended ? `
         <div class="done-note">
@@ -2956,7 +2982,7 @@
       <div class="modal-card" id="modalCard">
         <button class="modal-x" id="modalX" aria-label="Close">×</button>
         <div class="sum-head" style="margin-bottom:18px;">
-          <div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${s.i}</div>
+          ${s.isGuest ? `<div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div>` : `<button class="av-edit" id="modalAvatarBtn" title="Profilbild ändern" aria-label="Profilbild ändern"><div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div></button>`}
           <div><div class="nm">${esc(s.name)}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         </div>
         <div class="modal-add">
@@ -2996,6 +3022,7 @@
       </div>`;
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
+    if($("#modalAvatarBtn")) $("#modalAvatarBtn").onclick = ()=>openAvatarPicker(s);
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
     $("#studentModal").querySelectorAll("[data-review]").forEach(btn=> btn.onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && cardKind(c)===btn.dataset.review && c.status==="open"), "review"));
     $("#studentModal").querySelectorAll("[data-session]").forEach(btn=> btn.onclick=()=>openSession(+btn.dataset.session));
@@ -3050,7 +3077,7 @@
       const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
       const card=document.createElement("div"); card.className="rost";
       card.innerHTML=`
-        <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${s.i}</div>
+        <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${avatarText(s)}</div>
         <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}${nextTestLine(s.id)}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
@@ -3072,7 +3099,7 @@
     const nameLine = s.isGuest ? `${esc(s.name)} · Intro` : esc(s.name);
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-      <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
+      <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${avatarText(s)}</div>
       <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip">Anfrage</span>':""}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
       <div class="tail">${(!b.isIntro && b.status!=="requested" && b._pk)?`<button class="mini-btn" data-session="${b._pk}" title="Zusammenfassung, Übungen, Wortschatz, Fehler, Arbeitsblätter">Stunde öffnen</button>`:""}${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
@@ -3254,7 +3281,7 @@
       <div class="payout-table">
         <div class="payout-row payout-hrow"><div>Tutor</div><div>Abgeschl.</div><div>Migriert</div><div>Vergütbar</div><div>Wert</div></div>
         ${rows.length ? rows.map(r=>`<div class="payout-row">
-          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${esc(r.t.name)}</div>
+          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${avatarText(r.t)}</span>${esc(r.t.name)}</div>
           <div>${r.comp}</div><div class="${r.migr?'payout-mig':''}">${r.migr||"—"}</div><div><b>${r.pay}</b></div><div>€ ${r.value}</div>
         </div>`).join("") : `<div class="empty-list" style="padding:16px 0;">Noch keine Stunden im Zeitraum.</div>`}
         ${rows.length>1?`<div class="payout-row payout-total"><div>Gesamt</div><div>${sum("comp")}</div><div>${sum("migr")||"—"}</div><div><b>${sum("pay")}</b></div><div>€ ${sum("value")}</div></div>`:""}
@@ -3315,7 +3342,7 @@
     allAccounts().forEach(u=>{
       const item=document.createElement("button");
       item.className="admin-item"+(u.id===state.adminSel?" sel":"");
-      item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${u.i}</div>
+      item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${avatarText(u)}</div>
         <div class="ai-info"><div class="ai-name">${esc(u.name)}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${esc(u.email)}</div></div>`;
       item.onclick=()=>{ state.adminSel=u.id; renderAdmin(); };
       el.appendChild(item);
@@ -3329,7 +3356,7 @@
     const b=u.billing||{};
     el.innerHTML=`
       <div class="ed-head">
-        <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${u.i}</div>
+        <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${avatarText(u)}</div>
         <div class="ed-photo-actions">
           <div class="ed-who"><div class="ed-name">${esc(u.name)}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
           <div class="ed-photo-btns">
@@ -3381,7 +3408,7 @@
     $("#edName").oninput=()=>{
       const nm=$("#edName").value.trim();
       const avatar=el.querySelector(".ed-avatar");
-      if(avatar && !u.photo) avatar.textContent=initialsOf(nm);
+      if(avatar && !u.photo && !u.avatarEmoji) avatar.textContent=initialsOf(nm);
       const nameEl=el.querySelector(".ed-name");
       if(nameEl) nameEl.textContent=nm||u.name;
     };
@@ -3775,7 +3802,7 @@
       const open=errs.filter(c=>c.status==="open").length;
       return `<div class="li" data-session="${b._pk}">
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${esc(t.i)}</div>
+        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${avatarText(t)}</div>
         <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>
           ${b.summary ? `<div class="note-line">${esc(b.summary.split("\n")[0])}</div>` : ""}
           <div class="lh-meta">${open ? `<span class="lh-pill open">${open} Fehler offen</span>` : ""}${vocab.length ? `<span class="lh-pill">${vocab.length} ${vocab.length===1?"neues Wort":"neue Wörter"}</span>` : ""}${(b.exercises||[]).length ? `<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>` : ""}${b.homework ? `<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>` : ""}</div></div>
@@ -4624,11 +4651,60 @@
   }
   function closeNav(){ const n=$("#navMenu"); if(n){ n.classList.remove("open"); $("#navToggle").setAttribute("aria-expanded","false"); } }
 
+  // ---------- Emoji avatar picker ----------
+  // Students pick their own profile picture (an emoji on a colour); tutors can
+  // set it for a student from the student window.
+  const AV_EMOJI = ["🦊","🐼","🐨","🐯","🦁","🐸","🐵","🐶","🐱","🐰","🐻","🐧","🦉","🐢","🐙","🦄",
+    "🐳","🦋","🐝","🦖","🌻","🌵","🍀","🍉","🍕","🍩","⚽","🏀","🎸","🎨","🎮","📚",
+    "🚀","🌈","⭐","🔥","💎","👑","😎","🤓"];
+  const AV_COLORS = ["#f6c945","#f4a259","#ef7a6a","#f2a7c3","#c3a6f0","#8fb8f2","#7fd1d8","#9ad79a","#d6e685","#e8dccb","#2f8a4d","#3b4a6b"];
+  let avPick = null;  // { u, emoji, bg }
+  function openAvatarPicker(u){
+    avPick = { u, emoji: u.avatarEmoji || AV_EMOJI[0], bg: u.avatarBg || AV_COLORS[0] };
+    renderAvatarPicker(); $("#avatarModal").hidden=false;
+  }
+  function closeAvatarPicker(){ avPick=null; $("#avatarModal").hidden=true; }
+  function renderAvatarPicker(){
+    const p=avPick; if(!p) return;
+    const self = p.u.id===state.currentUser && state.role==="student";
+    const prev={ avatarEmoji:p.emoji, avatarBg:p.bg };
+    $("#avatarModal").innerHTML=`<div class="modal-card buy-card" id="avCard">
+      <button class="modal-x" id="avX" aria-label="Close">×</button>
+      <h3 class="buy-h">${self ? "Dein Profilbild" : "Profilbild für "+esc(p.u.name.split(" ")[0])}</h3>
+      <div class="av-preview"><div class="avatar" style="${avatarStyle(prev)};width:76px;height:76px;font-size:24px;">${avatarText(prev)}</div></div>
+      <div class="av-grid">${AV_EMOJI.map(e=>`<button type="button" data-av-e="${e}" class="${e===p.emoji?"on":""}">${e}</button>`).join("")}</div>
+      <div class="av-colors">${AV_COLORS.map(c=>`<button type="button" data-av-c="${c}" class="${c===p.bg?"on":""}" style="background:${c};" aria-label="Farbe ${c}"></button>`).join("")}</div>
+      <div class="av-actions">
+        ${p.u.avatarEmoji ? `<button class="btn-text" id="avReset">Zurücksetzen</button>` : `<span></span>`}
+        <button class="btn" id="avSave">Speichern</button>
+      </div>
+      ${p.u.photo ? `<div class="micro" style="margin-top:10px;">Ersetzt das aktuelle Foto.</div>` : ``}
+    </div>`;
+    $("#avCard").onclick=(e)=>e.stopPropagation();
+    $("#avX").onclick=closeAvatarPicker;
+    document.querySelectorAll("[data-av-e]").forEach(b=>b.onclick=()=>{ p.emoji=b.dataset.avE; renderAvatarPicker(); });
+    document.querySelectorAll("[data-av-c]").forEach(b=>b.onclick=()=>{ p.bg=b.dataset.avC; renderAvatarPicker(); });
+    $("#avSave").onclick=()=>saveAvatar(p.emoji, p.bg);
+    if($("#avReset")) $("#avReset").onclick=()=>saveAvatar("", "");
+  }
+  async function saveAvatar(emoji, bg){
+    const u=avPick && avPick.u; if(!u) return;
+    const r=await apiResult('PUT', '/api/users/'+encodeURIComponent(u.id)+'/avatar/', { emoji, bg });
+    if(!r.ok || !r.data){ toast((r.data && r.data.error) || "Profilbild konnte nicht gespeichert werden"); return; }
+    u.avatarEmoji=r.data.avatarEmoji||""; u.avatarBg=r.data.avatarBg||""; u.photo=r.data.photo||null;
+    closeAvatarPicker();
+    if(u.id===state.currentUser && state.role==="student") setIdentity(u);
+    if(state.teacherStudent===u) renderStudentModal();
+    if(state.role==="tutor") renderRoster();
+    toast(emoji ? "Profilbild gespeichert" : "Profilbild zurückgesetzt");
+  }
+
   // ---------- Auth / roles ----------
   function setIdentity(u){
     const st=avatarStyle(u);
-    const ma=$("#meAvatar"); ma.style.cssText=st; ma.textContent=u.i;
-    const um=$("#umAvatar"); um.style.cssText=st+";width:40px;height:40px;"; um.textContent=u.i;
+    const ma=$("#meAvatar"); ma.style.cssText=st; ma.innerHTML=avatarText(u);
+    const um=$("#umAvatar"); um.style.cssText=st+";width:40px;height:40px;"; um.innerHTML=avatarText(u);
+    $("#avatarPickBtn").hidden = state.role!=="student";
     $("#umName").textContent=u.name; $("#umMail").textContent=u.email;
     const first=(u.name||"").trim().split(" ")[0];
     document.querySelectorAll("[data-hello]").forEach(e=>{ e.textContent = first ? "Hi "+first+"!" : ""; });
@@ -4645,7 +4721,7 @@
     state.weekOffset=0; state.tWeekOffset=0;
     const t=$("#availToggle"); if(t){ t.classList.remove("active"); t.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Verfügbarkeit bearbeiten'; }
     $("#userMenu").hidden=true;
-    ["#studentModal","#receiptModal","#buyModal","#settleModal"].forEach(id=>{ const e=$(id); if(e) e.hidden=true; });
+    ["#studentModal","#receiptModal","#buyModal","#settleModal","#avatarModal"].forEach(id=>{ const e=$(id); if(e) e.hidden=true; });
   }
   function applyStudent(id){
     resetTransient();
@@ -4713,11 +4789,13 @@
   };
 
   $("#studentModal").onclick = closeStudentModal;
+  $("#avatarModal").onclick = closeAvatarPicker;
+  $("#avatarPickBtn").onclick = ()=>{ $("#userMenu").hidden=true; const s=studentById(state.currentUser); if(s) openAvatarPicker(s); };
   $("#lessonModal").onclick = closeLessonModal;
   $("#receiptModal").onclick = closeReceipt;
   $("#buyModal").onclick = closeBuy;
   $("#settleModal").onclick = closeSettle;
-  document.addEventListener("keydown", (e)=>{ if(e.key!=="Escape") return; if(!$("#settleModal").hidden) closeSettle(); else if(!$("#buyModal").hidden) closeBuy(); else if(!$("#receiptModal").hidden) closeReceipt(); else if(!$("#studentModal").hidden) closeStudentModal(); else if(!$("#userMenu").hidden) $("#userMenu").hidden=true; });
+  document.addEventListener("keydown", (e)=>{ if(e.key!=="Escape") return; if(!$("#avatarModal").hidden) closeAvatarPicker(); else if(!$("#settleModal").hidden) closeSettle(); else if(!$("#buyModal").hidden) closeBuy(); else if(!$("#receiptModal").hidden) closeReceipt(); else if(!$("#studentModal").hidden) closeStudentModal(); else if(!$("#userMenu").hidden) $("#userMenu").hidden=true; });
 
   // user menu + auth
   const userMenu=$("#userMenu");

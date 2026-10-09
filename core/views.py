@@ -95,6 +95,8 @@ def serialize_user(u):
         "color1": u.color1,
         "color2": u.color2,
         "photo": u.photo,
+        "avatarEmoji": u.avatar_emoji,
+        "avatarBg": u.avatar_bg,
         "role": u.role,
         "billing": {
             "name": u.billing_name,
@@ -2838,6 +2840,44 @@ def api_user_detail(request, slug):
     if isinstance(data.get("billing"), dict):
         _apply_billing(u, data["billing"])
     u.save()
+    return JsonResponse(serialize_user(u))
+
+
+_AVATAR_BG_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+@require_http_methods(["PUT"])
+@require_roles("student", "tutor", "admin")
+def api_user_avatar(request, slug):
+    """Set an emoji + background-colour avatar. Students pick their own; tutors
+    and admins can set it for a student (admins for anyone). An empty emoji
+    resets to the initials avatar."""
+    try:
+        u = User.objects.get(slug=slug)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+    me = request.user
+    allowed = (u == me or me.role == "admin"
+               or (me.role == "tutor" and u.role == "student"))
+    if not allowed:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    data = parse_body(request)
+    emoji = str(data.get("emoji") or "").strip()
+    bg = str(data.get("bg") or "").strip()
+    if emoji:
+        # Only non-ASCII (emoji) characters: the value is shown as avatar text,
+        # so this keeps it from turning into a free-form nickname.
+        if len(emoji) > 16 or any(ord(ch) < 128 for ch in emoji):
+            return JsonResponse({"error": "Ungültiges Emoji."}, status=400)
+        if not _AVATAR_BG_RE.match(bg):
+            return JsonResponse({"error": "Ungültige Farbe."}, status=400)
+        u.avatar_emoji, u.avatar_bg = emoji, bg.lower()
+        # The emoji is the new profile picture, so it replaces a photo.
+        u.photo = None
+    else:
+        u.avatar_emoji, u.avatar_bg = "", ""
+    u.save(update_fields=["avatar_emoji", "avatar_bg", "photo"])
     return JsonResponse(serialize_user(u))
 
 
