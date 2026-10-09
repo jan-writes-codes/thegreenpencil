@@ -223,6 +223,8 @@
 
   .wrap { max-width: 1180px; margin: 0 auto; padding: 30px 30px 80px; }
 
+  .hello { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -0.02em; color: var(--accent); margin-bottom: 8px; }
+  .hello:empty { display: none; }
   .eyebrow { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
   h1.title { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.03em; line-height: 1.02; }
   .sub { color: var(--muted); font-size: 15px; margin-top: 8px; max-width: 56ch; line-height: 1.5; }
@@ -1079,6 +1081,7 @@
     <main id="main">
       <section class="view active" id="view-book">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Live-Verfügbarkeit · 45-Minuten-Stunden</div>
           <h1 class="title">Buch deine nächste Englischstunde.</h1>
           <p class="sub">Wähle einen Tutor, ein freies Zeitfenster und buche es. Jede Stunde dauert 45 Minuten und kostet eine Einheit.</p>
@@ -1212,6 +1215,7 @@
       <!-- ===================== TEACHER PORTAL ===================== -->
       <section class="view" id="view-teacher" data-screen-label="Tutor portal">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Tutor-Portal · Davit</div>
           <h1 class="title">Dein Studio.</h1>
           <p class="sub">Trage Schüler in freie Zeiten in deinem Kalender ein und verwalte deine Stunden. Einheiten, Notizen und Lernmaterialien findest du im Tab <b>Schüler</b>.</p>
@@ -1269,6 +1273,7 @@
       <!-- ===================== ADMIN PORTAL ===================== -->
       <section class="view" id="view-admin" data-screen-label="Admin">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Admin · Benutzerverwaltung</div>
           <h1 class="title">Benutzer verwalten.</h1>
           <p class="sub">Wähle einen Tutor oder Schüler, um Name, Foto, Adresse und Login zu bearbeiten — oder öffne das Konto, um genau ihre Ansicht zu sehen.</p>
@@ -4290,6 +4295,8 @@
     const ma=$("#meAvatar"); ma.style.cssText=st; ma.textContent=u.i;
     const um=$("#umAvatar"); um.style.cssText=st+";width:40px;height:40px;"; um.textContent=u.i;
     $("#umName").textContent=u.name; $("#umMail").textContent=u.email;
+    const first=(u.name||"").trim().split(" ")[0];
+    document.querySelectorAll("[data-hello]").forEach(e=>{ e.textContent = first ? "Hi "+first+"!" : ""; });
   }
   // Nav-tab visibility is gated in CSS off this attribute (see the .app[data-role]
   // rules). Driving it from a single attribute keeps gating robust: it survives a
