@@ -49,6 +49,8 @@ dashboard — `.env` files are gitignored):
 | `TEAMS_CLIENT_ID` | to let tutors connect Teams | Entra ID application (client) id |
 | `TEAMS_CLIENT_SECRET` | with Teams | Entra ID client secret |
 | `TEAMS_TENANT` | optional | `common` (default; or your tenant id) |
+| `SENTRY_DSN` | to report errors | `https://…@o….ingest.de.sentry.io/…` (EU region) |
+| `SENTRY_ENVIRONMENT` | with Sentry | `production` on prod, `test` on the test service |
 
 ### Video calls: Zoom / Microsoft Teams (optional)
 
@@ -115,6 +117,90 @@ thread so a booking never blocks on the ESP. A thread is enough for a single
 studio; for durable, restart-surviving retries swap `core.emails.queue_email`
 for a queue (Django Q2 over the existing Postgres needs no Redis, just one extra
 worker process) — the call sites don't change.
+
+### Monitoring: error tracking and uptime
+
+**Errors (Sentry, optional).** With `SENTRY_DSN` set, every unhandled exception
+(a page, the Stripe webhook, a cron command) is reported to Sentry with its
+stack trace and URL. User details, cookies, IPs and request bodies are not
+sent. Unset, nothing changes.
+
+1. Create a free Sentry account at <https://sentry.io/signup/> and pick the
+   **EU (Frankfurt) data region** when asked (it can't be changed later).
+2. Create a project of type **Django**, copy its DSN.
+3. On both Render services set `SENTRY_DSN` (the same DSN is fine) and
+   `SENTRY_ENVIRONMENT` (`production` / `test`), then redeploy.
+4. Sentry e-mails you on each new issue by default (Alerts → "Issue alerts").
+
+**Health endpoint.** `GET /healthz/` answers `ok` (200) when the app can reach
+its database and `database unavailable` (503) when it can't. It works over
+plain HTTP and with any Host header, so Render's internal probe reaches it.
+
+- Render → each web service → **Settings → Health Check Path** → `/healthz/`.
+  Render then only switches traffic to a new deploy once it answers, and
+  restarts an instance that stops answering.
+- An **external uptime monitor** catches what Render can't see (DNS, TLS,
+  the whole service down): e.g. Better Stack Uptime (free tier, commercial use
+  allowed) checking `https://thegreenpencil.at/healthz/` every 3 minutes, with
+  e-mail alerts. Only monitor production: the free test service sleeps when idle.
+
+### Automatic data cleanup
+
+`python manage.py cleanup_old_data --apply` applies the retention rules of
+Datenschutz §8 (dry run without `--apply`, which only reports counts):
+
+| Data | Kept for | Then |
+| ---- | -------- | ---- |
+| Expired login sessions, expired throttle-cache rows | until they expire | deleted |
+| Schnupperstunde guest details (name, e-mail, phone, notes) | 12 months after the intro | anonymised (the slot stays in the calendar history) |
+| Receipts, ledger entries and lessons of a **deleted** account | 7 years from the end of the year created (§ 132 BAO) | deleted |
+| Tutor's per-day availability tweaks | 90 days after the day | deleted |
+| Student accounts with no login and no lesson for 3 years | — | only **listed** in the output, never touched |
+
+Receipts and lessons of existing accounts are never deleted. After the 12
+months an intro guest could book another free Schnupperstunde with the same
+e-mail, since the e-mail is no longer stored.
+
+Run it daily from a **Render Cron Job** on the same repo/branch and env vars
+as the web service (Render bills cron jobs by runtime, with a minimum of about
+$1 per month per job):
+
+```bash
+# schedule: 0 3 * * *   (03:00 UTC daily)
+python manage.py expire_booking_requests && python manage.py cleanup_old_data --apply
+```
+
+## Backups and restore drill
+
+- **Production database** (`thegreenpencil-prod-db`, paid plan): Render backs
+  it up continuously. **Point-in-time recovery** covers the last 3 days on a
+  Hobby workspace (7 on Pro). On top, **Recovery → Create export** makes a
+  downloadable logical backup (kept 7 days); download one occasionally to
+  keep an off-Render copy.
+- **Test database** (free plan): no backups, and Render deletes free databases
+  30 days after creation unless upgraded. It only holds demo/copied data.
+
+A point-in-time restore **never overwrites** the database: it creates a new
+one. Restore drill (do it twice a year, ~15 minutes):
+
+1. Render → `thegreenpencil-prod-db` → **Recovery → Restore Database**. Name
+   it `thegreenpencil-restore-drill`, pick a time at least 10 minutes ago.
+2. Wait until it shows **Available**.
+3. Run on both the prod database and the drill copy, and compare:
+
+   ```sql
+   select relname, n_live_tup from pg_stat_user_tables order by relname;
+   select max(created_at) from core_booking;   -- newest data in the copy
+   ```
+
+   (`n_live_tup` is an estimate; for exact numbers `select count(*)` the
+   important tables: `core_user`, `core_booking`, `core_receipt`,
+   `core_credittransaction`, `core_errorcard`, `core_sessionfile`.)
+4. Optional: point the **test** service's `DATABASE_URL` at the drill copy
+   and click around (log in, open a student, download a receipt PDF).
+   Point it back afterwards.
+5. **Delete the drill database** (it is billed while it exists). Never point
+   the production service at it, unless it's a real recovery.
 
 `DATABASE_URL` formats:
 - SQLite: `sqlite:////absolute/path/to/db.sqlite3`
@@ -257,3 +343,5 @@ curl -I https://thegreenpencil.at        # expect 200/302, valid TLS
 - [ ] `migrate` + `collectstatic` run
 - [ ] test → `seed`; prod → `createadmin` only
 - [ ] `MEDIA_ROOT` on persistent, backed-up storage
+- [ ] Health Check Path `/healthz/`; prod: `SENTRY_DSN` + an uptime monitor
+- [ ] prod: daily cron job for `cleanup_old_data --apply`

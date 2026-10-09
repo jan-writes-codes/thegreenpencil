@@ -35,6 +35,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Answers /healthz/ before host validation and the HTTPS redirect, so
+    # Render's internal health check and uptime monitors always reach it.
+    'core.middleware.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     # WhiteNoise serves collected static files in production (DEBUG off). It must
     # come right after SecurityMiddleware and before everything else.
@@ -152,6 +155,27 @@ if RESEND_API_KEY and _HAS_ANYMAIL:
 else:
     # No ESP configured: surface mail in the console rather than failing.
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# --- Error tracking (Sentry, optional) ---------------------------------------
+# Set SENTRY_DSN to report unhandled exceptions (views, the Stripe webhook,
+# management commands run from cron) to Sentry. Unset, nothing is sent. Create
+# the Sentry project in the EU region (de.sentry.io) for data residency.
+# No personal data leaves the server: user details, cookies, IPs and request
+# bodies are not attached, only the stack trace and the URL.
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        # "production" / "test", so both services can share one Sentry project.
+        environment=os.environ.get('SENTRY_ENVIRONMENT')
+        or ('development' if DEBUG else 'production'),
+        release=os.environ.get('RENDER_GIT_COMMIT') or None,
+        send_default_pii=False,
+        max_request_body_size='never',
+        traces_sample_rate=0.0,
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
