@@ -4020,8 +4020,8 @@
           ${handins.map(f=>`<div class="sx-file"><a href="${esc(f.url)}">${esc(f.name)}</a><span>${Math.max(1, Math.round(f.size/1024))} KB</span><button class="sx-x" data-delfile="${f.id}" title="Entfernen" aria-label="Entfernen">×</button></div>`).join("")}
           ${!tutor ? `<label class="sx-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : (handins.length ? "" : `<div class="sx-empty">${first} hat noch nichts abgegeben.</div>`)}
         </div>
-        <div class="sx-block"><h4>${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
-          ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="sx-empty">Keine.</div>`) : ta("sessNotes", b.notes, "Deine eigenen Notizen…")}</div>
+        <div class="sx-block"><h4>${tutor ? `Themen <span>sieht ${first}</span>` : "Deine Notizen"}</h4>
+          ${ta("sessNotes", b.notes, tutor ? `Themen, Fragen oder Ziele für ${first}…` : "Deine eigenen Notizen…")}</div>
         ${tutor ? `<div class="sx-block"><h4>Privat <span>nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…")}</div>` : ""}`;
     }
     side.innerHTML=`<div class="sx-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" aria-selected="${sx.tab===k}" class="${sx.tab===k?"on":""} ${k}" data-tab="${k}">${l}${n ? `<span class="c">${n}</span>` : ""}${k==="notes" && hwOpen && !tutor ? `<span class="dot" title="Hausaufgabe offen"></span>` : ""}</button>`).join("")}</div>
