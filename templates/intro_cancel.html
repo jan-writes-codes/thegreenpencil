@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-{% load static %}
-<html lang="de">
+{% load static i18n %}
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
 {% include "_consent.html" %}
 <meta charset="UTF-8" />
@@ -9,7 +9,7 @@
      top/bottom bar backdrops, so they always match the rendered page. A
      declared #f5f2ea sat warm against the grain-tinted page and painted a
      permanent off-tone strip along the screen edges. -->
-<title>Termin absagen · The Green Pencil</title>
+<title>{% translate "Termin absagen" %} · The Green Pencil</title>
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <meta name="robots" content="noindex, nofollow">
 <style>
@@ -44,29 +44,28 @@
   <div class="card">
   {% if state == "done" %}
     <span class="badge">the green pencil</span>
-    <h1 class="ok">{% if is_intro %}Schnupperstunde{% else %}Stunde{% endif %} abgesagt</h1>
-    <p class="sub">Der Termin{% if when %} am <b>{{ when }}</b>{% endif %} wurde storniert.
-    Der Platz ist wieder frei.{% if not is_intro %} {% if refunded %}Die Einheit wurde gutgeschrieben.{% else %}Da der Termin innerhalb von 24 Stunden lag, verfällt die Einheit.{% endif %}{% endif %}
-    Du kannst dieses Fenster schließen.</p>
-    {% if is_intro %}<a class="ghost" href="{% url 'intro' %}">Neue Schnupperstunde buchen</a>{% endif %}
+    <h1 class="ok">{% if is_intro %}{% translate "Schnupperstunde abgesagt" %}{% else %}{% translate "Stunde abgesagt" %}{% endif %}</h1>
+    <p class="sub">{% if when %}{% blocktranslate %}Der Termin am <b>{{ when }}</b> wurde storniert.{% endblocktranslate %}{% else %}{% translate "Der Termin wurde storniert." %}{% endif %}
+    {% translate "Der Platz ist wieder frei." %}{% if not is_intro %} {% if refunded %}{% translate "Die Einheit wurde gutgeschrieben." %}{% else %}{% translate "Da der Termin innerhalb von 24 Stunden lag, verfällt die Einheit." %}{% endif %}{% endif %}
+    {% translate "Du kannst dieses Fenster schließen." %}</p>
+    {% if is_intro %}<a class="ghost" href="{% url 'intro' %}">{% translate "Neue Schnupperstunde buchen" %}</a>{% endif %}
   {% elif state == "confirm" %}
     <span class="badge">the green pencil</span>
-    <h1>{% if is_intro %}Schnupperstunde{% else %}Stunde{% endif %} absagen?</h1>
-    <p class="sub">Möchtest du {% if is_intro %}diese kostenlose Englisch-Schnupperstunde{% else %}diese Englischstunde{% endif %} wirklich absagen?</p>
-    <div class="when">{{ when }}<small>mit {{ tutor_name }}</small></div>
-    {% if within_24h %}<p class="sub" style="color:var(--bad);margin-top:-12px;">Achtung: Der Termin liegt innerhalb von 24 Stunden — die Einheit verfällt bei einer Absage.</p>{% endif %}
+    <h1>{% if is_intro %}{% translate "Schnupperstunde absagen?" %}{% else %}{% translate "Stunde absagen?" %}{% endif %}</h1>
+    <p class="sub">{% if is_intro %}{% translate "Möchtest du diese kostenlose Englisch-Schnupperstunde wirklich absagen?" %}{% else %}{% translate "Möchtest du diese Englischstunde wirklich absagen?" %}{% endif %}</p>
+    <div class="when">{{ when }}<small>{% blocktranslate with name=tutor_name %}mit {{ name }}{% endblocktranslate %}</small></div>
+    {% if within_24h %}<p class="sub" style="color:var(--bad);margin-top:-12px;">{% translate "Achtung: Der Termin ist in weniger als 24 Stunden. Bei einer Absage verfällt die Einheit." %}</p>{% endif %}
     <form method="post">
       {% csrf_token %}
-      <button class="danger" type="submit">Ja, Termin absagen</button>
+      <button class="danger" type="submit">{% translate "Ja, Termin absagen" %}</button>
     </form>
-    <a class="ghost" href="{% if is_intro %}{% url 'intro' %}{% else %}{% url 'app' %}{% endif %}">Doch nicht — zurück</a>
+    <a class="ghost" href="{% if is_intro %}{% url 'intro' %}{% else %}{% url 'app' %}{% endif %}">{% translate "Doch nicht, zurück" %}</a>
   {% else %}
     <span class="badge">the green pencil</span>
-    <h1>Termin nicht gefunden</h1>
-    <p class="sub">Dieser Absage-Link ist nicht (mehr) gültig — der Termin wurde
-    vermutlich bereits abgesagt. Bei Fragen melde dich gerne bei Davit:
+    <h1>{% translate "Termin nicht gefunden" %}</h1>
+    <p class="sub">{% translate "Dieser Absage-Link ist nicht (mehr) gültig. Der Termin wurde vermutlich bereits abgesagt. Bei Fragen melde dich gerne bei Davit:" %}
     <a href="tel:+436763975535">+43 676 397 5535</a>.</p>
-    <a class="ghost" href="{% url 'intro' %}">Neue Schnupperstunde buchen</a>
+    <a class="ghost" href="{% url 'intro' %}">{% translate "Neue Schnupperstunde buchen" %}</a>
   {% endif %}
   </div>
 </body>

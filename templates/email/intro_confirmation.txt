@@ -1,7 +1,7 @@
 Geschafft, {{ guest_first }}!
 
 Deine kostenlose Englisch-Schnupperstunde mit {{ tutor_first }} ist eingetragen.
-Sie ist unverbindlich — wir schauen gemeinsam, wo du stehst und wohin du willst.
+Sie ist unverbindlich. Wir schauen gemeinsam, wo du stehst und wohin du willst.
 
 Termin:  {{ date_long }}
 Uhrzeit: {{ time_range }} (15 Minuten)
@@ -9,7 +9,7 @@ Tutor:   {{ tutor_first }}
 {% if call_link %}Video:   {{ call_link }}
 {% endif %}
 Im Anhang findest du eine Kalender-Datei (.ics), mit der du den Termin
-speichern kannst. {% if call_link %}Die Stunde findet online statt — tritt zur
+speichern kannst. {% if call_link %}Die Stunde findet online statt. Tritt zur
 gebuchten Zeit einfach über den Video-Link oben bei. {% else %}Wir melden uns
 vor der Stunde mit allen Details (Ort bzw. Video-Link). {% endif %}Antworte
 einfach auf diese E-Mail, wenn du Fragen hast oder den Termin verschieben
@@ -20,7 +20,7 @@ Kannst du doch nicht? Hier kannst du die Schnupperstunde absagen:
 {% endif %}
 
 --
-The Green Pencil — Englisch-Nachhilfe · Wien, Österreich
+The Green Pencil · Englisch-Nachhilfe · Wien, Österreich
 Impressum:   {{ site_url }}/impressum/
 Datenschutz: {{ site_url }}/datenschutz/
 

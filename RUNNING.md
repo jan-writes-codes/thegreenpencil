@@ -58,3 +58,21 @@ The frontend builds date keys with JS `Date.getMonth()` (0-indexed). `views.py`
 translates between those keys and real Python dates (`date_to_jskey` /
 `jskey_to_date`) so stored dates stay semantically correct and the January edge
 case (`getMonth() === 0`) doesn't crash.
+
+### English version of the public pages
+
+German is the default; the public pages (landing, FAQ, intro booking, cancel
+page, legal pages) also exist in English under `/en/` (`i18n_patterns` in
+`fluent/urls.py`). The app and login stay German only.
+
+- Short strings are wrapped in `{% translate %}` and translated in
+  `locale/en/LC_MESSAGES/django.po` (German is the msgid). After changing a
+  wrapped German string or a translation, run
+  `python manage.py makemessages -l en --no-location` and
+  `python manage.py compilemessages -l en` (needs GNU gettext), then commit the
+  `.po` **and** the `.mo` — the deploy doesn't compile them.
+- The prose pages have their own English templates in `templates/en/` (FAQ and
+  legal pages) and `templates/email/en/` (the guest's intro confirmation and
+  cancellation mail). Edit the German and English file together.
+- The English legal pages are courtesy translations and say the German text is
+  binding.

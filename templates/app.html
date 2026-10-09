@@ -8,7 +8,7 @@
      top/bottom bar backdrops, so they always match the rendered page. A
      declared #f5f2ea sat warm against the grain-tinted page and painted a
      permanent off-tone strip along the screen edges. -->
-<title>The Green Pencil — Englisch-Nachhilfe</title>
+<title>The Green Pencil · Englisch-Nachhilfe</title>
 {% load static %}
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
@@ -145,6 +145,7 @@
   .app[data-role="student"] .tab[data-view="errors"],
   .app[data-role="tutor"] .tab[data-view="teacher"],
   .app[data-role="tutor"] .tab[data-view="students"],
+  .app[data-role="tutor"] .tab[data-view="materials"],
   .app[data-role="admin"] .tab[data-view="admin"] { display: flex; }
   /* Students' nav in two groups: Organisation (Kalender, Konto) | Lernen. The
      learning group sits in its own tinted pill with a small label. */
@@ -186,6 +187,7 @@
     .app[data-role="student"] nav.tabs.open .tab[data-view="errors"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="teacher"],
     .app[data-role="tutor"] nav.tabs.open .tab[data-view="students"],
+    .app[data-role="tutor"] nav.tabs.open .tab[data-view="materials"],
     .app[data-role="admin"] nav.tabs.open .tab[data-view="admin"] { display: flex; width: 100%; justify-content: flex-start; padding: 11px 14px; }
     .app[data-role="student"] nav.tabs.open .tab-group { flex-direction: column; align-items: stretch; margin: 6px 0 0;
       padding: 8px 0 0; background: none; box-shadow: none; border-top: 1px solid var(--line); border-radius: 0; }
@@ -223,6 +225,8 @@
 
   .wrap { max-width: 1180px; margin: 0 auto; padding: 30px 30px 80px; }
 
+  .hello { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -0.02em; color: var(--accent); margin-bottom: 8px; }
+  .hello:empty { display: none; }
   .eyebrow { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
   h1.title { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.03em; line-height: 1.02; }
   .sub { color: var(--muted); font-size: 15px; margin-top: 8px; max-width: 56ch; line-height: 1.5; }
@@ -344,6 +348,31 @@
   .lh-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
   .lh-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 100px; border: 1px solid var(--line); color: var(--muted); }
   .lh-pill.open { color: #a23a22; border-color: rgba(194,85,47,0.35); background: rgba(194,85,47,0.08); }
+  .st-list { display: flex; flex-direction: column; }
+  .st-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 4px; border-top: 1px solid var(--line-2); }
+  .st-row:first-child { border-top: 0; }
+  .st-when { flex: 0 0 66px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .st-when b { display: block; font-family: var(--font-display); font-size: 14px; color: var(--ink); }
+  .st-when .soon { color: #a23a22; font-weight: 600; }
+  .st-body { flex: 1; min-width: 0; font-size: 13.5px; }
+  .st-title { font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .st-grade { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 100px; background: color-mix(in oklch, var(--c1) 12%, transparent); color: var(--c3, var(--c1)); }
+  .st-grade.g4, .st-grade.g5 { background: rgba(194,85,47,0.1); color: #a23a22; }
+  .st-refl { margin-top: 4px; color: var(--muted); font-size: 12.5px; white-space: pre-line; }
+  .st-refl strong { color: var(--ink); font-weight: 600; }
+  .st-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 4px; border-top: 1px solid var(--line-2); }
+  .st-form .full { grid-column: 1 / -1; }
+  .st-form label { font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .st-form textarea.bf-input { min-height: 54px; resize: vertical; }
+  .st-form .st-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  @media (max-width: 520px) { .st-form { grid-template-columns: 1fr; } }
+  .pf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 10px; margin-top: 12px; }
+  .pf-stat { padding: 12px 14px; }
+  .pf-stat .n { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1; }
+  .pf-stat .n small { font-size: 14px; font-weight: 600; color: var(--faint); }
+  .pf-stat .l { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  .pf-sum { font-size: 13px; color: var(--muted); margin-top: 3px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tl-test { background: color-mix(in oklch, var(--c2, #d0925a) 9%, transparent); border-radius: 10px; }
   .lh-pill.done { color: var(--good); border-color: color-mix(in oklch, var(--good) 35%, transparent); background: color-mix(in oklch, var(--good) 9%, transparent); }
   .ld-block { margin-top: 18px; }
   .ld-block h4 { font-family: var(--font-display); font-size: 15px; margin-bottom: 6px; }
@@ -382,6 +411,7 @@
   .sx-chip:hover { color: var(--ink); }
   .sx-chip.on { background: var(--c1); border-color: var(--c1); color: #fbf8f1; font-weight: 600; }
   .sx-chip.add { border-style: dashed; color: var(--c1); font-weight: 600; }
+  .sx-chip.pdf { text-decoration: none; color: var(--ink); font-weight: 600; }
   .sx-main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; height: calc(100dvh - 186px); min-height: 520px; }
   .sx-doc { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line);
     border-radius: var(--radius); overflow: hidden; background: color-mix(in oklch, var(--bg-2) 80%, #5c6b5c 8%); }
@@ -519,6 +549,29 @@
   .flash-actions { display: flex; gap: 10px; margin-top: 24px; }
   .flash-actions .btn { flex: 1; margin: 0; }
   .flash-actions[hidden], .flash-back[hidden] { display: none; }
+  .flash-strip { display: flex; gap: 4px; justify-content: center; margin-bottom: 18px; }
+  .flash-strip i { flex: 1; max-width: 26px; min-width: 4px; height: 5px; border-radius: 4px; background: rgba(36,53,40,0.12); transition: background 0.2s; }
+  .flash-strip i.k { background: var(--good); } .flash-strip i.a { background: var(--c2); } .flash-strip i.c { background: var(--ink); }
+  .flash-try { margin-top: 18px; text-align: center; }
+  .flash-try[hidden] { display: none; }
+  .fb-yours { margin-bottom: 14px; }
+  .fb-yours .fy { font-size: 16px; color: var(--ink); line-height: 1.4; overflow-wrap: anywhere; }
+  .fb-yours.ok .fy { color: var(--good); font-weight: 600; }
+  .flash-actions .kbd { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1.5; border: 1px solid currentColor; border-bottom-width: 2px;
+    border-radius: 5px; padding: 0 5px; margin-left: 8px; opacity: 0.55; vertical-align: 1px; }
+  @media (hover: none) { .flash-actions .kbd { display: none; } }
+  /* Training page: one start block, then a tab per deck */
+  .train-hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 26px; padding: 20px 22px;
+    background: linear-gradient(130deg, color-mix(in oklch, var(--c1) 13%, var(--glass)), color-mix(in oklch, var(--c2) 12%, var(--glass))); }
+  .train-hero .n { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; }
+  .train-hero .l { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .train-hero .btn { width: auto; margin: 0; padding: 12px 22px; }
+  .deck-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+  .deck-tabs { display: inline-flex; gap: 3px; padding: 4px; border-radius: 14px; background: rgba(36,53,40,0.06); }
+  .deck-tabs button { font: 600 14px var(--font-body); color: var(--muted); border: 0; background: transparent; padding: 8px 16px; border-radius: 10px; cursor: pointer; }
+  .deck-tabs button.on { background: #fbf8f1; color: var(--ink); box-shadow: 0 1px 4px rgba(31,60,34,0.12); }
+  .deck-tabs .c { font-size: 11.5px; background: rgba(36,53,40,0.08); border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
+  .deck-bar .btn { width: auto; margin: 0; padding: 9px 18px; }
 
   /* ---------- Learning files ---------- */
   .lvl-sec { margin-top: 26px; }
@@ -585,6 +638,51 @@
   .cm-upload { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 600; color: var(--c1); cursor: pointer;
     padding: 3px 10px; border-radius: 999px; border: 1px dashed color-mix(in oklch, var(--c1) 45%, transparent); }
   .cm-upload:hover { background: color-mix(in oklch, var(--c1) 10%, transparent); }
+
+  .skill-h { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--c1); margin: 16px 2px 8px; }
+  .lvl-head + .skill-h { margin-top: 4px; }
+  .skill-h.sm { font-size: 10px; margin: 10px 2px 6px; }
+  .cm-lvl-head + .skill-h.sm { margin-top: 2px; }
+  .cm-les-n { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--faint); padding: 1px 7px; border-radius: 999px; background: rgba(36,53,40,0.06); }
+
+  /* Picker: a Lernmaterialien file into a lesson */
+  .mp-card { width: min(560px, 100%); }
+  .mp-list { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .mp-lvl { margin-top: 10px; }
+  .mp-topic { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 6px 2px 2px; }
+  .mp-file { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 9px; border-radius: 10px; text-align: left;
+    border: 1px solid transparent; background: transparent; color: var(--ink); font-family: var(--font-body); cursor: pointer; }
+  button.mp-file:hover { border-color: color-mix(in oklch, var(--c1) 40%, transparent); background: color-mix(in oklch, var(--c1) 7%, transparent); }
+  .mp-file.done { color: var(--faint); cursor: default; }
+  .mp-n { flex: 1; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); white-space: nowrap; }
+
+  /* ---------- Lernmaterialien (tutor) ---------- */
+  .mat-levels { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+  .mat-lvl { display: flex; align-items: center; gap: 9px; padding: 7px 12px 7px 7px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--glass); color: var(--muted); font-family: var(--font-body); transition: 0.14s; }
+  .mat-lvl:hover { border-color: color-mix(in oklch, var(--c1) 35%, transparent); }
+  .mat-lvl.on { color: var(--ink); border-color: color-mix(in oklch, var(--c1) 55%, transparent); background: color-mix(in oklch, var(--c1) 10%, transparent); }
+  .mat-lvl-t { font-size: 13.5px; font-weight: 500; }
+  .mat-lvl-n { font-size: 11px; color: var(--faint); }
+  @media (max-width: 560px) { .mat-lvl-t { display: none; } }
+  .mat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 760px) { .mat-grid { grid-template-columns: 1fr; } }
+  .mat-skill { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .mat-skill-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mat-skill-h h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--ink); }
+  .mat-skill-n { font-size: 11.5px; color: var(--faint); }
+  .mat-topics { display: flex; flex-direction: column; gap: 8px; }
+  .mat-topic { border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; display: flex; flex-direction: column; gap: 7px; background: rgba(251,248,241,0.4); }
+  .mat-topic-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .mat-topic-t { font-size: 13.5px; font-weight: 500; color: var(--ink); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .mat-topic-u { font-size: 11px; color: var(--faint); white-space: nowrap; }
+  .mat-ic { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 6px; }
+  .mat-ic:hover { color: var(--c1); background: rgba(36,53,40,0.06); }
+  .mat-ic.danger:hover { color: #b8492c; }
+  .mat-rename { flex: 1; min-width: 0; padding: 5px 8px; font-size: 13.5px; }
+  .mat-add { display: flex; gap: 8px; margin-top: auto; }
+  .mat-add .bf-input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; }
 
   .balance { padding: 28px; position: relative; }
   .balance .ring { position: absolute; right: -40px; top: -40px; width: 200px; height: 200px; border-radius: 50%;
@@ -748,6 +846,22 @@
   .modal-overlay[hidden] { display: none; }
   .modal-card { width: min(460px, 100%); max-height: 84vh; overflow-y: auto; background: var(--bg-2); border: 1px solid var(--line);
     border-radius: 20px; padding: 26px; box-shadow: var(--shadow); position: relative; }
+  /* The tutor's student view: a near full-screen sheet in two columns — the
+     progress story (tiles, Schularbeiten, lesson timeline) on the left, the
+     admin side (credits, training, notes, materials, ledger) on the right. */
+  #studentModal { padding: 16px; }
+  #studentModal .modal-card.st-sheet { width: min(1240px, 100%); max-height: calc(100vh - 32px); padding: 28px 30px; }
+  .st-sheet-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 0 44px 8px 0; }
+  .st-sheet-top .sum-head { margin-bottom: 0; }
+  .st-sheet-top .modal-add { margin: 0; flex: 0 1 auto; }
+  .st-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 34px; align-items: start; }
+  .st-cols > .st-col-side { padding-left: 30px; border-left: 1px solid var(--line-2); }
+  @media (max-width: 900px) {
+    .st-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .st-cols > .st-col-side { padding-left: 0; border-left: 0; }
+    #studentModal { padding: 8px; }
+    #studentModal .modal-card.st-sheet { padding: 22px 18px; max-height: calc(100vh - 16px); }
+  }
   .modal-card .nm { font-family: var(--font-display); font-weight: 600; font-size: 18px; display: flex; align-items: center; gap: 9px; }
   .modal-x { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line);
     background: rgba(36,53,40,0.05); color: var(--ink); font-size: 18px; cursor: pointer; line-height: 1; transition: 0.15s; }
@@ -804,6 +918,25 @@
 
   /* ---------- User menu + auth ---------- */
   button.avatar { cursor: pointer; font-family: var(--font-body); padding: 0; }
+  /* ---------- Emoji avatar ---------- */
+  .av-emoji { font-size: 1.75em; line-height: 1; font-weight: 400; }
+  .av-edit { position: relative; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; flex: 0 0 auto; }
+  .av-edit::after { content: "✎"; position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; background: var(--bg-2); border: 1px solid var(--line); color: var(--ink); }
+  .av-edit:hover .avatar { box-shadow: 0 0 0 3px rgba(48,144,80,0.35); }
+  .av-preview { display: flex; justify-content: center; margin: 6px 0 16px; }
+  .av-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 16px; }
+  .av-grid button { aspect-ratio: 1; font-size: 22px; line-height: 1; border-radius: 10px; border: 1px solid var(--line);
+    background: transparent; cursor: pointer; padding: 0; display: grid; place-items: center; }
+  .av-grid button.on { border-color: var(--ink); background: rgba(36,53,40,0.08); }
+  .av-colors { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-bottom: 18px; }
+  .av-colors button { width: 100%; aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .av-colors button.on { border-color: var(--ink); }
+  .av-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .av-actions .btn { width: auto; padding: 12px 26px; }
+  .av-actions .btn-text { width: auto; }
+  @media (max-width: 420px) { .av-grid, .av-colors { grid-template-columns: repeat(6, 1fr); } }
   .user-wrap { position: relative; }
   .user-menu { position: absolute; top: 46px; right: 0; width: 234px; background: var(--bg-2); border: 1px solid var(--line);
     border-radius: 14px; box-shadow: var(--shadow); padding: 8px; z-index: 65; animation: fade 0.15s ease; }
@@ -987,7 +1120,7 @@
   <div class="app" data-role="{{ role }}">
     <div class="imp-banner" id="impBanner" hidden>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
-      <span>Angemeldet als <b id="impName"></b> — genau ihre Ansicht.</span>
+      <span>Angemeldet als <b id="impName"></b>. Du siehst genau ihre Ansicht.</span>
       <button id="impExit">Zurück zum Admin</button>
     </div>
     <header class="top">
@@ -1031,6 +1164,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.6-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6M18 19c0-2.3-1-4-2.6-4.6"/></svg>
           Schüler
         </button>
+        <button class="tab" data-view="materials">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5h6a2 2 0 0 1 2 2v13a1.5 1.5 0 0 0-1.5-1.5H4z"/><path d="M20 4.5h-6a2 2 0 0 0-2 2v13a1.5 1.5 0 0 1 1.5-1.5H20z"/></svg>
+          Lernmaterialien
+        </button>
         <button class="tab" data-view="admin">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.3 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H23a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
           Admin
@@ -1048,6 +1185,7 @@
             <div class="avatar" id="umAvatar" style="background: conic-gradient(from 140deg, #7cb342, #309050, #4cb56b, #7cb342); width:40px; height:40px;">MK</div>
             <div><div class="um-name" id="umName">Maya Karlsson</div><div class="um-mail" id="umMail">maya@fluent.at</div></div>
           </div>
+          <button class="um-item" id="avatarPickBtn" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>Profilbild ändern</button>
           <button class="um-item" id="logoutBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Abmelden</button>
         </div>
       </div>
@@ -1056,6 +1194,7 @@
     <main id="main">
       <section class="view active" id="view-book">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Live-Verfügbarkeit · 45-Minuten-Stunden</div>
           <h1 class="title">Buch deine nächste Englischstunde.</h1>
           <p class="sub">Wähle einen Tutor, ein freies Zeitfenster und buche es. Jede Stunde dauert 45 Minuten und kostet eine Einheit.</p>
@@ -1087,7 +1226,7 @@
               </div>
             </aside>
           </div>
-          <div class="fineprint">Zeiten in deiner lokalen Zeitzone · GMT+1. Kostenlos umbuchen oder stornieren bis 24 Stunden vorher — innerhalb von 24 h verfällt die Einheit.</div>
+          <div class="fineprint">Zeiten in deiner lokalen Zeitzone · GMT+1. Kostenlos umbuchen oder stornieren bis 24 Stunden vorher. Innerhalb von 24 h verfällt die Einheit.</div>
         </div>
       </section>
 
@@ -1145,7 +1284,7 @@
                 <label class="bf-lab">Stadt<input class="bf-input" id="bfCity" /></label>
               </div>
               <label class="bf-lab">Land<input class="bf-input" id="bfCountry" /></label>
-              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet. Die E-Mail-Adresse ist auch dein Login und bekommt deine Belege — für Kartenzahlungen sind beide nötig.</div>
+              <div class="micro" style="text-align:left; margin-top:4px;">Wird als Rechnungsadresse auf den Belegen deines Tutors verwendet. Die E-Mail-Adresse ist auch dein Login und bekommt deine Belege. Für Kartenzahlungen sind beide nötig.</div>
             </div>
           </div>
         </div>
@@ -1156,8 +1295,12 @@
         <div class="wrap">
           <div class="eyebrow">Lernen · deine Stunden</div>
           <h1 class="title">Deine Stunden.</h1>
-          <p class="sub">Alle Stunden, die du hattest — tippe eine an, um zu sehen, was ihr gemacht habt und welche Fehler ihr gefunden habt.</p>
-          <div class="panel" style="padding: 8px 22px; margin-top: 22px;"><div class="list lesson-hist" id="lessonHistory"></div></div>
+          <p class="sub">Alle Stunden, die du hattest. Tippe eine an, um zu sehen, was ihr gemacht habt und welche Fehler ihr gefunden habt.</p>
+          <div id="myProgress"></div>
+          <div class="section-h" style="margin-top: 26px;"><h2>Schularbeiten &amp; Tests</h2></div>
+          <div class="panel" style="padding: 8px 22px;"><div id="myTests"></div></div>
+          <div class="section-h" style="margin-top: 26px;"><h2>Stunden</h2></div>
+          <div class="panel" style="padding: 8px 22px;"><div class="list lesson-hist" id="lessonHistory"></div></div>
         </div>
       </section>
 
@@ -1166,7 +1309,7 @@
         <div class="wrap">
           <div class="eyebrow">Lernen · Training</div>
           <h1 class="title">Wiederholen, bis es sitzt.</h1>
-          <p class="sub">Deine Fehler und neuen Wörter aus den Stunden als Lernkarten. Übe sie jederzeit — in der nächsten Stunde geht ihr sie gemeinsam durch, und was sitzt, hakt dein Tutor als gemeistert ab.</p>
+          <p class="sub">Deine Fehler und neuen Wörter aus den Stunden als Lernkarten. Übe sie jederzeit. In der nächsten Stunde geht ihr sie gemeinsam durch, und was sitzt, hakt dein Tutor als gemeistert ab.</p>
           <div id="errorsContent"></div>
         </div>
       </section>
@@ -1181,7 +1324,7 @@
         <div class="wrap">
           <div class="eyebrow">Lernen · Materialien</div>
           <h1 class="title">Deine Materialien.</h1>
-          <p class="sub">Arbeitsblätter und Materialien, die dein Tutor für dich freigeschaltet hat — nach Niveau geordnet. Gesperrte Lektionen öffnen sich, sobald du weiterkommst.</p>
+          <p class="sub">Arbeitsblätter und Materialien, die dein Tutor für dich freigeschaltet hat, nach Niveau geordnet. Gesperrte Lektionen öffnen sich, sobald du weiterkommst.</p>
           <div id="filesContent"></div>
         </div>
       </section>
@@ -1189,9 +1332,10 @@
       <!-- ===================== TEACHER PORTAL ===================== -->
       <section class="view" id="view-teacher" data-screen-label="Tutor portal">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Tutor-Portal · Davit</div>
           <h1 class="title">Dein Studio.</h1>
-          <p class="sub">Trage Schüler in freie Zeiten in deinem Kalender ein und verwalte deine Stunden. Einheiten, Notizen und Lernmaterialien findest du im Tab <b>Schüler</b>.</p>
+          <p class="sub">Trage Schüler in freie Zeiten in deinem Kalender ein und verwalte deine Stunden. Einheiten und Notizen findest du im Tab <b>Schüler</b>, Themen und Dateien unter <b>Lernmaterialien</b>.</p>
 
           <div class="teach-grid">
             <div class="panel">
@@ -1214,7 +1358,7 @@
           </div>
 
           <div id="tutorRequestsSec" hidden>
-            <div class="section-h" style="margin-top:34px;"><h2>Offene Anfragen</h2><span class="micro" style="margin:0;">Bitte bestätigen oder ablehnen — ohne Antwort verfallen sie 24 h vor Beginn.</span></div>
+            <div class="section-h" style="margin-top:34px;"><h2>Offene Anfragen</h2><span class="micro" style="margin:0;">Bitte bestätigen oder ablehnen. Ohne Antwort verfallen sie 24 h vor Beginn.</span></div>
             <div class="panel req-panel"><div class="list" id="tutorRequests"></div></div>
           </div>
           <div class="section-h" style="margin-top:34px;"><h2>Nächste Stunden</h2><span style="display:flex;gap:18px;"><span class="lnk" id="videoConnectBtn">🎥 Video-Call verbinden</span><span class="lnk" id="calSyncBtn">↻ Kalender abonnieren / sync</span></span></div>
@@ -1223,6 +1367,16 @@
           <div class="section-h" style="margin-top:34px;"><h2>Abgeschlossene Stunden</h2></div>
           <div class="panel" style="padding: 8px 22px;"><div class="list" id="tutorCompleted"></div></div>
           <div class="fineprint">Einen Schüler einzutragen zieht eine Einheit ab (oder bucht eine Gratis-Stunde, wenn keine vorhanden ist). Eine Buchung zu entfernen gibt die Einheit zurück.</div>
+        </div>
+      </section>
+
+      <!-- ===================== LERNMATERIALIEN (tutor) ===================== -->
+      <section class="view" id="view-materials" data-screen-label="Materials">
+        <div class="wrap">
+          <div class="eyebrow">Tutor-Portal · Lernmaterialien</div>
+          <h1 class="title">Lernmaterialien.</h1>
+          <p class="sub">Alle Themen nach Niveau und Bereich. Lege neue Themen an und lade Dateien hoch. Freigeschaltet werden sie pro Schüler im Tab <b>Schüler</b>.</p>
+          <div id="materialsContent"></div>
         </div>
       </section>
 
@@ -1246,9 +1400,10 @@
       <!-- ===================== ADMIN PORTAL ===================== -->
       <section class="view" id="view-admin" data-screen-label="Admin">
         <div class="wrap">
+          <div class="hello" data-hello></div>
           <div class="eyebrow">Admin · Benutzerverwaltung</div>
           <h1 class="title">Benutzer verwalten.</h1>
-          <p class="sub">Wähle einen Tutor oder Schüler, um Name, Foto, Adresse und Login zu bearbeiten — oder öffne das Konto, um genau ihre Ansicht zu sehen.</p>
+          <p class="sub">Wähle einen Tutor oder Schüler, um Name, Foto, Adresse und Login zu bearbeiten, oder öffne das Konto, um genau ihre Ansicht zu sehen.</p>
 
           <div class="admin-grid">
             <div class="panel" style="padding: 8px;">
@@ -1273,7 +1428,7 @@
             <div class="txn-cols">
               <div class="txn-col">
                 <div class="txn-col-h">Käufe &amp; Stornos</div>
-                <div class="micro" style="text-align:left; margin:2px 2px 12px;">Käufe können hier storniert werden — das erstattet die Einheiten (und die Stripe-Zahlung, falls vorhanden) und stellt einen Storno-Beleg aus.</div>
+                <div class="micro" style="text-align:left; margin:2px 2px 12px;">Käufe können hier storniert werden. Das erstattet die Einheiten (und die Stripe-Zahlung, falls vorhanden) und stellt einen Storno-Beleg aus.</div>
                 <div class="activity modal-txns" id="adminTxnsCredit" style="max-height:420px;"></div>
               </div>
               <div class="txn-col">
@@ -1302,6 +1457,8 @@
   <div class="modal-overlay" id="settleModal" hidden></div>
   <div class="modal-overlay" id="backdateModal" hidden></div>
   <div class="modal-overlay" id="lessonModal" hidden></div>
+  <div class="modal-overlay" id="matPickModal" hidden></div>
+  <div class="modal-overlay" id="avatarModal" hidden></div>
 
 {{ django_data|json_script:"django-data" }}
 <script>
@@ -1360,6 +1517,7 @@
     c: [t.color1 || "#309050", t.color2 || "#277a42"],
     i: t.initials || "T",
     photo: t.photo || null,  // so the booking calendar shows the tutor's photo, not just initials
+    avatarEmoji: t.avatarEmoji || "", avatarBg: t.avatarBg || "",
   })) : [
     { id: "davit", name: "Davit", role: "Englisch-Tutor · Konversation & Prüfungen", c: ["#309050","#277a42"], i: "D" },
   ];
@@ -1369,7 +1527,7 @@
   const tutorAccounts = (DJ.tutors || []).map(t => ({
     id: t.slug, role: "tutor", name: t.name, email: t.email,
     i: t.initials || "T", c: [t.color1 || "#309050", t.color2 || "#277a42"],
-    photo: t.photo || null,
+    photo: t.photo || null, avatarEmoji: t.avatarEmoji || "", avatarBg: t.avatarBg || "",
   }));
   // The tutor "I" am when in the teacher view: the logged-in tutor if a tutor is
   // signed in, otherwise the first tutor (the one an admin impersonates by default).
@@ -1377,6 +1535,7 @@
     id: DJ.currentUser.slug, role: "tutor", name: DJ.currentUser.name,
     email: DJ.currentUser.email, i: DJ.currentUser.initials,
     c: [DJ.currentUser.color1, DJ.currentUser.color2], photo: DJ.currentUser.photo || null,
+    avatarEmoji: DJ.currentUser.avatarEmoji || "", avatarBg: DJ.currentUser.avatarBg || "",
   } : (tutorAccounts[0] || { id:"davit", role:"tutor", name:"Davit Petrosyan", email:"davit@fluent.at", i:"DV", c:["#309050","#277a42"], photo:null });
   const ADMIN = (DJ.role === "admin" && DJ.currentUser) ? {
     id: DJ.currentUser.slug,
@@ -1386,6 +1545,7 @@
     i: DJ.currentUser.initials,
     c: [DJ.currentUser.color1, DJ.currentUser.color2],
     photo: DJ.currentUser.photo || null,
+    avatarEmoji: DJ.currentUser.avatarEmoji || "", avatarBg: DJ.currentUser.avatarBg || "",
   } : { id:"admin", role:"admin", name:"Studio Admin", email:"admin@fluent.at", i:"AD", c:["#8a7cb0","#5f5188"], photo:null };
 
 {% include "_calendar.js" %}
@@ -1462,8 +1622,13 @@
       time: b.time,
     })),
     errorCards: DJ.errorCards || [],  // Fehler-Training cards
+    schoolTests: (DJ.schoolTests || []).map(t => ({ ...t, date: new Date(t.date + 'T00:00:00') })),
+    testEdit: null,  // id of the Schularbeit being edited, or "new"
+    timelineAll: false,  // student profile: show the whole timeline
     studentQuery: "",
     lessonFiles: DJ.lessonFiles || {},  // {lesson_id: [{id,name,url}]}
+    topics: DJ.topics || [],  // [{id, level, skill, t}] — the Lernmaterialien library
+    matLevel: "A1",  // level open in the Lernmaterialien view
   };
   const AVAIL = state.availability, CUSTOM = state.customTimes;
 
@@ -1533,7 +1698,7 @@
   // Must match the legal details published in the Impressum (templates/impressum.html).
   const SUPPLIER = { name:"Davit Hovakimyan", line2:"Englisch-Privatunterricht", addr:"Kraygasse 94/2/6", city:"1220 Wien, \u00d6sterreich", email:"davit@thegreenpencil.at" };
   const VAT_DE = "Steuerfrei gem\u00e4\u00df \u00a7 6 Abs. 1 Z 11 UStG (Unterrichtsleistung eines Privatlehrers).";
-  const VAT_EN = "VAT-exempt educational service under Austrian law \u2014 no value-added tax is charged.";
+  const VAT_EN = "VAT-exempt educational service under Austrian law. No value-added tax is charged.";
   function money(x){ return x.toFixed(2).replace(".", ","); }
   function fmtAT(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
   // Numeric euros from a price string like "€270" / "270,50" (null if none).
@@ -1582,7 +1747,7 @@
         <div class="r-row r-grand"><span>Gesamt · Total</span><span>€ ${money(r.total)}</span></div>
       </div>
       <div class="r-vat"><b>${VAT_DE}</b><br/>${VAT_EN}</div>
-      <div class="r-foot"><div>Zahlung · Payment: ${r.isStorno ? "Storniert — Betrag erstattet" : "Externe Überweisung — bezahlt"}</div><div>Automatisch ausgestellter Beleg</div></div>
+      <div class="r-foot"><div>Zahlung · Payment: ${r.isStorno ? "Storniert, Betrag erstattet" : "Externe Überweisung, bezahlt"}</div><div>Automatisch ausgestellter Beleg</div></div>
     </div>`;
   }
   function openReceipt(r){
@@ -1611,7 +1776,9 @@
   // for yet); the server is authoritative, so we don't clamp here.
   function setStudentCredits(id, val){ const s=studentById(id); if(!s) return; s.credits=val; if(id===state.currentUser){ state.credits=s.credits; updateCredits(); } }
   function addStudentCredits(id, n){ const s=studentById(id); if(!s) return; setStudentCredits(id, s.credits + n); }
-  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
+  // Avatar contents: a photo (as background) wins, then a chosen emoji, else initials.
+  function avatarText(t){ if(t && !t.photo && t.avatarEmoji) return `<span class="av-emoji">${esc(t.avatarEmoji)}</span>`; return esc((t && t.i) || ""); }
+  function avatarStyle(t){ if(t && t.photo) return `background-image:url('${esc(t.photo)}'); background-size:cover; background-position:center; color:transparent;`; if(t && t.avatarEmoji && /^#[0-9a-f]{6}$/i.test(t.avatarBg||"")) return `background:${t.avatarBg};`; const c=(t&&t.c)||["#309050","#277a42"]; return `background: conic-gradient(from 140deg, ${c[0]}, ${c[1]}, ${c[0]});`; }
 
   // ---------- Render tutors ----------
   function renderTutors() {
@@ -1619,7 +1786,7 @@
     TUTORS.forEach(t => {
       const chip = document.createElement("div");
       chip.className = "tutor-chip" + (t.id===state.tutor ? " sel" : "");
-      chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+      chip.innerHTML = `<div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
         <div><div class="tn">${esc(t.name)}</div><div class="tm">${t.role}</div></div>`;
       chip.onclick = () => { state.tutor = t.id; state.selected = null; renderTutors(); renderWeek(); renderSummary(); };
       tutorsEl.appendChild(chip);
@@ -1634,7 +1801,7 @@
       if (state.rescheduling) {
         _rb.hidden = false;
         _rb.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.9"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>
-          <span>Umbuchung von <b>${esc(state.rescheduling.title)}</b> — wähle unten eine neue freie Zeit.</span>
+          <span>Umbuchung von <b>${esc(state.rescheduling.title)}</b>: Wähle unten eine neue freie Zeit.</span>
           <button class="banner-x" id="bannerCancel">Abbrechen</button>`;
         _rb.querySelector("#bannerCancel").onclick = cancelReschedule;
       } else { _rb.hidden = true; }
@@ -1715,7 +1882,7 @@
           // Whole day has no slots — show the placeholder once, in the first band.
           const n = document.createElement("div");
           n.className = "no-slot";
-          n.textContent = d.isPast ? "—" : "Voll";
+          n.textContent = d.isPast ? "·" : "Voll";
           cell.appendChild(n);
         }
         grid.appendChild(cell);
@@ -1767,7 +1934,7 @@
     state.bookings.splice(i,1);
     if(refund){ state.credits+=1; }
     const t=tutorById(b.tutorId);
-    meLog().unshift({ type: refund?"buy":"done", label: refund?"Storniert \u2014 Einheit erstattet":"Storniert (innerhalb 24 h)", sub: t.name+" \u00b7 "+MONTHS_S[b.date.getMonth()]+" "+b.date.getDate(), amt: refund?"+1":"" });
+    meLog().unshift({ type: refund?"buy":"done", label: refund?"Storniert, Einheit erstattet":"Storniert (innerhalb 24 h)", sub: t.name+" \u00b7 "+MONTHS_S[b.date.getMonth()]+" "+b.date.getDate(), amt: refund?"+1":"" });
     if (refund) { const _s = studentById(b.studentId); if (_s) _s.credits += 1; }
     if (b._pk) api('DELETE', '/api/bookings/' + b._pk + '/').then(r => {
       // Server decides the refund (24h forfeit rule); reconcile to its balance.
@@ -1814,7 +1981,7 @@
   function icsEsc(t){ return String(t==null?"":t).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
   function buildIcsAll(){
     const evs = state.bookings.filter(b=>b.tutorId===state.myTutor).sort((a,b)=>a.date-b.date || toMin(a.time)-toMin(b.time));
-    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Fluent//Tutor Schedule//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:"+icsEsc("The Green Pencil — Davits Stunden"),"REFRESH-INTERVAL;VALUE=DURATION:PT1H","X-PUBLISHED-TTL:PT1H"];
+    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Fluent//Tutor Schedule//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:"+icsEsc("The Green Pencil · Davits Stunden"),"REFRESH-INTERVAL;VALUE=DURATION:PT1H","X-PUBLISHED-TTL:PT1H"];
     evs.forEach(b=>{
       const s=studentById(b.studentId);
       const [h,m]=b.time.split(":").map(Number);
@@ -1822,7 +1989,7 @@
       const dt=icsStamp(b.date,b.time);
       const dtEnd=end.getFullYear()+pad2(end.getMonth()+1)+pad2(end.getDate())+"T"+pad2(end.getHours())+pad2(end.getMinutes())+"00";
       lines.push("BEGIN:VEVENT","UID:fluent-"+b.studentId+"-"+dt+"@fluent.app","DTSTAMP:"+dt,"DTSTART:"+dt,"DTEND:"+dtEnd,
-        "SUMMARY:"+icsEsc((b.title||"Englischstunde")+" — "+(s?s.name:"")),
+        "SUMMARY:"+icsEsc((b.title||"Englischstunde")+" · "+(s?s.name:"")),
         "DESCRIPTION:"+icsEsc(b.notes||"45-minütige Einzelstunde"),
         "LOCATION:"+icsEsc(b.callLink||"Videocall"),"STATUS:CONFIRMED","END:VEVENT");
     });
@@ -1849,12 +2016,12 @@
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8.5 15.5a3 3 0 1 0 3-3"/></svg></div>
       <h3 class="buy-h">Kalender abonnieren</h3>
-      <p class="buy-p">Füge diesen Live-Feed einmal hinzu — neue Buchungen, Umbuchungen und Stornierungen synchronisieren sich automatisch, ganz ohne erneuten Download.</p>
+      <p class="buy-p">Füge diesen Live-Feed einmal hinzu. Neue Buchungen, Umbuchungen und Stornierungen synchronisieren sich automatisch, ganz ohne erneuten Download.</p>
       <div class="cal-url"><input id="calUrl" readonly value="${esc(calFeed.url)}"><button class="mini-btn" id="calCopy">Kopieren</button></div>
       <a class="btn" href="${esc(calFeed.webcalUrl)}">Abonnieren · Apple &amp; Outlook</a>
       <a class="btn ghost" href="${esc(gcal)}" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a>
       <button class="btn-text" id="calDownload">Oder einmalig .ics herunterladen</button>
-      <div class="micro" style="margin-top:10px;">Der Link ist privat — wer ihn hat, sieht deine Stunden.</div>
+      <div class="micro" style="margin-top:10px;">Der Link ist privat. Wer ihn hat, sieht deine Stunden.</div>
     </div>`;
     m.hidden=false;
     $("#buyCard").onclick=(e)=>e.stopPropagation();
@@ -1872,16 +2039,16 @@
     let body;
     if (conn) {
       body = `
-        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${esc(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit — er steht in der Bestätigungs-Mail und im Kalender.</p>
+        <p class="buy-p">Verbunden mit <b>${VIDEO_NAMES[conn.provider]||conn.provider}</b>${conn.account?` als <b>${esc(conn.account)}</b>`:""}. Jede neue Schnupperstunde bekommt automatisch einen Meeting-Link zur gebuchten Zeit. Er steht in der Bestätigungs-Mail und im Kalender.</p>
         <button class="btn ghost" id="videoDisconnect">Konto trennen</button>`;
     } else if (DJ.role !== "tutor") {
-      body = `<p class="buy-p">Nur der Tutor selbst kann sein Zoom- oder Teams-Konto verbinden — die Freigabe gehört zu seinem Login.</p>`;
+      body = `<p class="buy-p">Nur der Tutor selbst kann sein Zoom- oder Teams-Konto verbinden, denn die Freigabe gehört zu seinem Login.</p>`;
     } else {
       body = `
-        <p class="buy-p">Verbinde dein Konto einmal — jede neue Schnupperstunde bekommt dann automatisch einen Meeting-Link zur gebuchten Zeit, direkt in der Bestätigungs-Mail des Gasts.</p>
+        <p class="buy-p">Verbinde dein Konto einmal. Jede neue Schnupperstunde bekommt dann automatisch einen Meeting-Link zur gebuchten Zeit, direkt in der Bestätigungs-Mail des Gasts.</p>
         ${enabled.zoom?`<a class="btn" href="/oauth/video/zoom/connect/">Mit Zoom verbinden</a>`:""}
         ${enabled.teams?`<a class="btn ghost" href="/oauth/video/teams/connect/" style="margin-top:10px;">Mit Microsoft Teams verbinden</a>`:""}
-        ${(enabled.zoom||enabled.teams)?"":`<p class="micro">Noch kein Video-Anbieter eingerichtet — sobald am Server Zoom- oder Teams-Zugangsdaten hinterlegt sind, erscheinen hier die Verbinden-Buttons.</p>`}`;
+        ${(enabled.zoom||enabled.teams)?"":`<p class="micro">Noch kein Video-Anbieter eingerichtet. Sobald am Server Zoom- oder Teams-Zugangsdaten hinterlegt sind, erscheinen hier die Verbinden-Buttons.</p>`}`;
     }
     const m=$("#buyModal");
     m.innerHTML=`<div class="modal-card buy-card" id="buyCard">
@@ -1915,7 +2082,7 @@
             <svg class="rm-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="2"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
             <div class="rm-new"><span>Nach</span><b>${fmtLong(d)} · ${state.selected.time}</b></div>
           </div>
-          <div class="micro" style="margin:0 0 16px;">Keine Einheit fällig — du verschiebst eine bestehende Stunde.</div>
+          <div class="micro" style="margin:0 0 16px;">Keine Einheit fällig, du verschiebst eine bestehende Stunde.</div>
           <button class="btn" id="reschConfirm"><span class="grainbtn"></span>Neue Zeit bestätigen</button>
           <button class="btn ghost" id="reschCancel" style="margin-top:10px;">Umbuchung abbrechen</button>
         `;
@@ -1925,7 +2092,7 @@
         sumCard.innerHTML = `
           <div class="manage-eyebrow">Stunde umbuchen</div>
           <div class="sum-head">
-            <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+            <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
             <div><div class="nm">${esc(b.title)}</div><div class="rl">Aktuell ${fmtLong(b.date)} · ${b.time}</div></div>
           </div>
           <div class="pick-prompt">
@@ -1948,7 +2115,7 @@
           <div class="confirm-badge">✓</div>
           <h3 class="confirm-h">${b.status === "requested" ? (resched ? "Umbuchung angefragt" : "Angefragt!") : (resched ? "Umgebucht!" : "Gebucht!")}</h3>
           <p class="confirm-p">${fmtLong(b.date)}<br/>${b.time} – ${endTime(b.time)} mit ${esc(t.name)}</p>
-          ${b.status === "requested" ? `<p class="confirm-p" style="margin-top:8px;">${esc(t.name.split(" ")[0])} bestätigt deine Anfrage — du bekommst dann eine E-Mail. Der Termin ist so lange für dich reserviert.</p>` : ""}
+          ${b.status === "requested" ? `<p class="confirm-p" style="margin-top:8px;">${esc(t.name.split(" ")[0])} bestätigt deine Anfrage und du bekommst dann eine E-Mail. Der Termin ist so lange für dich reserviert.</p>` : ""}
         </div>
         <button class="btn" id="icsBtn">
           <span class="grainbtn"></span>
@@ -1956,7 +2123,7 @@
           ${resched ? "Kalender aktualisieren" : "Zum Kalender hinzufügen"}
         </button>
         <button class="btn ghost" id="bookMoreBtn" style="margin-top:10px;">Fertig</button>
-        <div class="micro">Lädt eine <b style='color:var(--c1)'>.ics</b>-Datei — öffnet sich in Apple Kalender, Google Kalender oder Outlook.</div>
+        <div class="micro">Lädt eine <b style='color:var(--c1)'>.ics</b>-Datei für Apple Kalender, Google Kalender oder Outlook.</div>
       `;
       $("#icsBtn").onclick = ()=>downloadIcs(b);
       $("#bookMoreBtn").onclick = ()=>{ state.justBooked=null; renderSummary(); };
@@ -1972,7 +2139,7 @@
       sumCard.innerHTML = `
         <div class="manage-eyebrow">Buchung verwalten</div>
         <div class="sum-head">
-          <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+          <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
           <div><div class="nm">${esc(b.title)}</div><div class="rl">with ${esc(t.name)}</div></div>
         </div>
         <div class="sum-rows">
@@ -1998,11 +2165,11 @@
             <button class="btn ghost" id="reschBtn">Umbuchen</button>
             <button class="btn danger-btn" id="cancelBtn"><span class="grainbtn"></span>Stornieren</button>
           </div>
-          <div class="micro">Mehr als 24 h entfernt — kostenlos umbuchen oder stornieren und deine <b style='color:var(--c1)'>1 Einheit</b> zurückbekommen.</div>
+          <div class="micro">Mehr als 24 h entfernt: kostenlos umbuchen oder stornieren und deine <b style='color:var(--c1)'>1 Einheit</b> zurückbekommen.</div>
         ` : `
           <div class="lock-note">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-            <span><b>Weniger als 24 Stunden vor der Stunde.</b> Sie kann nicht mehr umgebucht oder storniert werden — die Einheit verfällt, wenn du nicht teilnimmst.</span>
+            <span><b>Weniger als 24 Stunden vor der Stunde.</b> Sie kann nicht mehr umgebucht oder storniert werden. Die Einheit verfällt, wenn du nicht teilnimmst.</span>
           </div>
           <div class="manage-actions">
             <button class="btn ghost" disabled>Umbuchen</button>
@@ -2038,7 +2205,7 @@
     const noCredit = state.credits < 1;
     sumCard.innerHTML = `
       <div class="sum-head">
-        <div class="avatar" style="${avatarStyle(t)}">${t.i}</div>
+        <div class="avatar" style="${avatarStyle(t)}">${avatarText(t)}</div>
         <div><div class="nm">${esc(t.name)}</div><div class="rl">${t.role}</div></div>
       </div>
       <div class="sum-rows">
@@ -2189,7 +2356,7 @@
     const list = tutors.length ? tutors : [fallback];
     const t0 = list[0];
     const firstName = (t)=> (t.name||"").split(" ")[0] || t.name || "Tutor";
-    const mailHref = (t)=> `mailto:${t.email}?subject=${encodeURIComponent('Einheiten aufladen — '+p.n+'er-Paket')}&body=${encodeURIComponent('Hallo '+firstName(t)+', ich möchte gern das '+p.n+'er-Paket ('+p.price+') kaufen. Danke!')}`;
+    const mailHref = (t)=> `mailto:${t.email}?subject=${encodeURIComponent('Einheiten aufladen: '+p.n+'er-Paket')}&body=${encodeURIComponent('Hallo '+firstName(t)+', ich möchte gern das '+p.n+'er-Paket ('+p.price+') kaufen. Danke!')}`;
     const tutorPicker = (list.length>1)
       ? `<label class="bf-lab" style="margin-bottom:14px;text-align:left;">Tutor wählen<select class="bf-input" id="buyTutorSel">${list.map((t,i)=>`<option value="${i}">${esc(t.name)} · ${esc(t.email)}</option>`).join("")}</select></label>`
       : ``;
@@ -2197,7 +2364,7 @@
       <button class="modal-x" id="buyX" aria-label="Close">×</button>
       <div class="buy-ic">${stripeOn ? `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>` : `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z"/></svg>`}</div>
       ${stripeOn ? (needBilling ? `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
-      <p class="buy-p">Bevor du per Karte bezahlen kannst, hinterlege bitte ${setupMissingText(missing)} in deinem Konto — dorthin gehen deine Belege.</p>
+      <p class="buy-p">Bevor du per Karte bezahlen kannst, hinterlege bitte ${setupMissingText(missing)} in deinem Konto. Dorthin gehen deine Belege.</p>
       <button class="btn" id="buyBilling"><span class="grainbtn"></span>Konto vervollständigen</button>
       <button class="btn ghost" id="buyClose">Schließen</button>`
       : `<h3 class="buy-h">${p.n} Einheiten kaufen</h3>
@@ -2210,7 +2377,7 @@
       : `<h3 class="buy-h">Einheiten fügt dein Tutor hinzu</h3>
       <p class="buy-p">Für das <b>${p.n}er-Paket</b> (<b>${esc(p.price)}</b>) schreib <b id="buyTutorName">${esc(firstName(t0))}</b>. Die Einheiten werden zu deinem Stand hinzugefügt und ein österreichischer Beleg wird dir automatisch ausgestellt.</p>
       ${tutorPicker}
-      ${billingComplete(studentById(state.currentUser)) ? "" : `<div class="credit-warn" role="alert">⚠ Deine Rechnungsadresse ist noch unvollständig — ergänze sie vorher in deinem Konto, sonst steht sie nicht auf deinem Beleg.</div>`}
+      ${billingComplete(studentById(state.currentUser)) ? "" : `<div class="credit-warn" role="alert">⚠ Deine Rechnungsadresse ist noch unvollständig. Ergänze sie vorher in deinem Konto, sonst steht sie nicht auf deinem Beleg.</div>`}
       <div class="buy-contact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span id="buyTutorEmail">${esc(t0.email)}</span></div>
       <a class="btn" id="buyMail" href="${esc(mailHref(t0))}"><span class="grainbtn"></span>Tutor schreiben</a>
       <button class="btn ghost" id="buyClose">Schließen</button>`}
@@ -2241,7 +2408,7 @@
       if(btn){ btn.disabled=false; btn.style.opacity=""; }
       // Server guard fallback: account incomplete → route to the account form.
       if (res.data && res.data.error === "setup_required") { goToAccountSetup(res.data.missing); return; }
-      toast("Zahlung konnte nicht gestartet werden — bitte schreib deinem Tutor.");
+      toast("Zahlung konnte nicht gestartet werden. Bitte schreib deinem Tutor.");
     });
   }
   // After returning from Stripe Checkout, confirm the session so credits + receipt
@@ -2252,7 +2419,7 @@
     const status = params.get("checkout");
     if (!status) return;
     const clean = () => { try { history.replaceState({}, "", window.location.pathname); } catch(e){} };
-    if (status === "cancel") { clean(); setView("account"); toast("Zahlung abgebrochen — kein Betrag wurde abgebucht."); return; }
+    if (status === "cancel") { clean(); setView("account"); toast("Zahlung abgebrochen. Es wurde kein Betrag abgebucht."); return; }
     if (status !== "success") { clean(); return; }
     const sid = params.get("session_id");
     clean(); setView("account");
@@ -2277,7 +2444,7 @@
         renderAccount();
         toast(`Zahlung erfolgreich · ${res.receipt? "+"+res.receipt.credits+" Einheiten" : "Einheiten gutgeschrieben"}`);
       } else {
-        toast("Zahlung wird noch verarbeitet — deine Einheiten erscheinen in Kürze.");
+        toast("Zahlung wird noch verarbeitet. Deine Einheiten erscheinen in Kürze.");
       }
     });
   }
@@ -2286,14 +2453,14 @@
   function renderUpcoming() {
     const el = $("#upcomingList"); el.innerHTML="";
     const up = state.bookings.filter(b=>b.studentId===state.currentUser && (b.date>=NOW||sameDay(b.date,NOW))).sort((a,b)=>a.date-b.date);
-    if (!up.length) { el.innerHTML = `<div class="empty-list">Noch keine geplanten Stunden — buche eine über den Kalender.</div>`; return; }
+    if (!up.length) { el.innerHTML = `<div class="empty-list">Noch keine geplanten Stunden. Buche eine über den Kalender.</div>`; return; }
     up.forEach(b => {
       const t = tutorById(b.tutorId);
       const row = document.createElement("div"); row.className="li";
       const mod = canModify(b);
       row.innerHTML = `
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${t.i}</div>
+        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${avatarText(t)}</div>
         <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip" title="Wartet auf Bestätigung durch deinen Tutor">Angefragt</span>':""}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
         <div class="tail">
           ${b.callLink?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener" title="Zum Call">Call</a>`:""}
@@ -2477,7 +2644,7 @@
         }
         slots.appendChild(el);
       });
-      if(!any){ const n=document.createElement("div"); n.className="no-slot"; n.textContent="\u2014"; slots.appendChild(n); }
+      if(!any){ const n=document.createElement("div"); n.className="no-slot"; n.textContent="\u00b7"; slots.appendChild(n); }
       col.appendChild(slots); row.appendChild(col);
     }
   }
@@ -2490,7 +2657,7 @@
     if(!/^\d{1,2}:\d{2}$/.test(time||"")){ toast("Gib eine gültige Zeit ein"); return; }
     const ws=addDays(startOfWeek(NOW), state.tWeekOffset*7);
     const date=addDays(ws, i), dk=ymd(date);
-    if(bookingConflict(date,time,null,state.myTutor)){ toast("Das überschneidet eine Buchung — wähle eine andere Zeit"); return; }
+    if(bookingConflict(date,time,null,state.myTutor)){ toast("Das überschneidet eine Buchung. Wähle eine andere Zeit"); return; }
     const cm=customMap(state.myTutor); cm[dk]=cm[dk]||[];
     if(!cm[dk].includes(time) && !TIMES.includes(time)) cm[dk].push(time);
     availMap(state.myTutor)[dk+"|"+time]=true;
@@ -2510,7 +2677,7 @@
       time,
       title: 'Englischstunde',
     }).then(res => {
-      if (res.status === 409) { toast(`${s.name.split(" ")[0]} hat das Limit offener Einheiten erreicht — bitte zuerst begleichen`); return; }
+      if (res.status === 409) { toast(`${s.name.split(" ")[0]} hat das Limit offener Einheiten erreicht. Bitte zuerst begleichen`); return; }
       if (!res.ok || !res.data) { toast("Buchung fehlgeschlagen"); return; }
       const r = res.data;
       state.bookings.push({ studentId, tutorId:state.myTutor, date:new Date(date), time, title:"Englischstunde", _pk:r.pk });
@@ -2535,7 +2702,7 @@
       <button class="modal-x" id="bdX" aria-label="Close">×</button>
       <div class="buy-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg></div>
       <h3 class="buy-h">Stunde nachtragen</h3>
-      <p class="buy-p">Trage eine bereits gehaltene Stunde nach — bis zu <b>30 Tage</b> zurück. Es wird <b>1 Einheit</b> abgezogen und die Stunde erscheint im Verlauf.</p>
+      <p class="buy-p">Trage eine bereits gehaltene Stunde nach, bis zu <b>30 Tage</b> zurück. Es wird <b>1 Einheit</b> abgezogen und die Stunde erscheint im Verlauf.</p>
       <label class="bf-lab" style="text-align:left;">Schüler<select class="bf-input" id="bdStudent">${list.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select></label>
       <div class="bf-grid">
         <label class="bf-lab" style="text-align:left;">Datum<input class="bf-input" type="date" id="bdDate" min="${ymd(min)}" max="${ymd(NOW)}" value="${ymd(NOW)}"></label>
@@ -2559,7 +2726,7 @@
     apiResult('POST', '/api/bookings/', { studentSlug:studentId, tutorSlug:state.myTutor, date:dstr, time, title:'Englischstunde' }).then(res=>{
       if(btn) btn.disabled=false;
       if(res.data && res.data.error==="too_far_back"){ toast("Nur bis zu 30 Tage rückwirkend möglich"); return; }
-      if(res.status===409){ toast(res.data && res.data.error==="slot_taken" ? "Zu dieser Zeit besteht bereits eine Buchung" : `${s.name.split(" ")[0]} hat das Limit offener Einheiten erreicht — bitte zuerst begleichen`); return; }
+      if(res.status===409){ toast(res.data && res.data.error==="slot_taken" ? "Zu dieser Zeit besteht bereits eine Buchung" : `${s.name.split(" ")[0]} hat das Limit offener Einheiten erreicht. Bitte zuerst begleichen`); return; }
       if(!res.ok || !res.data){ toast("Nachtragen fehlgeschlagen"); return; }
       const r=res.data;
       state.bookings.push({ studentId, tutorId:state.myTutor, date:d, time, title:"Englischstunde", _pk:r.pk });
@@ -2609,7 +2776,7 @@
             <select class="t-select ca-day" id="caDay">${dayOpts}</select>
             <input type="time" class="t-select ca-time" id="caTime" value="09:15" step="300" min="07:00" max="21:00" />
           </div>
-          <div class="micro" style="text-align:left;margin:0 0 14px;">Jede Startzeit — solange die 45 Minuten keine Buchung überschneiden.</div>
+          <div class="micro" style="text-align:left;margin:0 0 14px;">Jede Startzeit, solange die 45 Minuten keine Buchung überschneiden.</div>
           <button class="btn" id="caAdd"><span class="grainbtn"></span>Startzeit hinzufügen</button>
         </div>
         <button class="btn ghost" id="availDone" style="margin-top:10px;">Fertig</button>
@@ -2620,7 +2787,7 @@
     }
     if(state.teacherSel){
       const sel=state.teacherSel;
-      const opts=state.students.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${s.credits} Einheiten</option>`).join("");
+      const opts=state.students.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} (${s.credits} Einheiten)</option>`).join("");
       card.innerHTML=`
         <div class="manage-eyebrow">Schüler eintragen</div>
         <div class="sum-rows" style="margin-bottom:16px;">
@@ -2645,10 +2812,22 @@
     if(state.teacherManage){
       const bk=state.teacherManage, s=bookingStudent(bk);
       const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
+      // Lessons with their own page (#stunde-<pk>) keep topics and private notes
+      // there; the panel only schedules. A lesson that is over can't be
+      // rescheduled, so it just links to that page.
+      const hasPage = !bk.isIntro && bk._pk && bk.status!=="requested", ended = hasPage && lessonEnded(bk);
+      const first = esc(s.name.split(" ")[0]);
       card.innerHTML=`
         <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":(bk.status==="requested"?"Anfrage · wartet auf dich":"Gebuchte Zeit")}</div>
-        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
+        <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${avatarText(s)}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
         ${bk.status==="requested" && bk._pk ? `<div style="display:flex;gap:8px;margin:4px 0 14px;"><button class="btn" id="tReqConfirm" style="flex:1;"><span class="grainbtn"></span>Bestätigen</button><button class="btn ghost" id="tReqDecline" style="flex:1;">Ablehnen</button></div>` : ""}
+        ${ended ? `
+        <div class="done-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>
+          <span><b>Abgeschlossen.</b> Notizen, Zusammenfassung, Übungen und Fehler trägst du auf der Seite der Stunde ein.</span>
+        </div>
+        <a class="btn" id="tLessonEdit" href="#stunde-${bk._pk}"><span class="grainbtn"></span>Stunde öffnen →</a>
+        ` : `
         <label class="field-label">Titel der Stunde</label>
         <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
@@ -2658,36 +2837,44 @@
         </div>
         <label class="field-label" style="margin-top:12px;">Call-Link <span class="lbl-only">· Zoom, Teams…</span></label>
         <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${esc(bk.callLink)}">
+        ${hasPage ? "" : `
         <label class="field-label" style="margin-top:12px;">Themen für die Stunde</label>
-        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${esc(s.name.split(' ')[0])}…">${esc(bk.notes)}</textarea>
+        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${first}…">${esc(bk.notes)}</textarea>
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
-        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
+        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>`}
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
-        ${(!bk.isIntro && bk._pk && bk.status!=="requested") ? `<button class="btn ghost" id="tLessonEdit" style="margin-top:10px;">Stunde öffnen · Zusammenfassung, Übungen, Fehler</button>` : ""}
+        ${hasPage ? `<a class="btn ghost" id="tLessonEdit" href="#stunde-${bk._pk}" style="margin-top:10px;">Stunde öffnen · Notizen, Übungen, Fehler</a>` : ""}
+        `}
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
           ? `Entfernen gibt die Zeit wieder frei. Eine Schnupperstunde verbraucht keine Einheit.`
           : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${esc(s.name.split(" ")[0])}.`}</div>
       `;
-      $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
-      $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
-      $("#tPrivTA").oninput=(e)=>{ bk.tutorNotes=e.target.value; };
-      $("#tTimeInput").oninput=(e)=>{ const v=e.target.value; if(/^\d{2}:\d{2}$/.test(v)) $("#tTimeEnd").textContent="endet "+endTime(v, lessonMins(bk)); };
-      $("#tCallLink").oninput=(e)=>{ bk.callLink=e.target.value.trim(); };
-      $("#tNoteSave").onclick=()=>{
+      if($("#tTitle")) $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
+      if($("#tNoteTA")) $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
+      if($("#tPrivTA")) $("#tPrivTA").oninput=(e)=>{ bk.tutorNotes=e.target.value; };
+      if($("#tTimeInput")) $("#tTimeInput").oninput=(e)=>{ const v=e.target.value; if(/^\d{2}:\d{2}$/.test(v)) $("#tTimeEnd").textContent="endet "+endTime(v, lessonMins(bk)); };
+      if($("#tCallLink")) $("#tCallLink").oninput=(e)=>{ bk.callLink=e.target.value.trim(); };
+      if($("#tNoteSave")) $("#tNoteSave").onclick=()=>{
+        // Same rule as the server: web links only, a bare host gets https://.
+        if(bk.callLink && !/^https?:\/\//i.test(bk.callLink)){
+          if(/^[a-z][a-z0-9+.-]*:/i.test(bk.callLink) && !/^[^/:]+:\d/.test(bk.callLink)){ toast("Link muss mit http(s):// beginnen."); return; }
+          bk.callLink="https://"+bk.callLink; $("#tCallLink").value=bk.callLink;
+        }
         const nt=$("#tTimeInput").value;
         if(/^\d{2}:\d{2}$/.test(nt) && nt!==bk.time){
-          if(bookingConflict(bk.date, nt, bk, bk.tutorId)){ toast("Diese Startzeit überschneidet eine andere Buchung — nicht geändert"); }
+          if(bookingConflict(bk.date, nt, bk, bk.tutorId)){ toast("Diese Startzeit überschneidet eine andere Buchung und wurde nicht geändert"); }
           else { bk.time=nt; const dk=ymd(bk.date); if(!dayTimes(bk.date, bk.tutorId).includes(nt)){ const cm=customMap(bk.tutorId); cm[dk]=cm[dk]||[]; cm[dk].push(nt); } toast("Stunde verschoben auf "+nt); }
         } else { toast("Details gespeichert"); }
-        if (bk._pk) api('PUT', '/api/bookings/' + bk._pk + '/', {
-          title: bk.title, notes: bk.notes, tutorNotes: bk.tutorNotes, callLink: bk.callLink, time: bk.time
-        });
+        // Notes are only sent when edited here; otherwise the lesson page owns them.
+        if (bk._pk) api('PUT', '/api/bookings/' + bk._pk + '/', Object.assign(
+          { title: bk.title, callLink: bk.callLink, time: bk.time },
+          hasPage ? {} : { notes: bk.notes, tutorNotes: bk.tutorNotes }));
         renderTeacherWeek(); renderTutorLists(); renderAccount(); renderWeek(); renderTeacherSummary();
       };
       $("#tRemove").onclick=()=>teacherRemove(bk);
-      if($("#tLessonEdit")) $("#tLessonEdit").onclick=()=>openSession(bk._pk);
+      if($("#tLessonEdit")) $("#tLessonEdit").onclick=(e)=>{ e.preventDefault(); openSession(bk._pk); };
       if($("#tReqConfirm")) $("#tReqConfirm").onclick=()=>answerRequest(bk._pk, true);
       if($("#tReqDecline")) $("#tReqDecline").onclick=()=>{ state.teacherManage=null; answerRequest(bk._pk, false); };
       $("#tBack").onclick=()=>{ state.teacherManage=null; renderTeacherSummary(); };
@@ -2710,8 +2897,8 @@
     if (!missing.length) return "";
     const first = esc(s.name.split(" ")[0]);
     const parts = [];
-    if (missing.includes("billing")) parts.push(`Die Rechnungsadresse von ${first} ist unvollständig — der Beleg wird ohne vollständige Adresse ausgestellt.`);
-    if (missing.includes("email")) parts.push(`Für ${first} ist keine echte E-Mail-Adresse hinterlegt — der Beleg wird nicht per E-Mail zugestellt.`);
+    if (missing.includes("billing")) parts.push(`Die Rechnungsadresse von ${first} ist unvollständig. Der Beleg wird ohne vollständige Adresse ausgestellt.`);
+    if (missing.includes("email")) parts.push(`Für ${first} ist keine echte E-Mail-Adresse hinterlegt. Der Beleg wird nicht per E-Mail zugestellt.`);
     return `<div class="credit-warn" role="alert">⚠ ${parts.join(" ")}</div>`;
   }
 
@@ -2724,7 +2911,7 @@
       <h3 class="buy-h">+${n} Einheiten für ${first}</h3>
       <p class="buy-p" id="settleP">Wie wurde diese Aufladung beglichen?</p>
       ${creditWarningHtml(s)}
-      <button class="btn" id="settleCash"><span class="grainbtn"></span>Bar bezahlt — jetzt gutschreiben</button>
+      <button class="btn" id="settleCash"><span class="grainbtn"></span>Bar bezahlt, jetzt gutschreiben</button>
       <button class="btn ghost" id="settleStripe">Über Stripe</button>
       <button class="btn ghost" id="settleCancel">Abbrechen</button>
     </div>`;
@@ -2752,7 +2939,7 @@
     m.innerHTML = `<div class="modal-card buy-card" id="customCard">
       <button class="modal-x" id="customX" aria-label="Close">×</button>
       <h3 class="buy-h">Einheiten für ${first} hinzufügen</h3>
-      <p class="buy-p">Beliebige Anzahl zu einem frei gewählten Gesamtbetrag — der Beleg wird über genau diesen Betrag ausgestellt.</p>
+      <p class="buy-p">Beliebige Anzahl zu einem frei gewählten Gesamtbetrag. Der Beleg wird über genau diesen Betrag ausgestellt.</p>
       <div class="bf-grid">
         <label class="bf-lab">Einheiten<input class="bf-input" id="ctN" type="number" min="1" max="500" step="1" value="${n0}"></label>
         <label class="bf-lab">Gesamtbetrag (€)<input class="bf-input" id="ctTotal" type="text" inputmode="decimal" value="${money(settleUnitEuros(n0)*n0)}"></label>
@@ -2801,17 +2988,18 @@
   }
 
   // ---------- Student history modal ----------
-  function openStudentModal(s){ state.teacherStudent=s; renderStudentModal(); $("#studentModal").hidden=false; }
+  function openStudentModal(s){ state.teacherStudent=s; state.testEdit=null; state.timelineAll=false; renderStudentModal(); $("#studentModal").hidden=false; }
   function closeStudentModal(){ state.teacherStudent=null; $("#studentModal").hidden=true; }
   function renderStudentModal(){
     const s=state.teacherStudent; if(!s) return;
     const prevScroll = $("#modalCard") ? $("#modalCard").scrollTop : 0;
     const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
     $("#studentModal").innerHTML = `
-      <div class="modal-card" id="modalCard">
+      <div class="modal-card st-sheet" id="modalCard">
         <button class="modal-x" id="modalX" aria-label="Close">×</button>
-        <div class="sum-head" style="margin-bottom:18px;">
-          <div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${s.i}</div>
+        <div class="st-sheet-top">
+        <div class="sum-head">
+          ${s.isGuest ? `<div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div>` : `<button class="av-edit" id="modalAvatarBtn" title="Profilbild ändern" aria-label="Profilbild ändern"><div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div></button>`}
           <div><div class="nm">${esc(s.name)}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         </div>
         <div class="modal-add">
@@ -2827,30 +3015,41 @@
           <button class="mini-btn" id="settleLinkBtn" style="white-space:nowrap;">Zahlungslink</button>
         </div>
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
+        </div>
+        <div class="st-cols"><div class="st-col-main">
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Fortschritt</h2></div>
+        ${progressStatsHtml(s.id)}
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Schularbeiten &amp; Tests</h2></div>
+        <div id="modalTests">${schoolTestsHtml(s.id)}</div>
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Verlauf der Stunden</h2><span class="micro" style="margin:0;">Stunden und Tests auf einen Blick</span></div>
+        ${studentTimelineHtml(s)}
+        </div><div class="st-col-side">
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
         ${errorTrainingMgrHtml(s)}
-        <div class="section-h" style="margin:20px 2px 6px;"><h2>Stunden</h2><span class="micro" style="margin:0;">jede Stunde hat ihre eigene Seite</span></div>
-        ${studentLessonsHtml(s)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
           <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
           <button class="mini-btn snote-btn" id="snoteAdd">Hinzufügen</button>
         </div>
         <div class="snote-log">${notesLogHtml(s)}</div>
-        <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2></div>
-        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Lektionen frei, auf die ${esc(s.name.split(' ')[0])} unter „Materialien“ zugreifen kann.</div>
+        <div class="section-h" style="margin:22px 2px 8px;"><h2>Lernmaterialien <span class="lbl-only">· A1–C1</span></h2><span class="lnk" id="matGo">Themen &amp; Dateien verwalten →</span></div>
+        <div class="micro" style="text-align:left; margin:0 2px 12px;">Schalte die Themen frei, auf die ${esc(s.name.split(' ')[0])} unter „Materialien“ zugreifen kann.</div>
         <div class="curric-mgr">${curriculumMgrHtml(s)}</div>
         <button class="btn ghost" id="prevToggle" style="margin-top:14px;">Vorschau auf ${esc(s.name.split(' ')[0])}s Materialien</button>
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
         <div class="section-h" style="margin:22px 2px 6px;"><h2>Verlauf</h2></div>
         <div class="activity modal-txns">${txnHtml(s.log)}</div>
+        </div></div>
       </div>`;
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
+    if($("#modalAvatarBtn")) $("#modalAvatarBtn").onclick = ()=>openAvatarPicker(s);
     $("#studentModal").querySelectorAll("[data-madd]").forEach(btn=> btn.onclick=()=>openSettleChooser(s, +btn.dataset.madd, true));
     $("#studentModal").querySelectorAll("[data-review]").forEach(btn=> btn.onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && cardKind(c)===btn.dataset.review && c.status==="open"), "review"));
     $("#studentModal").querySelectorAll("[data-session]").forEach(btn=> btn.onclick=()=>openSession(+btn.dataset.session));
     $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
+    bindSchoolTests($("#modalTests"), s.id, renderStudentModal);
+    const tlAll=$("#tlAll"); if(tlAll) tlAll.onclick=()=>{ state.timelineAll=true; renderStudentModal(); };
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
       settleLinkBtn.disabled = true; settleLinkBtn.textContent = "…";
@@ -2865,7 +3064,7 @@
         }
         if (res && res.url) {
           if (out) { out.hidden = false; out.textContent = res.url; }
-          if (navigator.clipboard) navigator.clipboard.writeText(res.url).then(()=>toast("Link kopiert — an den Schüler senden")).catch(()=>{});
+          if (navigator.clipboard) navigator.clipboard.writeText(res.url).then(()=>toast("Link kopiert, jetzt an den Schüler senden")).catch(()=>{});
           else toast("Zahlungslink erstellt");
         } else { toast("Link konnte nicht erstellt werden"); }
       });
@@ -2874,8 +3073,7 @@
     $("#snoteInput").addEventListener("keydown", e=>{ if(e.key==="Enter") addStudentNote(s); });
     $("#studentModal").querySelectorAll(".cm-les[data-lesson]").forEach(b=> b.onclick=()=>{ toggleLesson(s, b.dataset.lesson); renderStudentModal(); });
     $("#studentModal").querySelectorAll("[data-lvl-all]").forEach(b=> b.onclick=()=>{ toggleLevel(s, b.dataset.lvlAll); renderStudentModal(); });
-    $("#studentModal").querySelectorAll("[data-upload]").forEach(inp=> inp.onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; uploadLessonFile(inp.dataset.upload, f, ()=>renderStudentModal()); });
-    $("#studentModal").querySelectorAll("[data-rmfile]").forEach(b=> b.onclick=()=>{ removeLessonFile(b.dataset.lesson, +b.dataset.rmfile, ()=>renderStudentModal()); });
+    $("#matGo").onclick=()=>{ closeStudentModal(); setView("materials"); };
     const prevToggle=$("#prevToggle");
     if(prevToggle) prevToggle.onclick=()=>{
       const p=$("#learnPreview"), show=p.hidden;
@@ -2887,7 +3085,7 @@
     bindCancelLinks($("#studentModal"));
     if($("#modalCard")) $("#modalCard").scrollTop = prevScroll;
   }
-  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen — oben die erste hinzufügen.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${esc(n.text)}</div></div>`).join(""); }
+  function notesLogHtml(s){ const l=s.notesLog||[]; if(!l.length) return `<div class="empty-list">Noch keine Notizen. Füge oben die erste hinzu.</div>`; return l.map(n=>`<div class="snote"><div class="snote-date">${n.date}</div><div class="snote-text">${esc(n.text)}</div></div>`).join(""); }
   function addStudentNote(s){ const inp=$("#snoteInput"); const t=(inp.value||"").trim(); if(!t) return; s.notesLog=s.notesLog||[]; s.notesLog.unshift({ date:fmtAT(NOW), text:t }); inp.value=""; api('POST', '/api/notes/' + s.id + '/', { text: t, tutorSlug: state.myTutor }); renderStudentModal(); toast("Notiz zu "+s.name.split(" ")[0]+" hinzugefügt"); }
 
   function renderRoster(){
@@ -2900,8 +3098,8 @@
       const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
       const card=document.createElement("div"); card.className="rost";
       card.innerHTML=`
-        <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${s.i}</div>
-        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+        <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${avatarText(s)}</div>
+        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}${nextTestLine(s.id)}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
           ${creditQuickAdds().map(n=>`<button class="mini-btn" data-add="${n}">+${n}</button>`).join("")}
@@ -2922,7 +3120,7 @@
     const nameLine = s.isGuest ? `${esc(s.name)} · Intro` : esc(s.name);
     return `<div class="li">
       <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-      <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${s.i}</div>
+      <div class="avatar" style="${avatarStyle(s)};width:38px;height:38px;font-size:13px;">${avatarText(s)}</div>
       <div class="info"><div class="t">${esc(b.title)}${b.status==="requested"?'<span class="req-chip">Anfrage</span>':""}</div><div class="s">${nameLine} · ${b.time}–${endTime(b.time, lessonMins(b))}</div>${b.notes?`<div class="note-line">${esc(b.notes)}</div>`:""}</div>
       <div class="tail">${(!b.isIntro && b.status!=="requested" && b._pk)?`<button class="mini-btn" data-session="${b._pk}" title="Zusammenfassung, Übungen, Wortschatz, Fehler, Arbeitsblätter">Stunde öffnen</button>`:""}${(!completed && b.status==="requested" && b._pk)?`<button class="mini-btn" data-confirm="${b._pk}">Bestätigen</button><button class="mini-btn danger" data-decline="${b._pk}">Ablehnen</button>`:""}${(!completed&&b.callLink)?`<a class="join-mini" href="${esc(b.callLink)}" target="_blank" rel="noopener">Call</a>`:""}${completed?`${(DJ.role==="admin"&&b._pk)?`<button class="mini-btn" data-undo="${b._pk}" title="Rückwirkend stornieren — Einheit zurück an den Schüler">Stornieren</button>`:""}<span class="pill2 done">Abgeschlossen</span>`:`<span class="pill2">${lessonMins(b)} Min.</span>`}</div>
     </div>`;
@@ -2940,7 +3138,7 @@
     const s = bookingStudent(b), first = esc(s.name.split(" ")[0]);
     if (!confirm && !window.confirm(`Anfrage von ${s.name} am ${fmtLong(b.date)} um ${b.time} ablehnen? Die Einheit wird erstattet.`)) return;
     const res = await apiResult('POST', `/api/bookings/${pk}/${confirm ? "confirm" : "decline"}/`);
-    if (!res.ok) { toast("Das hat nicht geklappt — bitte neu laden."); return; }
+    if (!res.ok) { toast("Das hat nicht geklappt. Bitte neu laden."); return; }
     if (confirm) { b.status = "confirmed"; toast(`Bestätigt · ${first} bekommt eine E-Mail`); }
     else {
       state.bookings = state.bookings.filter(x=>x!==b);
@@ -2991,7 +3189,7 @@
       <h3 class="buy-h">Stunde rückwirkend stornieren?</h3>
       <p class="buy-p"><b>${esc(s.name)}</b>${isGuest?" · Intro":""} · ${fmtLong(b.date)} · ${b.time}</p>
       <p class="buy-p">${isGuest
-        ? "Eine Schnupperstunde kostet keine Einheit — sie wird nur aus der Liste entfernt."
+        ? "Eine Schnupperstunde kostet keine Einheit. Sie wird nur aus der Liste entfernt."
         : "Die Stunde wird entfernt und die Einheit dem Schüler zurückgebucht. Der Vorgang wird mit deinem Namen im Einheiten-Verlauf protokolliert."}</p>
       <button class="btn" id="undoConfirm"><span class="grainbtn"></span>${isGuest?"Stunde entfernen":"Stornieren &amp; Einheit erstatten"}</button>
       <button class="btn ghost" id="undoCancel" style="margin-top:10px;">Abbrechen</button>
@@ -3104,12 +3302,12 @@
       <div class="payout-table">
         <div class="payout-row payout-hrow"><div>Tutor</div><div>Abgeschl.</div><div>Migriert</div><div>Vergütbar</div><div>Wert</div></div>
         ${rows.length ? rows.map(r=>`<div class="payout-row">
-          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${r.t.i}</span>${esc(r.t.name)}</div>
-          <div>${r.comp}</div><div class="${r.migr?'payout-mig':''}">${r.migr||"—"}</div><div><b>${r.pay}</b></div><div>€ ${r.value}</div>
+          <div class="payout-tutor"><span class="avatar" style="${avatarStyle(r.t)};width:28px;height:28px;font-size:11px;">${avatarText(r.t)}</span>${esc(r.t.name)}</div>
+          <div>${r.comp}</div><div class="${r.migr?'payout-mig':''}">${r.migr||"0"}</div><div><b>${r.pay}</b></div><div>€ ${r.value}</div>
         </div>`).join("") : `<div class="empty-list" style="padding:16px 0;">Noch keine Stunden im Zeitraum.</div>`}
-        ${rows.length>1?`<div class="payout-row payout-total"><div>Gesamt</div><div>${sum("comp")}</div><div>${sum("migr")||"—"}</div><div><b>${sum("pay")}</b></div><div>€ ${sum("value")}</div></div>`:""}
+        ${rows.length>1?`<div class="payout-row payout-total"><div>Gesamt</div><div>${sum("comp")}</div><div>${sum("migr")||"0"}</div><div><b>${sum("pay")}</b></div><div>€ ${sum("value")}</div></div>`:""}
       </div>
-      <div class="micro" style="text-align:left;margin-top:10px;">Nur <b>vergütbare</b> Stunden zählen zum Wert (× €${state.creditPrice}/Einheit). ${anyMig?"<b>Migrierte</b> Stunden wurden mit Eröffnungsguthaben (extern bezahlt) gedeckt und sind nicht vergütbar — je Schüler die ältesten Stunden zuerst. ":""}Der tatsächliche Tutor-Anteil ist deine Vereinbarung.</div>`;
+      <div class="micro" style="text-align:left;margin-top:10px;">Nur <b>vergütbare</b> Stunden zählen zum Wert (× €${state.creditPrice}/Einheit). ${anyMig?"<b>Migrierte</b> Stunden wurden mit Eröffnungsguthaben (extern bezahlt) gedeckt und sind nicht vergütbar (je Schüler die ältesten Stunden zuerst). ":""}Der tatsächliche Tutor-Anteil ist deine Vereinbarung.</div>`;
     const ms=$("#payoutMonthSel"); if(ms) ms.onchange=()=>{ state.payoutMonth=ms.value; renderPayouts(); };
   }
   // Auto-derived "per session" label = total price ÷ credits. Blank (never a
@@ -3165,7 +3363,7 @@
     allAccounts().forEach(u=>{
       const item=document.createElement("button");
       item.className="admin-item"+(u.id===state.adminSel?" sel":"");
-      item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${u.i}</div>
+      item.innerHTML=`<div class="avatar" style="${avatarStyle(u)};width:36px;height:36px;font-size:12px;">${avatarText(u)}</div>
         <div class="ai-info"><div class="ai-name">${esc(u.name)}</div><div class="ai-role">${u.role==="tutor"?"Tutor":"Schüler"} · ${esc(u.email)}</div></div>`;
       item.onclick=()=>{ state.adminSel=u.id; renderAdmin(); };
       el.appendChild(item);
@@ -3179,7 +3377,7 @@
     const b=u.billing||{};
     el.innerHTML=`
       <div class="ed-head">
-        <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${u.i}</div>
+        <div class="avatar ed-avatar" style="${avatarStyle(u)};width:64px;height:64px;font-size:22px;">${avatarText(u)}</div>
         <div class="ed-photo-actions">
           <div class="ed-who"><div class="ed-name">${esc(u.name)}</div><div class="ed-role">${isStudent?"Schüler":"Tutor"}</div></div>
           <div class="ed-photo-btns">
@@ -3216,7 +3414,7 @@
           <label class="bf-lab">Stadt<input class="bf-input" id="edCity" value="${esc(b.city)}"></label>
         </div>
         <label class="bf-lab">Land<input class="bf-input" id="edCountry" value="${esc(b.country||'Österreich')}"></label>
-        `:'<div class="micro" style="text-align:left;">Tutor-Konto — verwaltet den Kalender und die Einheiten der Schüler.</div>'}
+        `:'<div class="micro" style="text-align:left;">Tutor-Konto: verwaltet den Kalender und die Einheiten der Schüler.</div>'}
       </div>
       <div class="ed-actions">
         <button class="btn" id="edSave"><span class="grainbtn"></span>Änderungen speichern</button>
@@ -3231,7 +3429,7 @@
     $("#edName").oninput=()=>{
       const nm=$("#edName").value.trim();
       const avatar=el.querySelector(".ed-avatar");
-      if(avatar && !u.photo) avatar.textContent=initialsOf(nm);
+      if(avatar && !u.photo && !u.avatarEmoji) avatar.textContent=initialsOf(nm);
       const nameEl=el.querySelector(".ed-name");
       if(nameEl) nameEl.textContent=nm||u.name;
     };
@@ -3280,7 +3478,7 @@
         try { u.photo=c.toDataURL("image/jpeg",0.85); }
         catch(_) { u.photo=rd.result; }  // tainted canvas / unsupported — fall back
         reflectUser(u); renderAdmin();
-        toast("Foto aktualisiert — zum Speichern „Änderungen speichern“");
+        toast("Foto aktualisiert. Zum Speichern auf „Änderungen speichern“ tippen");
       };
       img.onerror=()=>toast("Diese Datei ist kein Bild");
       img.src=rd.result;
@@ -3305,7 +3503,7 @@
       payload.billing=billing;
     }
     api('PUT', '/api/users/'+u.id+'/', payload).then(r=>{
-      if(!r){ toast("Speichern fehlgeschlagen — E-Mail evtl. bereits vergeben"); return; }
+      if(!r){ toast("Speichern fehlgeschlagen. Die E-Mail ist evtl. bereits vergeben"); return; }
       u.name=newName; u.email=newEmail; if(newPass) u.password=newPass; u.i=initialsOf(newName);
       if(u.role==="student"){ u.billing=billing; }
       reflectUser(u); renderAdmin();
@@ -3320,7 +3518,7 @@
     // Create the account on the server first so it has a real slug and can be
     // logged into; then mirror it into local state using the server's response.
     api('POST', '/api/users/').then(r=>{
-      if(!r || !r.slug){ toast("Schüler konnte nicht hinzugefügt werden — bitte erneut versuchen"); return; }
+      if(!r || !r.slug){ toast("Schüler konnte nicht hinzugefügt werden. Bitte erneut versuchen"); return; }
       state.students.push({
         id:r.slug, slug:r.slug, role:"student", email:r.email, name:r.name, credits:r.credits||0,
         c:[r.color1, r.color2], i:r.initials||"NS", password:r.tempPassword||"", photo:r.photo||null,
@@ -3328,7 +3526,7 @@
         log:[], notesLog:[], activeLessons:[],
       });
       state.adminSel=r.slug; renderAdmin(); renderRoster();
-      toast("Schüler hinzugefügt — Passwort unter „Details“ ablesen und weitergeben");
+      toast("Schüler hinzugefügt. Passwort unter „Details“ ablesen und weitergeben");
     });
   }
   function removeAdminStudent(u){
@@ -3343,14 +3541,14 @@
     // Same pattern as students: create server-side first so the tutor has a real
     // slug, then mirror into the in-memory tutor lists (roster + bookable chips).
     api('POST', '/api/users/', { role: 'tutor' }).then(r=>{
-      if(!r || !r.slug){ toast("Tutor konnte nicht hinzugefügt werden — bitte erneut versuchen"); return; }
+      if(!r || !r.slug){ toast("Tutor konnte nicht hinzugefügt werden. Bitte erneut versuchen"); return; }
       tutorAccounts.push({
         id:r.slug, role:"tutor", name:r.name, email:r.email,
         i:r.initials||"NT", c:[r.color1, r.color2], photo:r.photo||null, password:r.tempPassword||"",
       });
       TUTORS.push({ id:r.slug, name:(r.name||"Tutor").split(" ")[0], role:"Englisch-Tutor", c:[r.color1, r.color2], i:r.initials||"T", photo:r.photo||null });
       state.adminSel=r.slug; renderAdmin();
-      toast("Tutor hinzugefügt — Passwort unter „Details“ ablesen und weitergeben");
+      toast("Tutor hinzugefügt. Passwort unter „Details“ ablesen und weitergeben");
     });
   }
   function removeAdminTutor(u){
@@ -3376,42 +3574,30 @@
   }
 
   // ---------- Learning files / curriculum ----------
-  const CURRICULUM = [
-    { level:"A1", title:"Anfänger", lessons:[
-      { id:"a1-1", t:"Greetings & introductions" },
-      { id:"a1-2", t:"The present simple" },
-      { id:"a1-3", t:"Numbers, dates & telling time" },
-      { id:"a1-4", t:"Everyday objects & places" },
-    ]},
-    { level:"A2", title:"Grundstufe", lessons:[
-      { id:"a2-1", t:"Past simple & regular verbs" },
-      { id:"a2-2", t:"Comparatives & superlatives" },
-      { id:"a2-3", t:"\u2018Going to\u2019 & future plans" },
-      { id:"a2-4", t:"Food, travel & directions" },
-    ]},
-    { level:"B1", title:"Mittelstufe", lessons:[
-      { id:"b1-1", t:"Present perfect in context" },
-      { id:"b1-2", t:"First & second conditionals" },
-      { id:"b1-3", t:"Reported speech basics" },
-      { id:"b1-4", t:"Phrasal verbs that matter" },
-    ]},
-    { level:"B2", title:"Obere Mittelstufe", lessons:[
-      { id:"b2-1", t:"The passive voice" },
-      { id:"b2-2", t:"Relative clauses" },
-      { id:"b2-3", t:"Narrative tenses" },
-      { id:"b2-4", t:"Formal & informal register" },
-    ]},
-    { level:"C1", title:"Fortgeschritten", lessons:[
-      { id:"c1-1", t:"Inversion & emphasis" },
-      { id:"c1-2", t:"Hedging & academic style" },
-      { id:"c1-3", t:"Nuanced & idiomatic vocabulary" },
-      { id:"c1-4", t:"Discourse markers & cohesion" },
-    ]},
+  // Topics live on the server (DJ.topics); each has a level and a skill area.
+  const LEVELS = [
+    { level:"A1", title:"Anfänger" },
+    { level:"A2", title:"Grundstufe" },
+    { level:"B1", title:"Mittelstufe" },
+    { level:"B2", title:"Obere Mittelstufe" },
+    { level:"C1", title:"Fortgeschritten" },
   ];
+  const SKILLS = [
+    { id:"listening", t:"Listening" },
+    { id:"reading", t:"Reading" },
+    { id:"grammar", t:"Grammar" },
+    { id:"liu", t:"Language in Use" },
+    { id:"writing", t:"Writing" },
+    { id:"speaking", t:"Speaking" },
+  ];
+  function topicsOf(level, skill){ return state.topics.filter(t=>t.level===level && (!skill || t.skill===skill)); }
+  function curriculum(){ return LEVELS.map(l=>({ ...l, lessons: topicsOf(l.level) })); }
+  // A level's topics split into skill groups, skipping empty ones.
+  function skillGroups(lessons){ return SKILLS.map(sk=>({ ...sk, lessons: lessons.filter(l=>l.skill===sk.id) })).filter(g=>g.lessons.length); }
   function activeSet(s){ if(!s.activeLessons) s.activeLessons=[]; return s.activeLessons; }
   function isActive(s,id){ return activeSet(s).includes(id); }
   function toggleLesson(s,id,on){ const set=activeSet(s), has=set.includes(id); if(on==null) on=!has; if(on&&!has) set.push(id); if(!on&&has) set.splice(set.indexOf(id),1); api('POST', '/api/lessons/' + s.id + '/', { lessonId: id, on }); }
-  function toggleLevel(s,level){ const lvl=CURRICULUM.find(x=>x.level===level); if(!lvl) return; const allOn=lvl.lessons.every(l=>isActive(s,l.id)); lvl.lessons.forEach(l=>toggleLesson(s,l.id,!allOn)); }
+  function toggleLevel(s,level){ const ls=topicsOf(level); if(!ls.length) return; const allOn=ls.every(l=>isActive(s,l.id)); ls.forEach(l=>toggleLesson(s,l.id,!allOn)); }
   function fileIcon(kind){
     if(kind==="audio") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="19" cy="16" r="3"/></svg>';
     if(kind==="image") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
@@ -3441,55 +3627,136 @@
   function renderFiles(){
     const el=$("#filesContent"); if(!el) return;
     const s=studentById(state.currentUser); if(!s) return;
-    if(activeSet(s).length===0){ el.innerHTML = `<div class="panel" style="padding:42px 30px; text-align:center;"><div class="empty-list" style="font-style:normal;">Noch keine Lektionen freigeschaltet \u2014 dein Tutor schaltet Materialien frei, sobald du weiterkommst.</div></div>`; return; }
-    el.innerHTML = CURRICULUM.map(lvl=>{
+    if(activeSet(s).length===0){ el.innerHTML = `<div class="panel" style="padding:42px 30px; text-align:center;"><div class="empty-list" style="font-style:normal;">Noch keine Lektionen freigeschaltet. Dein Tutor schaltet Materialien frei, sobald du weiterkommst.</div></div>`; return; }
+    el.innerHTML = curriculum().filter(lvl=>lvl.lessons.length).map(lvl=>{
       const act = lvl.lessons.filter(l=>isActive(s,l.id)).length;
       return `<div class="lvl-sec">
-        <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span><span class="lvl-count">${act} / ${lvl.lessons.length} unlocked</span></div>
-        <div class="lesson-list">${lvl.lessons.map(l=>lessonRow(s,l)).join("")}</div>
+        <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span><span class="lvl-count">${act} / ${lvl.lessons.length} freigeschaltet</span></div>
+        ${skillGroups(lvl.lessons).map(g=>`<div class="skill-h">${g.t}</div><div class="lesson-list">${g.lessons.map(l=>lessonRow(s,l)).join("")}</div>`).join("")}
       </div>`;
     }).join("");
     el.querySelectorAll(".lesson:not(.locked) .les-head").forEach(h=> h.onclick=()=>h.closest(".lesson").classList.toggle("open"));
   }
   function lessonRow(s,l){
-    if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${l.t}</span><span class="les-tag">Gesperrt</span></div></div>`;
+    if(!isActive(s,l.id)) return `<div class="lesson locked"><div class="les-head"><span class="les-ic lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span class="les-t">${esc(l.t)}</span><span class="les-tag">Gesperrt</span></div></div>`;
     const files=lessonFilesFor(l.id);
     const filesHtml = files.length
       ? files.map(f=>`<a class="file-row" href="${esc(f.url)}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="file-n">${esc(f.name)}</span><span class="file-ext">${esc(f.ext||'FILE')}</span></a>`).join("")
-      : `<div class="micro" style="text-align:left;padding:8px 4px;">Noch keine Materialien — dein Tutor hat für diese Lektion noch keine Dateien hinzugefügt.</div>`;
-    return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${l.t}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
+      : `<div class="micro" style="text-align:left;padding:8px 4px;">Noch keine Materialien. Dein Tutor hat für diese Lektion noch keine Dateien hinzugefügt.</div>`;
+    return `<div class="lesson"><div class="les-head"><span class="les-ic dot"></span><span class="les-t">${esc(l.t)}</span><span class="les-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></div>
       <div class="les-files">${filesHtml}</div></div>`;
   }
   // Read-only render of a student's Learning tab exactly as they see it — only
   // the lessons they've unlocked, with their downloadable materials.
   function lessonPreviewHtml(s){
-    const secs = CURRICULUM.map(lvl=>{
+    const secs = curriculum().map(lvl=>{
       const ls = lvl.lessons.filter(l=>isActive(s,l.id));
       if(!ls.length) return "";
       return `<div class="lvl-sec" style="margin-top:14px;">
         <div class="lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="lvl-name">${lvl.title}</span></div>
-        <div class="lesson-list">${ls.map(l=>lessonRow(s,l)).join("")}</div></div>`;
+        ${skillGroups(ls).map(g=>`<div class="skill-h">${g.t}</div><div class="lesson-list">${g.lessons.map(l=>lessonRow(s,l)).join("")}</div>`).join("")}</div>`;
     }).filter(Boolean).join("");
-    return secs || `<div class="empty-list">Noch keine Lektionen freigeschaltet — oben welche aktivieren.</div>`;
+    return secs || `<div class="empty-list">Noch keine Lektionen freigeschaltet. Aktiviere oben welche.</div>`;
   }
+  // Student modal: switch topics on/off for this student. Files and new topics
+  // are managed in the Lernmaterialien tab.
   function curriculumMgrHtml(s){
-    return CURRICULUM.map(lvl=>{
+    const lvls = curriculum().filter(lvl=>lvl.lessons.length);
+    if(!lvls.length) return `<div class="empty-list">Noch keine Themen. Lege sie unter „Lernmaterialien“ an.</div>`;
+    return lvls.map(lvl=>{
       const allOn=lvl.lessons.every(l=>isActive(s,l.id));
       return `<div class="cm-lvl">
         <div class="cm-lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="cm-lvl-name">${lvl.title}</span><button class="cm-all" data-lvl-all="${lvl.level}">${allOn?"Alle entfernen":"Alle freischalten"}</button></div>
-        <div class="cm-lessons">${lvl.lessons.map(l=>{
-          const on=isActive(s,l.id);
-          const files=lessonFilesFor(l.id);
-          const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
-          return `<div class="cm-les-wrap">
-            <button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${l.t}</span></button>
-            <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>
-          </div>`;
-        }).join("")}</div>
+        ${skillGroups(lvl.lessons).map(g=>`<div class="skill-h sm">${g.t}</div>
+        <div class="cm-lessons">${g.lessons.map(l=>{
+          const on=isActive(s,l.id), n=lessonFilesFor(l.id).length;
+          return `<button class="cm-les ${on?'on':''}" data-lesson="${l.id}"><span class="cm-toggle"></span><span class="cm-les-t">${esc(l.t)}</span>${n?`<span class="cm-les-n" title="${n} Datei${n===1?"":"en"}">${n}</span>`:""}</button>`;
+        }).join("")}</div>`).join("")}
       </div>`;
     }).join("");
   }
 
+  // ---------- Lernmaterialien (tutor): the topic library ----------
+  function unlockedCount(id){ return state.students.filter(s=>isActive(s,id)).length; }
+  function renderMaterials(){
+    const el=$("#materialsContent"); if(!el) return;
+    if(!LEVELS.some(l=>l.level===state.matLevel)) state.matLevel="A1";
+    const lvl=LEVELS.find(l=>l.level===state.matLevel);
+    const levelsHtml = LEVELS.map(l=>{
+      const n=topicsOf(l.level).length;
+      return `<button class="mat-lvl ${l.level===lvl.level?'on':''}" data-mat-lvl="${l.level}"><span class="lvl-badge ${l.level.toLowerCase()}">${l.level}</span><span class="mat-lvl-t">${l.title}</span><span class="mat-lvl-n">${n}</span></button>`;
+    }).join("");
+    const skillsHtml = SKILLS.map(sk=>{
+      const ls=topicsOf(lvl.level, sk.id);
+      const topicsHtml = ls.map(l=>{
+        const files=lessonFilesFor(l.id), u=unlockedCount(l.id);
+        const filesHtml = files.map(f=>`<span class="cm-file"><a href="${esc(f.url)}" title="Herunterladen">${esc(f.name)}</a><button class="cm-file-x" data-rmfile="${f.id}" data-lesson="${l.id}" title="Entfernen" aria-label="Datei entfernen">×</button></span>`).join("");
+        return `<div class="mat-topic" data-topic="${l.id}">
+          <div class="mat-topic-h"><span class="mat-topic-t">${esc(l.t)}</span>
+            <span class="mat-topic-u" title="Für so viele Schüler freigeschaltet">${u} Schüler</span>
+            <button class="mat-ic" data-rename="${l.id}" title="Umbenennen" aria-label="Thema umbenennen">✎</button>
+            <button class="mat-ic danger" data-deltopic="${l.id}" title="Thema löschen" aria-label="Thema löschen">×</button></div>
+          <div class="cm-files">${filesHtml}<label class="cm-upload">+ Datei<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.gif,.webp,.zip" data-upload="${l.id}" hidden></label></div>
+        </div>`;
+      }).join("");
+      return `<div class="panel mat-skill">
+        <div class="mat-skill-h"><h3>${sk.t}</h3><span class="mat-skill-n">${ls.length} ${ls.length===1?"Thema":"Themen"}</span></div>
+        <div class="mat-topics">${topicsHtml || `<div class="empty-list" style="padding:4px 0 2px;">Noch keine Themen.</div>`}</div>
+        <div class="mat-add"><input class="bf-input" data-add-input="${sk.id}" placeholder="Neues Thema in ${sk.t}…" maxlength="200"><button class="mini-btn" data-add-topic="${sk.id}">Hinzufügen</button></div>
+      </div>`;
+    }).join("");
+    el.innerHTML = `<div class="mat-levels">${levelsHtml}</div><div class="mat-grid">${skillsHtml}</div>`;
+    el.querySelectorAll("[data-mat-lvl]").forEach(b=> b.onclick=()=>{ state.matLevel=b.dataset.matLvl; renderMaterials(); });
+    el.querySelectorAll("[data-add-topic]").forEach(b=> b.onclick=()=>addTopic(b.dataset.addTopic));
+    el.querySelectorAll("[data-add-input]").forEach(inp=> inp.addEventListener("keydown", e=>{ if(e.key==="Enter") addTopic(inp.dataset.addInput); }));
+    el.querySelectorAll("[data-upload]").forEach(inp=> inp.onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; uploadLessonFile(inp.dataset.upload, f, renderMaterials); });
+    el.querySelectorAll("[data-rmfile]").forEach(b=> b.onclick=()=>{
+      if(!window.confirm("Diese Datei entfernen?")) return;
+      removeLessonFile(b.dataset.lesson, +b.dataset.rmfile, renderMaterials);
+    });
+    el.querySelectorAll("[data-rename]").forEach(b=> b.onclick=()=>startRenameTopic(b.dataset.rename));
+    el.querySelectorAll("[data-deltopic]").forEach(b=> b.onclick=()=>deleteTopic(b.dataset.deltopic));
+  }
+  function addTopic(skill){
+    const inp=document.querySelector(`#materialsContent [data-add-input="${skill}"]`);
+    const title=(inp && inp.value || "").trim(); if(!title) return;
+    apiResult('POST', '/api/topics/', { level: state.matLevel, skill, title }).then(r=>{
+      if(!r.ok || !r.data || r.data.error){ toast((r.data && r.data.error) || "Thema konnte nicht angelegt werden"); return; }
+      state.topics.push(r.data); renderMaterials(); toast("Thema „"+r.data.t+"“ angelegt");
+    });
+  }
+  function startRenameTopic(id){
+    const row=document.querySelector(`#materialsContent .mat-topic[data-topic="${id}"]`); const t=state.topics.find(x=>x.id===id);
+    if(!row || !t) return;
+    const span=row.querySelector(".mat-topic-t");
+    const inp=document.createElement("input"); inp.className="bf-input mat-rename"; inp.value=t.t; inp.maxLength=200;
+    span.replaceWith(inp); inp.focus(); inp.select();
+    let done=false;
+    const finish=(save)=>{
+      if(done) return; done=true;
+      const title=inp.value.trim();
+      if(!save || !title || title===t.t){ renderMaterials(); return; }
+      apiResult('PATCH', '/api/topics/'+id+'/', { title }).then(r=>{
+        if(r.ok && r.data && !r.data.error){ t.t=r.data.t; } else toast((r.data && r.data.error) || "Umbenennen fehlgeschlagen");
+        renderMaterials();
+      });
+    };
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter") finish(true); if(e.key==="Escape") finish(false); });
+    inp.addEventListener("blur", ()=>finish(true));
+  }
+  function deleteTopic(id){
+    const t=state.topics.find(x=>x.id===id); if(!t) return;
+    const n=lessonFilesFor(id).length, u=unlockedCount(id);
+    const extra=[n?`${n} Datei${n===1?"":"en"}`:"", u?`die Freischaltung bei ${u} Schüler${u===1?"":"n"}`:""].filter(Boolean).join(" und ");
+    if(!window.confirm(`Thema „${t.t}“ löschen?`+(extra?`\n\nDabei werden auch ${extra} entfernt.`:""))) return;
+    apiResult('DELETE', '/api/topics/'+id+'/').then(r=>{
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      state.topics=state.topics.filter(x=>x.id!==id);
+      delete state.lessonFiles[id];
+      state.students.forEach(s=>{ const a=activeSet(s), i=a.indexOf(id); if(i>=0) a.splice(i,1); });
+      renderMaterials(); toast("Thema gelöscht");
+    });
+  }
   // ---------- Stunden, session pages & Training ----------
   // A lesson counts as "had" once it has ended; unconfirmed requests never do.
   function lessonEnded(b){ return bookingStart(b).getTime() + lessonMins(b)*60000 <= Date.now(); }
@@ -3515,7 +3782,7 @@
       ? `${c.status==="mastered" ? `<button class="mini-btn" data-reopen="${c.id}">Wieder öffnen</button>` : ""}<button class="mini-btn danger" data-delcard="${c.id}">Löschen</button>`
       : "";
     const body = vocab
-      ? `<div class="eb">${esc(c.front)} <span style="font-weight:400;color:var(--muted);">— ${esc(c.back)}</span></div>${c.note ? `<div class="en">„${esc(c.note)}“</div>` : ""}`
+      ? `<div class="eb">${esc(c.front)} <span style="font-weight:400;color:var(--muted);">= ${esc(c.back)}</span></div>${c.note ? `<div class="en">„${esc(c.note)}“</div>` : ""}`
       : `<div class="ef">${esc(c.front)}</div><div class="eb">→ ${esc(c.back)}</div>${c.note ? `<div class="en">${esc(c.note)}</div>` : ""}`;
     return `<div class="ecard ${c.status} ${vocab ? "vocab" : ""}">${body}<div class="eact">${status}${acts}</div></div>`;
   }
@@ -3543,18 +3810,20 @@
 
   // ----- Stunden list (student) -----
   function renderLessonHistory(){
+    const pg=$("#myProgress"); if(pg) pg.innerHTML=progressStatsHtml(state.currentUser);
+    const tl=$("#myTests"); if(tl){ tl.innerHTML=schoolTestsHtml(state.currentUser); bindSchoolTests(tl, state.currentUser, renderLessonHistory); }
     const el=$("#lessonHistory"); if(!el) return;
     const mine = state.bookings
       .filter(b=>b.studentId===state.currentUser && !b.isIntro && b.status!=="requested" && b._pk && lessonEnded(b))
       .sort((a,b)=>bookingStart(b)-bookingStart(a));
-    if(!mine.length){ el.innerHTML=`<div class="empty-list">Noch keine Stunden — nach deiner ersten Stunde findest du sie hier.</div>`; return; }
+    if(!mine.length){ el.innerHTML=`<div class="empty-list">Noch keine Stunden. Nach deiner ersten Stunde findest du sie hier.</div>`; return; }
     el.innerHTML = mine.map(b=>{
       const t=tutorById(b.tutorId)||{ name:"Tutor", i:"T" };
       const errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab");
       const open=errs.filter(c=>c.status==="open").length;
       return `<div class="li" data-session="${b._pk}">
         <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
-        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${esc(t.i)}</div>
+        <div class="avatar" style="${avatarStyle(t)};width:38px;height:38px;font-size:13px;">${avatarText(t)}</div>
         <div class="info"><div class="t">${esc(b.title)}</div><div class="s">${esc(t.name)} · ${b.time}–${endTime(b.time)}</div>
           ${b.summary ? `<div class="note-line">${esc(b.summary.split("\n")[0])}</div>` : ""}
           <div class="lh-meta">${open ? `<span class="lh-pill open">${open} Fehler offen</span>` : ""}${vocab.length ? `<span class="lh-pill">${vocab.length} ${vocab.length===1?"neues Wort":"neue Wörter"}</span>` : ""}${(b.exercises||[]).length ? `<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>` : ""}${b.homework ? `<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>` : ""}</div></div>
@@ -3613,7 +3882,9 @@
     if(!pdfDocs.has(f.id)) pdfDocs.set(f.id, (async ()=>{
       const lib=await loadPdfJs(), r=await fetch(f.url);
       if(!r.ok) throw new Error("download");
-      return lib.getDocument({ data: await r.arrayBuffer() }).promise;
+      // isEvalSupported:false closes CVE-2024-4367 (a crafted PDF's font could
+      // otherwise run script in this page).
+      return lib.getDocument({ data: await r.arrayBuffer(), isEvalSupported: false }).promise;
     })().catch(e=>{ pdfDocs.delete(f.id); throw e; }));
     return pdfDocs.get(f.id);
   }
@@ -3665,23 +3936,95 @@
       </div>
       <div class="sx-files">
         ${worksheets(b).map(f=>`<button class="sx-chip ${f.id===sx.fileId?"on":""}" data-sheet="${f.id}" title="${esc(f.name)}">${esc(f.name.replace(/\.[^.]+$/, ""))}</button>`).join("")}
-        ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label>` : ""}
+        ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label><button class="sx-chip add" id="sheetFromMat">+ Aus Lernmaterialien</button>` : ""}
+        <a class="sx-chip pdf" href="/api/bookings/${b._pk}/pdf/" target="_blank" rel="noopener" title="Stundenübersicht als PDF${tutor ? ", zum Verschicken" : ""}">↓ PDF</a>
       </div>`;
     $("#sessBack").onclick=leaveSession;
     if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };
     bar.querySelectorAll("[data-sheet]").forEach(c=> c.onclick=()=>{ sx.fileId=+c.dataset.sheet; closeSxPop(); renderSession(); });
     bindSheetUpload(b, sx, $("#sheetUpload"));
+    if($("#sheetFromMat")) $("#sheetFromMat").onclick=()=>openMaterialPicker(b, sx);
+  }
+
+  // Tutor picks a Lernmaterialien file for this lesson. The lesson only links
+  // to it on the server, so the file isn't stored a second time.
+  function openMaterialPicker(b, sx){
+    const m=$("#matPickModal"); if(!m) return;
+    const linked=new Set((b.files||[]).map(f=>f.materialId).filter(Boolean));
+    let q="";
+    const close=()=>{ m.hidden=true; m.innerHTML=""; };
+    const listHtml=()=>{
+      const needle=q.trim().toLowerCase();
+      const out=curriculum().map(lvl=>{
+        const groups=skillGroups(lvl.lessons).map(g=>{
+          const rows=g.lessons.map(l=>{
+            const files=lessonFilesFor(l.id).filter(f=>!needle || f.name.toLowerCase().includes(needle) || l.t.toLowerCase().includes(needle));
+            if(!files.length) return "";
+            return `<div class="mp-topic">${esc(l.t)}</div>`+files.map(f=> linked.has(f.id)
+              ? `<div class="mp-file done"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="mp-n">${esc(f.name)}</span><span class="mp-tag">schon in der Stunde</span></div>`
+              : `<button class="mp-file" data-mat="${f.id}"><span class="file-ic ${f.kind||'doc'}">${fileIcon(f.kind||'doc')}</span><span class="mp-n">${esc(f.name)}</span><span class="mp-tag">${esc(f.ext||"")}</span></button>`).join("");
+          }).join("");
+          return rows ? `<div class="skill-h sm">${g.t}</div>${rows}` : "";
+        }).join("");
+        return groups ? `<div class="mp-lvl"><div class="cm-lvl-head"><span class="lvl-badge ${lvl.level.toLowerCase()}">${lvl.level}</span><span class="cm-lvl-name">${lvl.title}</span></div>${groups}</div>` : "";
+      }).join("");
+      return out || `<div class="empty-list">${needle ? "Nichts gefunden." : "Noch keine Dateien in den Lernmaterialien."}</div>`;
+    };
+    m.innerHTML=`<div class="modal-card mp-card" id="mpCard">
+      <button class="modal-x" id="mpX" aria-label="Schließen">×</button>
+      <div class="nm">Aus Lernmaterialien</div>
+      <p class="micro" style="text-align:left;margin:6px 0 12px;">Die Datei wird mit der Stunde verknüpft, nicht kopiert.</p>
+      <input class="bf-input" id="mpSearch" placeholder="Datei oder Thema suchen…" autocomplete="off">
+      <div class="mp-list" id="mpList">${listHtml()}</div>
+    </div>`;
+    m.hidden=false;
+    m.onclick=close;
+    $("#mpCard").onclick=e=>e.stopPropagation();
+    $("#mpX").onclick=close;
+    const bindList=()=> $("#mpList").querySelectorAll("[data-mat]").forEach(btn=> btn.onclick=async ()=>{
+      btn.disabled=true;
+      const r=await apiResult('POST', `/api/bookings/${b._pk}/files/import/`, { materialId: +btn.dataset.mat });
+      if(!r.ok || !r.data || !r.data.file){ btn.disabled=false; toast((r.data && r.data.error) || "Hinzufügen fehlgeschlagen"); return; }
+      if(!(b.files||[]).some(f=>f.id===r.data.file.id)) b.files=[...(b.files||[]), r.data.file];
+      sx.fileId=r.data.file.id; close(); renderSession(); toast(r.data.file.name+" hinzugefügt");
+    });
+    $("#mpSearch").oninput=e=>{ q=e.target.value; $("#mpList").innerHTML=listHtml(); bindList(); };
+    bindList();
+    $("#mpSearch").focus();
   }
 
   async function uploadSheet(b, sx, file){
     if(!file) return;
     if(file.size > 10*1024*1024){ toast("Datei zu groß (max. 10 MB)"); return; }
+    if(isPdf(file)) file = await recognizeScannedPdf(file);
     toast("Wird hochgeladen…");
     const r=await apiUpload(`/api/bookings/${b._pk}/files/`, file);
     if(!r || r.error){ toast((r && r.error) || "Hochladen fehlgeschlagen"); return; }
     b.files=[...(b.files||[]), r.file];
     if(r.file.kind==="worksheet") sx.fileId=r.file.id;
     renderSession(); toast("Hochgeladen");
+  }
+  // A scanned worksheet has no text to mark, so recognise it first (in this
+  // browser, see static/js/pdf-ocr.js). Any problem: upload the original.
+  const PDF_OCR_SRC = "{% static 'js/pdf-ocr.js' %}", VENDOR_BASE = "{% static 'vendor/' %}";
+  let pdfOcrReady = null;
+  async function recognizeScannedPdf(file){
+    try {
+      if(!pdfOcrReady) pdfOcrReady = new Promise((res, rej)=>{
+        const s=document.createElement("script"); s.src=PDF_OCR_SRC;
+        s.onload=()=>res(window.PdfOcr); s.onerror=()=>{ pdfOcrReady=null; rej(new Error("pdf-ocr")); };
+        document.head.appendChild(s);
+      });
+      const [ocr, pdfjs]=await Promise.all([pdfOcrReady, loadPdfJs()]);
+      const r=await ocr.process(file, { pdfjs, vendor: VENDOR_BASE, onProgress: p=>{
+        if(p.step==="load") toast("Text in Bildern wird erkannt…");
+        else if(p.pages>1) toast(`Text wird erkannt… Seite ${p.page} von ${p.pages}`);
+      } });
+      if(r.status==="too-many-pages") toast(`Gescanntes PDF mit ${r.pages} Seiten. Texterkennung nur bis ${ocr.MAX_OCR_PAGES} Seiten. Markieren ist darin nicht möglich.`);
+      else if(r.status==="failed" || r.status==="no-text-found") toast("Text konnte nicht erkannt werden. Das PDF wird unverändert hochgeladen.");
+      if(r.file.size > 10*1024*1024) return file;
+      return r.file;
+    } catch(e){ return file; }
   }
   function bindSheetUpload(b, sx, input){ if(input) input.onchange=()=>{ uploadSheet(b, sx, input.files[0]); input.value=""; }; }
 
@@ -3696,7 +4039,7 @@
     if(!f){
       tools.innerHTML=`<span class="sx-tname">Arbeitsblatt</span>`;
       pages.innerHTML = tutor
-        ? `<label class="sx-drop"><input type="file" id="sxDropInput" hidden><b>PDF hier ablegen oder auswählen</b><span>Das Arbeitsblatt, das ihr in der Stunde durchgeht. Darin markierst du dann Wörter und Fehler.</span></label>`
+        ? `<label class="sx-drop"><input type="file" id="sxDropInput" hidden><b>PDF hier ablegen oder auswählen</b><span>Das Arbeitsblatt, das ihr in der Stunde durchgeht. Darin markierst du dann Wörter und Fehler. Oder oben „Aus Lernmaterialien“ wählen.</span></label>`
         : `<div class="sx-drop static"><b>Kein Arbeitsblatt</b><span>Zu dieser Stunde wurde kein Arbeitsblatt hochgeladen.</span></div>`;
       bindSheetUpload(b, sx, $("#sxDropInput"));
       return;
@@ -3924,7 +4267,7 @@
   function sxItemHtml(c, sx, tutor){
     const vocab=cardKind(c)==="vocab";
     const main = vocab
-      ? `<div><b>${esc(c.front)}</b> <span class="g">— ${esc(c.back)}</span></div>${c.note ? `<div class="n">„${esc(c.note)}“</div>` : ""}`
+      ? `<div><b>${esc(c.front)}</b> <span class="g">= ${esc(c.back)}</span></div>${c.note ? `<div class="n">„${esc(c.note)}“</div>` : ""}`
       : `<div class="w">${esc(c.front)}</div><div><b>→ ${esc(c.back)}</b></div>${c.note ? `<div class="n">${esc(c.note)}</div>` : ""}`;
     const ref = c.fileId && c.page ? `<button class="sx-ref" data-goto="${c.id}" title="Im Arbeitsblatt zeigen">S. ${c.page}</button>` : "";
     return `<div class="sx-item ${vocab?"v":"e"} ${c.status}${sx.flash===c.id?" flash":""}" data-card="${c.id}">
@@ -3975,8 +4318,8 @@
           ${handins.map(f=>`<div class="sx-file"><a href="${esc(f.url)}">${esc(f.name)}</a><span>${Math.max(1, Math.round(f.size/1024))} KB</span><button class="sx-x" data-delfile="${f.id}" title="Entfernen" aria-label="Entfernen">×</button></div>`).join("")}
           ${!tutor ? `<label class="sx-upload">+ Hausaufgabe hochladen<input type="file" id="hwUpload" hidden></label>` : (handins.length ? "" : `<div class="sx-empty">${first} hat noch nichts abgegeben.</div>`)}
         </div>
-        <div class="sx-block"><h4>${tutor ? `Notizen von ${first}` : "Deine Notizen"}</h4>
-          ${tutor ? (b.notes ? `<div class="ld-text">${esc(b.notes)}</div>` : `<div class="sx-empty">Keine.</div>`) : ta("sessNotes", b.notes, "Deine eigenen Notizen…")}</div>
+        <div class="sx-block"><h4>${tutor ? `Themen <span>sieht ${first}</span>` : "Deine Notizen"}</h4>
+          ${ta("sessNotes", b.notes, tutor ? `Themen, Fragen oder Ziele für ${first}…` : "Deine eigenen Notizen…")}</div>
         ${tutor ? `<div class="sx-block"><h4>Privat <span>nur für dich</span></h4>${ta("sessPrivate", b.tutorNotes, "Nur für dich…")}</div>` : ""}`;
     }
     side.innerHTML=`<div class="sx-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" aria-selected="${sx.tab===k}" class="${sx.tab===k?"on":""} ${k}" data-tab="${k}">${l}${n ? `<span class="c">${n}</span>` : ""}${k==="notes" && hwOpen && !tutor ? `<span class="dot" title="Hausaufgabe offen"></span>` : ""}</button>`).join("")}</div>
@@ -4053,70 +4396,122 @@
   }
 
   // ----- Training (student): mistakes and vocabulary decks -----
+  // One start block that practises everything open, then a tab per deck.
   function deckHtml(kind, cards){
-    const d=DECKS[kind], open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
-    return `<div class="section-h" style="margin-top:30px;"><h2>${d.title}</h2>${open.length ? `<button class="btn" data-practice="${kind}" style="width:auto;margin:0;padding:9px 18px;"><span class="grainbtn"></span>Üben · ${open.length}</button>` : ""}</div>
-      <div class="err-stats" style="margin-top:0;">
+    const open=cards.filter(c=>c.status==="open"), done=cards.filter(c=>c.status==="mastered");
+    return `<div class="err-stats" style="margin-top:14px;">
         <div class="panel err-stat open"><div class="n">${open.length}</div><div class="l">offen</div></div>
         <div class="panel err-stat done"><div class="n">${done.length}</div><div class="l">gemeistert</div></div>
       </div>
       <div class="panel" style="padding:10px 18px;margin-top:12px;">${open.length
         ? groupByLesson(open).map(g=>`<div class="ld-block" style="margin-top:10px;"><h4>${g.pk ? `<a class="lnk" href="#stunde-${g.pk}" data-gosession="${g.pk}">${esc(g.label)}</a>` : esc(g.label)}</h4>${g.cards.map(c=>ecardHtml(c)).join("")}</div>`).join("")
-        : `<div class="empty-list">${cards.length ? "Alles gemeistert — stark!" : (kind==="vocab" ? "Noch keine Wörter eingetragen." : "Noch keine Fehler eingetragen.")}</div>`}</div>
+        : `<div class="empty-list">${cards.length ? "Alles gemeistert, stark!" : (kind==="vocab" ? "Noch keine Wörter eingetragen." : "Noch keine Fehler eingetragen.")}</div>`}</div>
       ${done.length ? `<details style="margin-top:12px;"><summary class="lnk" style="cursor:pointer;">Gemeistert (${done.length})</summary><div class="panel" style="padding:10px 18px;margin-top:10px;">${done.map(c=>ecardHtml(c)).join("")}</div></details>` : ""}`;
   }
   function renderErrors(){
     const el=$("#errorsContent"); if(!el) return;
     const mine=state.errorCards.filter(c=>c.studentId===state.currentUser);
-    el.innerHTML = deckHtml("error", mine.filter(c=>cardKind(c)==="error")) + deckHtml("vocab", mine.filter(c=>cardKind(c)==="vocab"));
-    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(mine.filter(c=>cardKind(c)===btn.dataset.practice && c.status==="open"), "practice"));
+    const deck=k=>mine.filter(c=>cardKind(c)===k), openOf=k=>deck(k).filter(c=>c.status==="open");
+    const open=mine.filter(c=>c.status==="open"), oe=openOf("error").length, ov=openOf("vocab").length;
+    if(!state.trainTab) state.trainTab = (oe || !ov) ? "error" : "vocab";
+    const kind=state.trainTab;
+    const hero = !mine.length ? "" : open.length
+      ? `<div class="panel train-hero"><div><div class="n">${open.length} ${open.length===1?"Karte":"Karten"} offen</div><div class="l">${[oe ? `${oe} Fehler` : "", ov ? `${ov} ${ov===1?"Wort":"Wörter"}` : ""].filter(Boolean).join(" · ")} · gemischt üben</div></div><button class="btn" data-practice="all"><span class="grainbtn"></span>Jetzt üben →</button></div>`
+      : `<div class="panel train-hero"><div><div class="n">Alles gemeistert</div><div class="l">Neue Karten kommen aus deinen nächsten Stunden.</div></div></div>`;
+    const kOpen=openOf(kind).length;
+    const nt=testsFor(state.currentUser).filter(t=>daysUntil(t.date)>=0).sort((a,b)=>a.date-b.date)[0], nd=nt ? daysUntil(nt.date) : 99;
+    const soon = nd<=14 ? `<div class="micro" style="text-align:left;margin:12px 2px 0;">📝 ${esc(TEST_KINDS[nt.kind]||"Test")} ${nd===0?"heute":nd===1?"morgen":`in ${nd} Tagen`}${nt.topic ? ` · ${esc(nt.topic)}` : ""}${open.length ? ". Ein guter Moment, deine offenen Karten zu üben." : ""}</div>` : "";
+    el.innerHTML = hero + soon + `<div class="deck-bar"><div class="deck-tabs" role="tablist">${["error","vocab"].map(k=>`<button role="tab" aria-selected="${k===kind}" class="${k===kind?"on":""}" data-deck="${k}">${DECKS[k].title}${openOf(k).length ? `<span class="c">${openOf(k).length}</span>` : ""}</button>`).join("")}</div>
+        ${kOpen ? `<button class="btn ghost" data-practice="${kind}">Nur ${kind==="vocab" ? "Wörter" : "Fehler"} üben · ${kOpen}</button>` : ""}</div>`
+      + deckHtml(kind, deck(kind));
+    el.querySelectorAll("[data-deck]").forEach(t=> t.onclick=()=>{ state.trainTab=t.dataset.deck; renderErrors(); });
+    el.querySelectorAll("[data-practice]").forEach(btn=> btn.onclick=()=>openFlashcards(btn.dataset.practice==="all" ? open : openOf(btn.dataset.practice), "practice"));
     el.querySelectorAll("[data-gosession]").forEach(a=> a.onclick=(e)=>{ e.preventDefault(); openSession(+a.dataset.gosession); });
   }
 
   // Flashcards. "practice": the student checks themselves; nothing is saved and
   // cards they didn't know come back at the end. "review": the tutor goes through
   // them with the student — "Gemeistert" closes a card, "Noch nicht" keeps it open.
+  // Keys: Space/Enter shows the answer, ← = Nochmal, → = Gewusst, Esc closes.
+  let flashKeys=null;
   function openFlashcards(cards, mode, onDone){
     if(!cards.length) return;
-    const deck=cards.slice().sort(()=>Math.random()-0.5);
-    let i=0, known=0, again=0;
-    const m=$("#lessonModal");
-    const finish=()=>{ closeLessonModal(); if(onDone) onDone(); };
+    const deck=cards.slice().sort(()=>Math.random()-0.5), marks=[];
+    let i=0, known=0, again=0, busy=false;
+    const m=$("#lessonModal"), practice=mode==="practice";
+    const canHover=window.matchMedia && window.matchMedia("(hover: hover)").matches;
+    const strip=()=>`<div class="flash-strip" role="progressbar" aria-valuemin="0" aria-valuemax="${deck.length}" aria-valuenow="${Math.min(i, deck.length)}" aria-label="Karte ${Math.min(i+1, deck.length)} von ${deck.length}">${deck.map((_, j)=>`<i class="${marks[j] || (j===i ? "c" : "")}"></i>`).join("")}</div>`;
+    const norm=t=>String(t||"").toLowerCase().replace(/[.,!?;:"'„“”‚‘’()\-–—]/g, " ").replace(/\s+/g, " ").trim();
+    const onKey=(e)=>{
+      if(m.hidden || flashKeys!==onKey){ document.removeEventListener("keydown", onKey); return; }
+      if(e.metaKey || e.ctrlKey || e.altKey) return;
+      if(e.key==="Escape"){ e.preventDefault(); finish(); return; }
+      const onBtn=e.target && e.target.tagName==="BUTTON", typing=e.target && e.target.id==="flashTry";
+      const rateEl=$("#flashRate"), revealed=rateEl && !rateEl.hidden;
+      if(!$("#flashShow")) return;   // end screen: the focused button handles keys
+      if(!revealed){
+        if((e.key===" " && !typing && !onBtn) || (e.key==="Enter" && !onBtn)){ e.preventDefault(); reveal(); }
+        return;
+      }
+      if(e.key==="ArrowLeft"){ e.preventDefault(); $("#flashAgain").click(); }
+      else if(e.key==="ArrowRight"){ e.preventDefault(); $("#flashKnown").click(); }
+    };
+    if(flashKeys) document.removeEventListener("keydown", flashKeys);
+    flashKeys=onKey; document.addEventListener("keydown", onKey);
+    const finish=()=>{ document.removeEventListener("keydown", onKey); if(flashKeys===onKey) flashKeys=null; closeLessonModal(); if(onDone) onDone(); };
+    const reveal=()=>{
+      const c=deck[i], tryEl=$("#flashTry"), mine=tryEl ? tryEl.value.trim() : "";
+      if(mine){
+        const ok=norm(mine)===norm(c.back);
+        $("#flashYours").innerHTML=`<div class="fb-yours ${ok?"ok":""}"><div class="flash-lab">Deine Antwort</div><div class="fy">${esc(mine)}${ok ? " ✓" : ""}</div></div>`;
+      }
+      if(tryEl) tryEl.hidden=true;
+      $("#flashBack").hidden=false; $("#flashReveal").hidden=true; $("#flashRate").hidden=false;
+      $("#flashKnown").focus();
+    };
     const show=()=>{
       if(i>=deck.length){
-        m.innerHTML=`<div class="modal-card" id="flashWrap"><div class="flash-card">
+        m.innerHTML=`<div class="modal-card" id="flashWrap"><div class="flash-card">${strip()}
           <div class="flash-lab">Geschafft</div>
           <div class="flash-front" style="color:var(--ink);">${mode==="review" ? `${known} gemeistert · ${again} ${again===1?"bleibt":"bleiben"} offen` : `${known} ${known===1?"Karte":"Karten"} geübt`}</div>
-          ${mode==="practice" ? `<p class="micro" style="margin-top:14px;">Als gemeistert hakt dein Tutor die Karten in eurer nächsten Stunde ab.</p>` : ""}
+          ${practice ? `<p class="micro" style="margin-top:14px;">Als gemeistert hakt dein Tutor die Karten in eurer nächsten Stunde ab.</p>` : ""}
           <button class="btn" id="flashClose" style="margin-top:22px;"><span class="grainbtn"></span>Schließen</button></div></div>`;
         $("#flashWrap").onclick=e=>e.stopPropagation();
         $("#flashClose").onclick=finish;
+        $("#flashClose").focus();
         return;
       }
       const c=deck[i], vocab=cardKind(c)==="vocab";
       m.innerHTML=`<div class="modal-card" id="flashWrap"><button class="modal-x" id="flashX" aria-label="Schließen">×</button><div class="flash-card">
-        <div class="flash-prog">Karte ${i+1} von ${deck.length}${mode==="review" ? " · gemeinsam wiederholen" : ""}</div>
+        ${strip()}${mode==="review" ? `<div class="flash-prog">Gemeinsam wiederholen</div>` : ""}
         <div class="flash-lab">${vocab ? "Was bedeutet …" : "Was ist hier falsch?"}</div>
         <div class="flash-front" ${vocab ? 'style="color:var(--ink);"' : ""}>${esc(c.front)}</div>
-        <div class="flash-back" id="flashBack" hidden><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
-        <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen</button></div>
+        ${practice ? `<input class="bf-input flash-try" id="flashTry" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${vocab ? "Bedeutung eintippen (optional)" : "Richtig schreiben (optional)"}" aria-label="Deine Antwort">` : ""}
+        <div class="flash-back" id="flashBack" hidden><div id="flashYours"></div><div class="flash-lab">${vocab ? "Bedeutung" : "Richtig"}</div><div class="fb-correct">${esc(c.back)}</div>${c.note ? `<div class="fb-note">${vocab ? "„" + esc(c.note) + "“" : esc(c.note)}</div>` : ""}</div>
+        <div class="flash-actions" id="flashReveal"><button class="btn" id="flashShow"><span class="grainbtn"></span>Lösung zeigen<span class="kbd">Enter</span></button></div>
         <div class="flash-actions" id="flashRate" hidden>
-          <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}</button>
-          <button class="btn" id="flashKnown"><span class="grainbtn"></span>${mode==="review" ? "Gemeistert ✓" : "Gewusst"}</button>
+          <button class="btn ghost" id="flashAgain">${mode==="review" ? "Noch nicht" : "Nochmal"}<span class="kbd">←</span></button>
+          <button class="btn" id="flashKnown"><span class="grainbtn"></span>${mode==="review" ? "Gemeistert ✓" : "Gewusst"}<span class="kbd">→</span></button>
         </div></div></div>`;
       m.hidden=false;
       $("#flashWrap").onclick=e=>e.stopPropagation();
       $("#flashX").onclick=finish;
-      $("#flashShow").onclick=()=>{ $("#flashBack").hidden=false; $("#flashReveal").hidden=true; $("#flashRate").hidden=false; };
+      $("#flashShow").onclick=reveal;
+      // Phones would pop the keyboard on every card, so only desktops jump into the field.
+      if($("#flashTry") && canHover) $("#flashTry").focus(); else $("#flashShow").focus();
       const rate=async (result)=>{
-        if(mode==="review"){
-          const r=await apiResult('POST', `/api/error-cards/${c.id}/review/`, { result });
-          if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
-          Object.assign(c, r.data.card);
-        }
-        if(result==="known") known++;
-        else { again++; if(mode==="practice") deck.push(c); }
-        i++; show();
+        if(busy) return; busy=true;
+        try{
+          if(mode==="review"){
+            const r=await apiResult('POST', `/api/error-cards/${c.id}/review/`, { result });
+            if(!r.ok){ toast("Speichern fehlgeschlagen"); return; }
+            Object.assign(c, r.data.card);
+          }
+          marks[i] = result==="known" ? "k" : "a";
+          if(result==="known") known++;
+          else { again++; if(practice) deck.push(c); }
+          i++; show();
+        } finally { busy=false; }
       };
       $("#flashAgain").onclick=()=>rate("again");
       $("#flashKnown").onclick=()=>rate("known");
@@ -4133,13 +4528,123 @@
         ${open.length ? `<button class="btn" data-review="${kind}" style="margin:6px 0 4px;"><span class="grainbtn"></span>Gemeinsam wiederholen · ${open.length} ${open.length===1?d.one:d.many}</button>` : `<div class="ld-empty">Nichts offen.</div>`}</div>`;
     }).join("");
   }
-  function studentLessonsHtml(s){
-    const ls=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
-      .sort((a,b)=>bookingStart(b)-bookingStart(a)).slice(0,10);
-    if(!ls.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
-    return ls.map(b=>{ const errs=lessonCards(b,"error"), open=errs.filter(c=>c.status==="open").length;
-      return `<button class="mini-btn" data-session="${b._pk}" style="display:flex;width:100%;justify-content:space-between;margin:4px 0;padding:9px 12px;font-size:13px;">
-        <span>${fmtAT(b.date)} · ${b.time}${lessonEnded(b) ? "" : " · geplant"}${b.summary ? " · ✎" : ""}</span><span>${errs.length ? `${open} Fehler offen` : "Stunde öffnen"} →</span></button>`; }).join("");
+  // ---------- Schularbeiten & tests ----------
+  // Students enter their own test dates; tutor and student add the grade and
+  // what went well / what to work on afterwards, so lessons know where to focus.
+  const TEST_KINDS = { sa:"Schularbeit", test:"Test", matura:"Matura", other:"Prüfung" };
+  const GRADE_NAMES = { 1:"Sehr gut", 2:"Gut", 3:"Befriedigend", 4:"Genügend", 5:"Nicht genügend" };
+  const daysUntil = d => Math.round((d - NOW) / 86400000);
+  function testsFor(sid){ return state.schoolTests.filter(t=>t.studentId===sid); }
+  function nextTestLine(sid){
+    const t=testsFor(sid).filter(t=>daysUntil(t.date)>=0).sort((a,b)=>a.date-b.date)[0];
+    if(!t) return "";
+    const n=daysUntil(t.date);
+    return ` · ${TEST_KINDS[t.kind]||"Test"} ${n===0?"heute":n===1?"morgen":`in ${n} Tagen`}`;
+  }
+  function testRowHtml(t){
+    const n=daysUntil(t.date), upcoming=n>=0;
+    const when = upcoming ? `<span class="${n<=14?"soon":""}">${n===0?"heute":n===1?"morgen":`in ${n} Tagen`}</span>` : "";
+    const grade = t.grade ? `<span class="st-grade g${t.grade}" title="${GRADE_NAMES[t.grade]}">Note ${t.grade}</span>` : (!upcoming ? `<span class="lh-pill">Note offen</span>` : "");
+    const refl = [t.wentWell?`<div><strong>Gut gelaufen:</strong> ${esc(t.wentWell)}</div>`:"", t.toImprove?`<div><strong>Daran arbeiten:</strong> ${esc(t.toImprove)}</div>`:""].join("");
+    return `<div class="st-row">
+      <div class="st-when"><b>${String(t.date.getDate()).padStart(2,"0")}.${String(t.date.getMonth()+1).padStart(2,"0")}.</b>${t.date.getFullYear()}<br>${when}</div>
+      <div class="st-body"><div class="st-title">${esc(TEST_KINDS[t.kind]||"Test")}${t.topic?` · ${esc(t.topic)}`:""} ${grade}</div>${refl?`<div class="st-refl">${refl}</div>`:""}</div>
+      <button class="mini-btn" data-test-edit="${t.id}">Bearbeiten</button>
+    </div>`;
+  }
+  function testFormHtml(t){
+    const v = t || { kind:"sa", topic:"", grade:null, wentWell:"", toImprove:"" };
+    const iso = t ? `${t.date.getFullYear()}-${String(t.date.getMonth()+1).padStart(2,"0")}-${String(t.date.getDate()).padStart(2,"0")}` : "";
+    const past = t && daysUntil(t.date) < 0;
+    return `<form class="st-form" id="testForm">
+      <label>Art<select class="bf-input" id="tfKind">${Object.entries(TEST_KINDS).map(([k,l])=>`<option value="${k}"${v.kind===k?" selected":""}>${l}</option>`).join("")}</select></label>
+      <label>Datum<input class="bf-input" type="date" id="tfDate" value="${iso}" required></label>
+      <label class="full">Stoff<input class="bf-input" id="tfTopic" maxlength="200" value="${esc(v.topic)}" placeholder="z. B. Past tenses, Unit 4–6, Brief schreiben"></label>
+      <label>Note<select class="bf-input" id="tfGrade"><option value="">noch keine</option>${[1,2,3,4,5].map(g=>`<option value="${g}"${v.grade===g?" selected":""}>${g} · ${GRADE_NAMES[g]}</option>`).join("")}</select></label>
+      <span></span>
+      <label class="full">Was ist gut gelaufen?<textarea class="bf-input" id="tfWell" maxlength="2000" placeholder="${past?"":"nach dem Test ausfüllen"}">${esc(v.wentWell)}</textarea></label>
+      <label class="full">Woran arbeiten wir?<textarea class="bf-input" id="tfImprove" maxlength="2000" placeholder="${past?"":"nach dem Test ausfüllen"}">${esc(v.toImprove)}</textarea></label>
+      <div class="st-actions">${t?`<button type="button" class="mini-btn danger" id="tfDelete">Löschen</button>`:""}<button type="button" class="mini-btn" id="tfCancel">Abbrechen</button><button type="submit" class="mini-btn" id="tfSave">Speichern</button></div>
+    </form>`;
+  }
+  function schoolTestsHtml(sid){
+    const all=testsFor(sid);
+    const up=all.filter(t=>daysUntil(t.date)>=0).sort((a,b)=>a.date-b.date);
+    const past=all.filter(t=>daysUntil(t.date)<0).sort((a,b)=>b.date-a.date);
+    const row = t => state.testEdit===t.id ? testFormHtml(t) : testRowHtml(t);
+    const empty = !all.length && state.testEdit!=="new" ? `<div class="empty-list" style="padding:14px 4px;">Noch keine Schularbeiten eingetragen.</div>` : "";
+    return `<div class="st-list">${up.map(row).join("")}${past.map(row).join("")}</div>${empty}
+      ${state.testEdit==="new" ? testFormHtml(null) : `<button class="mini-btn" id="testAdd" style="margin:8px 0 6px;">+ Schularbeit oder Test eintragen</button>`}`;
+  }
+  function bindSchoolTests(root, sid, rerender){
+    if(!root) return;
+    root.querySelectorAll("[data-test-edit]").forEach(b=> b.onclick=()=>{ state.testEdit=+b.dataset.testEdit; rerender(); });
+    const add=root.querySelector("#testAdd"); if(add) add.onclick=()=>{ state.testEdit="new"; rerender(); };
+    const form=root.querySelector("#testForm"); if(!form) return;
+    root.querySelector("#tfCancel").onclick=()=>{ state.testEdit=null; rerender(); };
+    const del=root.querySelector("#tfDelete");
+    if(del) del.onclick=async ()=>{
+      const id=state.testEdit;
+      if(del.dataset.armed!=="1"){ del.dataset.armed="1"; del.textContent="Wirklich löschen?"; return; }
+      const r=await apiResult('DELETE', `/api/school-tests/${id}/`);
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      state.schoolTests=state.schoolTests.filter(t=>t.id!==id); state.testEdit=null; rerender(); toast("Gelöscht");
+    };
+    form.onsubmit=async (e)=>{
+      e.preventDefault();
+      const dateVal=root.querySelector("#tfDate").value;
+      if(!dateVal){ toast("Bitte ein Datum wählen"); return; }
+      const g=root.querySelector("#tfGrade").value;
+      const body={ kind:root.querySelector("#tfKind").value, date:dateVal, topic:root.querySelector("#tfTopic").value,
+        grade: g ? +g : null, wentWell:root.querySelector("#tfWell").value, toImprove:root.querySelector("#tfImprove").value };
+      const isNew = state.testEdit==="new";
+      if(isNew) body.studentSlug=sid;
+      const r=await apiResult(isNew?'POST':'PUT', isNew?'/api/school-tests/':`/api/school-tests/${state.testEdit}/`, body);
+      if(!r.ok || !r.data || !r.data.test){ toast("Speichern fehlgeschlagen"); return; }
+      const t={ ...r.data.test, date:new Date(r.data.test.date+'T00:00:00') };
+      state.schoolTests=state.schoolTests.filter(x=>x.id!==t.id).concat([t]);
+      state.testEdit=null; rerender(); toast("Gespeichert");
+      if(state.role!=="student") renderRoster();
+    };
+  }
+
+  // Progress at a glance: lessons held, mistakes mastered, new words, homework
+  // done and the latest grade.
+  function progressStatsHtml(sid){
+    const held=state.bookings.filter(b=>b.studentId===sid && !b.isIntro && b._pk && b.status!=="requested" && lessonEnded(b));
+    const cards=state.errorCards.filter(c=>c.studentId===sid), errs=cards.filter(c=>cardKind(c)==="error");
+    const mastered=errs.filter(c=>c.status==="mastered").length, words=cards.filter(c=>cardKind(c)==="vocab").length;
+    const hw=held.filter(b=>b.homework), hwDone=hw.filter(b=>b.homeworkDone).length;
+    const last=testsFor(sid).filter(t=>t.grade && daysUntil(t.date)<=0).sort((a,b)=>b.date-a.date)[0];
+    const tile=(n, l)=>`<div class="panel pf-stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+    return `<div class="pf-stats">${tile(held.length, held.length===1 ? "Stunde" : "Stunden")}${tile(`${mastered}<small>/${errs.length}</small>`, "Fehler gemeistert")}${tile(words, words===1 ? "neues Wort" : "neue Wörter")}${tile(`${hwDone}<small>/${hw.length}</small>`, "Hausaufgaben erledigt")}${last ? tile(last.grade, `letzte Note · ${esc(TEST_KINDS[last.kind]||"Test")}`) : ""}</div>`;
+  }
+
+  // The student's progression in one list: every lesson with its summary,
+  // homework and card counts, with their Schularbeiten in between.
+  function studentTimelineHtml(s){
+    const lessons=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
+      .map(b=>({ at:bookingStart(b), b }));
+    const tests=testsFor(s.id).map(t=>({ at:t.date, t }));
+    const items=lessons.concat(tests).sort((a,b)=>b.at-a.at);
+    if(!items.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
+    const LIMIT=12, shown = state.timelineAll ? items : items.slice(0, LIMIT);
+    const rows = shown.map(it=>{
+      if(it.t){ const t=it.t;
+        return `<div class="li tl-test"><div class="dt"><div class="dm">${MONTHS_S[t.date.getMonth()]}</div><div class="dnum">${t.date.getDate()}</div></div>
+          <div class="info"><div class="t">${esc(TEST_KINDS[t.kind]||"Test")}${t.topic?` · ${esc(t.topic)}`:""} ${t.grade?`<span class="st-grade g${t.grade}">Note ${t.grade}</span>`:""}</div>
+          ${t.toImprove?`<div class="note-line">Daran arbeiten: ${esc(t.toImprove.split("\n")[0])}</div>`:""}</div></div>`; }
+      const b=it.b, errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab"), open=errs.filter(c=>c.status==="open").length;
+      return `<div class="li" data-session="${b._pk}" style="cursor:pointer;">
+        <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
+        <div class="info"><div class="t">${esc(b.title)}${lessonEnded(b)?"":' <span class="lh-pill">geplant</span>'}</div>
+          ${b.summary?`<div class="pf-sum">${esc(b.summary)}</div>`:""}
+          ${b.homework?`<div class="note-line">Hausaufgabe: ${esc(b.homework.split("\n")[0])}</div>`:""}
+          <div class="lh-meta">${errs.length?`<span class="lh-pill ${open?"open":""}">${errs.length} Fehler${open?` · ${open} offen`:""}</span>`:""}${vocab.length?`<span class="lh-pill">${vocab.length} ${vocab.length===1?"Wort":"Wörter"}</span>`:""}${(b.exercises||[]).length?`<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>`:""}${b.homework?`<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>`:""}</div></div>
+        <div class="tail"><span class="lnk">Öffnen →</span></div></div>`;
+    }).join("");
+    const more = items.length>shown.length ? `<button class="mini-btn" id="tlAll" style="margin-top:8px;">Alle ${items.length} anzeigen</button>` : "";
+    return `<div class="list lesson-hist">${rows}</div>${more}`;
   }
 
   // ---------- View switching ----------
@@ -4155,6 +4660,7 @@
     // Leaving a session page drops its #stunde-… address.
     if(v!=="session" && location.hash.startsWith("#stunde-")) history.replaceState(null, "", location.pathname + location.search);
     if(v==="students") renderRoster();
+    if(v==="materials") renderMaterials();
     document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
     document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
     $("#creditsPill").style.display = (state.role==="student") ? "" : "none";
@@ -4166,12 +4672,63 @@
   }
   function closeNav(){ const n=$("#navMenu"); if(n){ n.classList.remove("open"); $("#navToggle").setAttribute("aria-expanded","false"); } }
 
+  // ---------- Emoji avatar picker ----------
+  // Students pick their own profile picture (an emoji on a colour); tutors can
+  // set it for a student from the student window.
+  const AV_EMOJI = ["🦊","🐼","🐨","🐯","🦁","🐸","🐵","🐶","🐱","🐰","🐻","🐧","🦉","🐢","🐙","🦄",
+    "🐳","🦋","🐝","🦖","🌻","🌵","🍀","🍉","🍕","🍩","⚽","🏀","🎸","🎨","🎮","📚",
+    "🚀","🌈","⭐","🔥","💎","👑","😎","🤓"];
+  const AV_COLORS = ["#f6c945","#f4a259","#ef7a6a","#f2a7c3","#c3a6f0","#8fb8f2","#7fd1d8","#9ad79a","#d6e685","#e8dccb","#2f8a4d","#3b4a6b"];
+  let avPick = null;  // { u, emoji, bg }
+  function openAvatarPicker(u){
+    avPick = { u, emoji: u.avatarEmoji || AV_EMOJI[0], bg: u.avatarBg || AV_COLORS[0] };
+    renderAvatarPicker(); $("#avatarModal").hidden=false;
+  }
+  function closeAvatarPicker(){ avPick=null; $("#avatarModal").hidden=true; }
+  function renderAvatarPicker(){
+    const p=avPick; if(!p) return;
+    const self = p.u.id===state.currentUser && state.role==="student";
+    const prev={ avatarEmoji:p.emoji, avatarBg:p.bg };
+    $("#avatarModal").innerHTML=`<div class="modal-card buy-card" id="avCard">
+      <button class="modal-x" id="avX" aria-label="Close">×</button>
+      <h3 class="buy-h">${self ? "Dein Profilbild" : "Profilbild für "+esc(p.u.name.split(" ")[0])}</h3>
+      <div class="av-preview"><div class="avatar" style="${avatarStyle(prev)};width:76px;height:76px;font-size:24px;">${avatarText(prev)}</div></div>
+      <div class="av-grid">${AV_EMOJI.map(e=>`<button type="button" data-av-e="${e}" class="${e===p.emoji?"on":""}">${e}</button>`).join("")}</div>
+      <div class="av-colors">${AV_COLORS.map(c=>`<button type="button" data-av-c="${c}" class="${c===p.bg?"on":""}" style="background:${c};" aria-label="Farbe ${c}"></button>`).join("")}</div>
+      <div class="av-actions">
+        ${p.u.avatarEmoji ? `<button class="btn-text" id="avReset">Zurücksetzen</button>` : `<span></span>`}
+        <button class="btn" id="avSave">Speichern</button>
+      </div>
+      ${p.u.photo ? `<div class="micro" style="margin-top:10px;">Ersetzt das aktuelle Foto.</div>` : ``}
+    </div>`;
+    $("#avCard").onclick=(e)=>e.stopPropagation();
+    $("#avX").onclick=closeAvatarPicker;
+    document.querySelectorAll("[data-av-e]").forEach(b=>b.onclick=()=>{ p.emoji=b.dataset.avE; renderAvatarPicker(); });
+    document.querySelectorAll("[data-av-c]").forEach(b=>b.onclick=()=>{ p.bg=b.dataset.avC; renderAvatarPicker(); });
+    $("#avSave").onclick=()=>saveAvatar(p.emoji, p.bg);
+    if($("#avReset")) $("#avReset").onclick=()=>saveAvatar("", "");
+  }
+  async function saveAvatar(emoji, bg){
+    const u=avPick && avPick.u; if(!u) return;
+    const r=await apiResult('PUT', '/api/users/'+encodeURIComponent(u.id)+'/avatar/', { emoji, bg });
+    if(!r.ok || !r.data){ toast((r.data && r.data.error) || "Profilbild konnte nicht gespeichert werden"); return; }
+    u.avatarEmoji=r.data.avatarEmoji||""; u.avatarBg=r.data.avatarBg||""; u.photo=r.data.photo||null;
+    closeAvatarPicker();
+    if(u.id===state.currentUser && state.role==="student") setIdentity(u);
+    if(state.teacherStudent===u) renderStudentModal();
+    if(state.role==="tutor") renderRoster();
+    toast(emoji ? "Profilbild gespeichert" : "Profilbild zurückgesetzt");
+  }
+
   // ---------- Auth / roles ----------
   function setIdentity(u){
     const st=avatarStyle(u);
-    const ma=$("#meAvatar"); ma.style.cssText=st; ma.textContent=u.i;
-    const um=$("#umAvatar"); um.style.cssText=st+";width:40px;height:40px;"; um.textContent=u.i;
+    const ma=$("#meAvatar"); ma.style.cssText=st; ma.innerHTML=avatarText(u);
+    const um=$("#umAvatar"); um.style.cssText=st+";width:40px;height:40px;"; um.innerHTML=avatarText(u);
+    $("#avatarPickBtn").hidden = state.role!=="student";
     $("#umName").textContent=u.name; $("#umMail").textContent=u.email;
+    const first=(u.name||"").trim().split(" ")[0];
+    document.querySelectorAll("[data-hello]").forEach(e=>{ e.textContent = first ? "Hi "+first+"!" : ""; });
   }
   // Nav-tab visibility is gated in CSS off this attribute (see the .app[data-role]
   // rules). Driving it from a single attribute keeps gating robust: it survives a
@@ -4179,13 +4736,13 @@
   function showTabsForRole(role){ const app=document.querySelector(".app"); if(app) app.dataset.role=role||""; }
   function resetTransient(){
     state.selected=null; state.managing=null; state.justBooked=null; state.justAction="booked";
-    state.studentQuery=""; state.activityAll=false;
+    state.studentQuery=""; state.activityAll=false; state.trainTab=null;
     if($("#studentSearch")) $("#studentSearch").value="";
     state.rescheduling=null; state.teacherSel=null; state.teacherManage=null; state.teacherStudent=null; state.editAvail=false;
     state.weekOffset=0; state.tWeekOffset=0;
     const t=$("#availToggle"); if(t){ t.classList.remove("active"); t.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Verfügbarkeit bearbeiten'; }
     $("#userMenu").hidden=true;
-    ["#studentModal","#receiptModal","#buyModal","#settleModal"].forEach(id=>{ const e=$(id); if(e) e.hidden=true; });
+    ["#studentModal","#receiptModal","#buyModal","#settleModal","#avatarModal"].forEach(id=>{ const e=$(id); if(e) e.hidden=true; });
   }
   function applyStudent(id){
     resetTransient();
@@ -4253,11 +4810,13 @@
   };
 
   $("#studentModal").onclick = closeStudentModal;
+  $("#avatarModal").onclick = closeAvatarPicker;
+  $("#avatarPickBtn").onclick = ()=>{ $("#userMenu").hidden=true; const s=studentById(state.currentUser); if(s) openAvatarPicker(s); };
   $("#lessonModal").onclick = closeLessonModal;
   $("#receiptModal").onclick = closeReceipt;
   $("#buyModal").onclick = closeBuy;
   $("#settleModal").onclick = closeSettle;
-  document.addEventListener("keydown", (e)=>{ if(e.key!=="Escape") return; if(!$("#settleModal").hidden) closeSettle(); else if(!$("#buyModal").hidden) closeBuy(); else if(!$("#receiptModal").hidden) closeReceipt(); else if(!$("#studentModal").hidden) closeStudentModal(); else if(!$("#userMenu").hidden) $("#userMenu").hidden=true; });
+  document.addEventListener("keydown", (e)=>{ if(e.key!=="Escape") return; if(!$("#avatarModal").hidden) closeAvatarPicker(); else if(!$("#settleModal").hidden) closeSettle(); else if(!$("#buyModal").hidden) closeBuy(); else if(!$("#receiptModal").hidden) closeReceipt(); else if(!$("#studentModal").hidden) closeStudentModal(); else if(!$("#userMenu").hidden) $("#userMenu").hidden=true; });
 
   // user menu + auth
   const userMenu=$("#userMenu");
@@ -4282,9 +4841,9 @@
   const videoReturn = new URLSearchParams(location.search).get("video");
   if (videoReturn) {
     history.replaceState(null, "", location.pathname);
-    if (videoReturn === "connected") toast("Video-Konto verbunden — neue Buchungen bekommen automatisch einen Call-Link");
+    if (videoReturn === "connected") toast("Video-Konto verbunden. Neue Buchungen bekommen automatisch einen Call-Link");
     else if (videoReturn === "unavailable") toast("Dieser Video-Anbieter ist nicht eingerichtet");
-    else toast("Verbindung fehlgeschlagen — bitte versuche es erneut");
+    else toast("Verbindung fehlgeschlagen. Bitte versuche es erneut");
   }
 
   // ---------- Init ----------

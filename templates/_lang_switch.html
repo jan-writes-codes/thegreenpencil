@@ -1,0 +1,18 @@
+{% comment %}
+  Language switch for the public pages: one compact link to this page in the
+  other language (German pages link to English, English pages to German).
+  Renders nothing on pages that exist in one language only.
+{% endcomment %}
+{% if has_translation %}{% if LANGUAGE_CODE == "en" %}<a class="lang-switch" href="{{ lang_urls.de }}" hreflang="de" lang="de" title="Deutsche Version">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"></path></svg>DE</a>{% else %}<a class="lang-switch" href="{{ lang_urls.en }}" hreflang="en" lang="en" title="English version">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"></path></svg>EN</a>{% endif %}
+<style>
+  .lang-switch { display: inline-flex; align-items: center; gap: 6px; flex: none;
+    font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif); font-size: 13.5px; font-weight: 600;
+    letter-spacing: 0.04em; color: var(--muted, #6e7d6e); text-decoration: none;
+    padding: 8px 11px; border-radius: 10px; border: 1px solid var(--line, rgba(36,53,40,0.16));
+    background: rgba(251,248,241,0.6); transition: 0.16s; }
+  .lang-switch:hover { color: var(--ink, #243528); background: rgba(251,248,241,0.9); }
+  .lang-switch svg { width: 15px; height: 15px; }
+  @media (max-width: 600px) { .lang-switch { padding: 7px 8px; font-size: 12.5px; gap: 4px; } .lang-switch svg { display: none; } }
+</style>{% endif %}

@@ -1,0 +1,174 @@
+{% extends "legal_base.html" %}
+{% load static %}
+{% block robots %}<meta name="robots" content="index, follow" />{% endblock %}
+{% block title %}Frequently asked questions (FAQ){% endblock %}
+
+{% block extrahead %}
+<meta name="description" content="Answers to common questions about English tutoring with The Green Pencil in Vienna: how it works, online lessons, exam preparation, prices and booking." />
+<link rel="canonical" href="{{ canonical_url }}" />
+{% include "_faq_style.html" %}
+{% endblock %}
+
+{% block content %}
+<h1>Frequently asked questions</h1>
+<p class="lead">Everything you might want to know before your first lesson, from how it works and online
+lessons to exam preparation, prices and booking. Can’t find your question? <a href="mailto:davit@thegreenpencil.at">Just send me a message.</a></p>
+
+<h2 class="faq-cat">Getting started &amp; your first lesson</h2>
+
+<details class="faq">
+  <summary>What happens in the first lesson?</summary>
+  <div class="ans"><p>The first session is a free, no-obligation get-to-know-you. We look at your current
+  level and your goals, answer any questions you have and decide together how to continue, with no
+  commitment at all.</p></div>
+</details>
+
+<details class="faq">
+  <summary>How soon can I start?</summary>
+  <div class="ans"><p>Right away. Just pick a free slot in the calendar. We’ll sort out everything else
+  in the intro session.</p></div>
+</details>
+
+<details class="faq">
+  <summary>How do I book a lesson?</summary>
+  <div class="ans"><p>Use the <a href="{% url 'intro' %}">“Book your first lesson”</a> button. Choose a free
+  time and you’ll get a confirmation by email.</p></div>
+</details>
+
+<h2 class="faq-cat">Lessons &amp; format</h2>
+
+<details class="faq">
+  <summary>Are lessons online or in person?</summary>
+  <div class="ans"><p>Lessons take place online by video as standard. It’s flexible and works from wherever you are,
+  anywhere in Vienna (or beyond). In-person lessons are possible by arrangement with Davit.</p></div>
+</details>
+
+<details class="faq">
+  <summary>How long is a lesson?</summary>
+  <div class="ans"><p>A lesson lasts 45 minutes.</p></div>
+</details>
+
+<details class="faq">
+  <summary>Who are the lessons for?</summary>
+  <div class="ans"><p>For school students, university students and adults. All ages and all levels from
+  A1 to C1, from your very first sentence to the Matura.</p></div>
+</details>
+
+<details class="faq">
+  <summary>Which levels do you teach?</summary>
+  <div class="ans"><p>A1 to C1, from beginner to advanced.</p></div>
+</details>
+
+<h2 class="faq-cat">School tests, exams &amp; the Matura</h2>
+
+<details class="faq">
+  <summary>How do I prepare for an English exam?</summary>
+  <div class="ans"><p>With a targeted plan: first a short assessment of where you stand, then focused
+  practice on exactly the topics that come up in your school test, exam or Matura, and finally some mock
+  exams. That’s exactly how exam preparation works at The Green Pencil.</p></div>
+</details>
+
+<details class="faq">
+  <summary>How early should I start preparing?</summary>
+  <div class="ans"><p>The earlier, the more relaxed, but what really counts is regular, targeted practice
+  rather than sheer volume. In the intro session we’ll work out together what’s realistic before your
+  exam date.</p></div>
+</details>
+
+<h2 class="faq-cat">Prices &amp; payment</h2>
+
+<details class="faq">
+  <summary>How much do lessons cost?</summary>
+  <div class="ans"><p>There are simple lesson packages at fair prices. The bigger the package, the cheaper
+  each lesson. You’ll find the current prices in the <a href="{% url 'landing' %}#preise">“Prices”</a>
+  section on the home page.</p></div>
+</details>
+
+<details class="faq">
+  <summary>Do I have to buy a big package straight away?</summary>
+  <div class="ans"><p>No. The intro session comes with no obligation, and afterwards you can decide in your
+  own time which package suits you.</p></div>
+</details>
+
+<details class="faq">
+  <summary>What if I can’t really afford lessons right now?</summary>
+  <div class="ans"><p>Just talk to me. If, for example, you’re a single parent or under financial pressure,
+  we’ll find a solution together. We can depart from the usual rate and take your situation into
+  account. Education shouldn’t fail because of money.</p></div>
+</details>
+
+<h2 class="faq-cat">Appointments</h2>
+
+<details class="faq">
+  <summary>How can I cancel or reschedule a lesson?</summary>
+  <div class="ans"><p>You can cancel or reschedule free of charge up to 24 hours before your booked lesson.
+  For later cancellations the lesson credit is forfeited, so that the slot can be offered fairly to
+  others.</p></div>
+</details>
+
+<div class="faq-contact">
+  <p><strong>Still have a question?</strong> The easiest way to clear everything up is the free intro
+  session, or just send me a quick message.</p>
+  <a class="btn" href="{% url 'intro' %}">Book your first lesson</a>
+  &nbsp;<a href="mailto:davit@thegreenpencil.at" style="margin-left:6px;">davit@thegreenpencil.at</a>
+</div>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What happens in the first lesson?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The first session is a free, no-obligation get-to-know-you. We look at your current level and your goals, answer any questions you have and decide together how to continue, with no commitment at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "How soon can I start?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Right away. Just pick a free slot in the calendar. We’ll sort out everything else in the intro session." }
+    },
+    {
+      "@type": "Question",
+      "name": "Are lessons online or in person?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Lessons take place online by video as standard. It’s flexible and works from wherever you are. In-person lessons are possible by arrangement with Davit." }
+    },
+    {
+      "@type": "Question",
+      "name": "How long is a lesson?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A lesson lasts 45 minutes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Who are the lessons for?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For school students, university students and adults. All ages and all levels from A1 to C1, from your very first sentence to the Matura." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I prepare for an English exam?",
+      "acceptedAnswer": { "@type": "Answer", "text": "With a targeted plan: first a short assessment of where you stand, then focused practice on exactly the topics that come up in your school test, exam or Matura, and finally some mock exams. That’s exactly how exam preparation works at The Green Pencil." }
+    },
+    {
+      "@type": "Question",
+      "name": "How early should I start preparing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The earlier, the more relaxed, but what really counts is regular, targeted practice rather than sheer volume. In the intro session we’ll work out together what’s realistic before your exam date." }
+    },
+    {
+      "@type": "Question",
+      "name": "How much do lessons cost?",
+      "acceptedAnswer": { "@type": "Answer", "text": "There are simple lesson packages at fair prices. The bigger the package, the cheaper each lesson. You’ll find the current prices in the “Prices” section on the home page." }
+    },
+    {
+      "@type": "Question",
+      "name": "What if I can’t really afford lessons right now?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Just talk to me. If, for example, you’re a single parent or under financial pressure, we’ll find a solution together. We can depart from the usual rate and take your situation into account. Education shouldn’t fail because of money." }
+    },
+    {
+      "@type": "Question",
+      "name": "How can I cancel or reschedule a lesson?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You can cancel or reschedule free of charge up to 24 hours before your booked lesson. For later cancellations the lesson credit is forfeited, so that the slot can be offered fairly to others." }
+    }
+  ]
+}
+</script>
+{% endblock %}

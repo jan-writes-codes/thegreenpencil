@@ -16,6 +16,7 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.translation import get_language
 
 from . import video
 from .ical import ics_escape
@@ -26,12 +27,29 @@ logger = logging.getLogger(__name__)
 _DOW = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 _MON = ["", "Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
         "September", "Oktober", "November", "Dezember"]
+_DOW_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_MON_EN = ["", "January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"]
+
+# Guests who booked on the English site get the guest-facing mails (intro
+# confirmation, cancellation) in English: templates/email/en/. Everything the
+# studio or a logged-in student receives stays German.
+
+
+def _tpl(name, lang):
+    return f"email/en/{name}" if lang == "en" else f"email/{name}"
+
+
+def _lang_prefix(lang):
+    return "/en" if lang == "en" else ""
 
 
 # --------------------------------------------------------------------------- #
 # Formatting helpers
 # --------------------------------------------------------------------------- #
-def _date_long(d):
+def _date_long(d, lang="de"):
+    if lang == "en":
+        return f"{_DOW_EN[d.weekday()]}, {d.day} {_MON_EN[d.month]} {d.year}"
     return f"{_DOW[d.weekday()]}, {d.day}. {_MON[d.month]} {d.year}"
 
 
@@ -41,16 +59,16 @@ def _time_range(booking):
     return f"{booking.time}–{end:%H:%M}"
 
 
-def when(booking):
-    """Human German date/time line, e.g. 'Montag, 1. Juli 2026 · 14:00–14:15'."""
-    return f"{_date_long(booking.date)} · {_time_range(booking)}"
+def when(booking, lang="de"):
+    """Human date/time line, e.g. 'Montag, 1. Juli 2026 · 14:00–14:15'."""
+    return f"{_date_long(booking.date, lang)} · {_time_range(booking)}"
 
 
 def _first(name, fallback):
     return (name or "").split(" ")[0] or fallback
 
 
-def build_ics(booking):
+def build_ics(booking, lang="de"):
     """A minimal, valid VCALENDAR for the lesson so the guest can add it to their
     calendar in one tap. Times are emitted in UTC to avoid shipping a VTIMEZONE."""
     start = booking.start.astimezone(dt_timezone.utc)
@@ -71,8 +89,18 @@ def build_ics(booking):
         f"DTSTAMP:{stamp.strftime(fmt)}",
         f"DTSTART:{start.strftime(fmt)}",
         f"DTEND:{end.strftime(fmt)}",
-        f"SUMMARY:{ics_escape('Englisch Schnupperstunde · ' + tutor)}",
-        f"DESCRIPTION:{ics_escape('Deine kostenlose Englisch-Schnupperstunde mit ' + tutor + ' bei The Green Pencil.')}",
+    ]
+    if lang == "en":
+        lines += [
+            f"SUMMARY:{ics_escape('English trial lesson · ' + tutor)}",
+            f"DESCRIPTION:{ics_escape('Your free English trial lesson with ' + tutor + ' at The Green Pencil.')}",
+        ]
+    else:
+        lines += [
+            f"SUMMARY:{ics_escape('Englisch Schnupperstunde · ' + tutor)}",
+            f"DESCRIPTION:{ics_escape('Deine kostenlose Englisch-Schnupperstunde mit ' + tutor + ' bei The Green Pencil.')}",
+        ]
+    lines += [
         f"ORGANIZER;CN={ics_escape('The Green Pencil')}:mailto:{organizer}",
     ]
     # The video-call link (auto-created via the tutor's Zoom/Teams account, or
@@ -105,7 +133,7 @@ def _student_contact(booking):
     return booking.student_name, ""
 
 
-def _booking_ctx(booking, tutor_fallback):
+def _booking_ctx(booking, tutor_fallback, lang="de"):
     """What every booking mail shows: the tutor, the date/time and the links."""
     tutor = _tutor_name(booking, tutor_fallback)
     return {
@@ -113,24 +141,29 @@ def _booking_ctx(booking, tutor_fallback):
         # First name only — the studio addresses tutors informally everywhere else
         # in the product, so the mails read "mit Davit", not the full name.
         "tutor_first": _first(tutor, tutor),
-        "when": when(booking),
-        "date_long": _date_long(booking.date),
+        "when": when(booking, lang),
+        "date_long": _date_long(booking.date, lang),
         "time_range": _time_range(booking),
         "site_url": settings.SITE_URL,
         # Tokenized public cancel link — works for both sides, no login required.
         # Empty if the booking predates the token.
-        "cancel_url": (f"{settings.SITE_URL}/cancel/{booking.cancel_token}/"
+        "cancel_url": (f"{settings.SITE_URL}{_lang_prefix(lang)}/cancel/{booking.cancel_token}/"
                        if booking.cancel_token else ""),
+        # Home of the recipient's language, for the "book again" and legal links.
+        "site_home": settings.SITE_URL + _lang_prefix(lang),
     }
 
 
-def _ctx(booking):
+def _ctx(booking, lang="de"):
+    en = lang == "en"
     return {
-        **_booking_ctx(booking, "deinem Tutor"),
+        **_booking_ctx(booking, "your tutor" if en else "deinem Tutor", lang),
         "guest_name": booking.guest_name,
-        "guest_first": _first(booking.guest_name, "du"),
+        "guest_first": _first(booking.guest_name, "there" if en else "du"),
         "guest_email": booking.guest_email,
         "guest_phone": booking.guest_phone,
+        # The guest's public level-check result, when they took it first.
+        "level_check": booking.notes if booking.is_intro else "",
         # Join link for the video call — auto-created on the tutor's connected
         # Zoom/Teams account when the booking came in. Empty when the tutor has
         # no connection; the templates then fall back to "we'll be in touch".
@@ -153,33 +186,36 @@ def _message(subject, to, text_body, html_body, reply_to=None):
     return msg
 
 
-def send_intro_notifications(booking_id):
+def send_intro_notifications(booking_id, lang="de"):
     """Everything that follows a fresh intro booking, in order: first create
     the video call on the tutor's connected Zoom/Teams account, so the join
     link is already on the booking when the confirmation e-mails render; then
     mail the guest and the studio. Each step is isolated — a video-provider
     outage still sends the mails."""
     _safe(video.attach_call_link, booking_id)
-    _safe(send_intro_confirmation, booking_id)
+    _safe(send_intro_confirmation, booking_id, lang)
     _safe(send_intro_tutor_notification, booking_id)
 
 
-def intro_confirmation_message(booking):
+def intro_confirmation_message(booking, lang="de"):
     """The guest's confirmation, with the lesson as a calendar attachment."""
-    ctx = _ctx(booking)
+    ctx = _ctx(booking, lang)
+    subject = (f"Your trial lesson is confirmed · {ctx['date_long']}" if lang == "en"
+               else f"Deine Schnupperstunde ist bestätigt · {ctx['date_long']}")
     msg = _message(
-        f"Deine Schnupperstunde ist bestätigt · {ctx['date_long']}", booking.guest_email,
-        render_to_string("email/intro_confirmation.txt", ctx),
-        render_to_string("email/intro_confirmation.html", ctx),
+        subject, booking.guest_email,
+        render_to_string(_tpl("intro_confirmation.txt", lang), ctx),
+        render_to_string(_tpl("intro_confirmation.html", lang), ctx),
     )
-    msg.attach("schnupperstunde.ics", build_ics(booking), "text/calendar; method=REQUEST")
+    filename = "trial-lesson.ics" if lang == "en" else "schnupperstunde.ics"
+    msg.attach(filename, build_ics(booking, lang), "text/calendar; method=REQUEST")
     return msg
 
 
-def send_intro_confirmation(booking_id):
+def send_intro_confirmation(booking_id, lang="de"):
     booking = Booking.objects.filter(pk=booking_id).first()
     if booking and booking.guest_email:
-        intro_confirmation_message(booking).send()
+        intro_confirmation_message(booking, lang).send()
 
 
 def send_intro_tutor_notification(booking_id):
@@ -343,6 +379,9 @@ def _cancel_snapshot(booking, *, refunded=False):
     deletes the booking). Mirrors the confirmation recipients: an intro notifies the
     guest and the studio inbox; a paid lesson notifies the student and that lesson's
     own tutor."""
+    # A guest cancelling from the English page (/en/cancel/...) gets the English
+    # mail; everything else is German.
+    lang = "en" if booking.is_intro and get_language() == "en" else "de"
     if booking.is_intro:
         person_name, person_email = booking.guest_name or "Gast", booking.guest_email or ""
         # Intros go to the studio-wide inbox, just like the booking notification.
@@ -353,7 +392,8 @@ def _cancel_snapshot(booking, *, refunded=False):
         # Paid lessons go to that lesson's own tutor, not the studio inbox.
         tutor_email = (booking.tutor.email if booking.tutor_id and booking.tutor else "") or ""
     return {
-        **_booking_ctx(booking, "Tutor"),
+        **_booking_ctx(booking, "Tutor", lang),
+        "lang": lang,
         "is_intro": booking.is_intro,
         "person_name": person_name,
         "person_first": _first(person_name, "du"),
@@ -373,11 +413,13 @@ def send_cancellation_notifications(snapshot):
 
     # The person who booked: the guest for an intro, the student for a paid lesson.
     if snapshot.get("person_email"):
-        subject = f"Storniert: deine {label} · {snapshot['date_long']}"
+        lang = snapshot.get("lang", "de")
+        subject = (f"Cancelled: your trial lesson · {snapshot['date_long']}" if lang == "en"
+                   else f"Storniert: deine {label} · {snapshot['date_long']}")
         msg = _message(
             subject, snapshot["person_email"],
-            render_to_string("email/cancellation_student.txt", snapshot),
-            render_to_string("email/cancellation_student.html", snapshot),
+            render_to_string(_tpl("cancellation_student.txt", lang), snapshot),
+            render_to_string(_tpl("cancellation_student.html", lang), snapshot),
         )
         msg.send()
 
@@ -421,14 +463,14 @@ def _mail_html(lines):
         "font-size:14px;line-height:1.6;color:#243528\">"
         f"{body}"
         "<p style='margin:20px 0 0;color:#7a8b7f;font-size:12px'>"
-        "The Green Pencil — Englisch-Nachhilfe</p></div>"
+        "The Green Pencil · Englisch-Nachhilfe</p></div>"
     )
 
 
 def _send_with_pdf(subject, to, text_lines, html_lines, pdf, pdf_name):
     """Send a notification with the receipt PDF attached. Bodies just describe what
     the attachment is; the PDF is the actual document."""
-    text = "\n".join(text_lines) + "\n\nThe Green Pencil — Englisch-Nachhilfe"
+    text = "\n".join(text_lines) + "\n\nThe Green Pencil · Englisch-Nachhilfe"
     msg = _message(subject, to, text, _mail_html(html_lines))
     if pdf:
         msg.attach(pdf_name, pdf, "application/pdf")

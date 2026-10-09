@@ -14,6 +14,6 @@ wurde die Einheit nicht zurückerstattet.{% endif %}
 Du kannst jederzeit einen neuen Termin buchen:
 {{ site_url }}
 --
-The Green Pencil — Englisch-Nachhilfe · Wien, Österreich
+The Green Pencil · Englisch-Nachhilfe · Wien, Österreich
 Impressum:   {{ site_url }}/impressum/
 Datenschutz: {{ site_url }}/datenschutz/

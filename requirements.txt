@@ -1,7 +1,7 @@
 Django>=5.2,<5.3          # 5.2 LTS: security fixes until April 2028
 
 # --- Production serving ---
-gunicorn>=21,<23          # WSGI app server (replaces `runserver` in prod)
+gunicorn>=23,<24          # WSGI app server (replaces `runserver` in prod); 23 fixes request smuggling (CVE-2024-6827)
 whitenoise>=6,<7          # serves static files (logo, fonts, JS) when DEBUG is off
 
 # --- Payments ---
@@ -9,9 +9,13 @@ stripe>=8,<13            # Stripe Checkout for self-service credit top-ups (opti
 
 # --- PDF receipts ---
 reportlab>=4,<6          # renders the Beleg / Storno credit note as a formatted PDF
+pypdf>=4,<7              # appends the worksheets (with highlights) to the lesson PDF export
 
 # --- Transactional email ---
 django-anymail[resend]>=10,<13   # ESP-agnostic email backend (Resend) + delivery webhooks
+
+# --- Error tracking ---
+sentry-sdk[django]>=2,<3  # reports unhandled exceptions to Sentry when SENTRY_DSN is set
 
 # --- Database configuration ---
 dj-database-url>=2,<3     # parses the DATABASE_URL env var into Django's DATABASES

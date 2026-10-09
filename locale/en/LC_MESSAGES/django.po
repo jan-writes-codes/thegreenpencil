@@ -1,0 +1,791 @@
+# English translation of the public pages of thegreenpencil.at.
+# German is the source language (msgid); English is the msgstr.
+# After editing, run `python manage.py compilemessages -l en` and commit the .mo too.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: The Green Pencil\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-09 20:49+0200\n"
+"PO-Revision-Date: 2026-10-09 20:50+0200\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Beliebteste Wahl"
+msgstr "Most popular"
+
+msgid ""
+"Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at"
+msgstr ""
+"Feel free to get in touch with Davit: +43 676 397 5535 or "
+"davit@thegreenpencil.at"
+
+msgid "Zu viele Versuche. Bitte warte ein paar Minuten."
+msgstr "Too many attempts. Please wait a few minutes."
+
+msgid "Bitte gib deinen Namen ein."
+msgstr "Please enter your name."
+
+msgid "Bitte gib eine gültige E-Mail-Adresse ein."
+msgstr "Please enter a valid email address."
+
+msgid "Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen)."
+msgstr "Please enter a valid phone number (for WhatsApp & questions)."
+
+msgid "Ungültige Uhrzeit."
+msgstr "Invalid time."
+
+msgid "Tutor nicht gefunden."
+msgstr "Tutor not found."
+
+msgid "Ungültiger Termin."
+msgstr "Invalid date."
+
+msgid "Dieser Termin liegt in der Vergangenheit."
+msgstr "This time is in the past."
+
+msgid ""
+"Für diese E-Mail wurde bei diesem Tutor bereits eine Schnupperstunde gebucht."
+msgstr ""
+"A trial lesson with this tutor has already been booked for this email "
+"address."
+
+msgid "Dieser Termin ist bereits vergeben."
+msgstr "This time has already been taken."
+
+msgid "Dieser Termin ist nicht verfügbar."
+msgstr "This time is not available."
+
+msgid "deinem Tutor"
+msgstr "your tutor"
+
+msgid "Cookie-Einstellungen"
+msgstr "Cookie settings"
+
+msgid "Wir respektieren deine Privatsphäre"
+msgstr "We respect your privacy"
+
+msgid ""
+"Für den Betrieb dieser Website verwenden wir nur technisch notwendige "
+"Cookies. Mit deiner Einwilligung nutzen wir zusätzlich Statistik- und "
+"Marketing-Dienste, um unser Angebot zu verbessern. Du kannst frei "
+"entscheiden und deine Wahl jederzeit widerrufen."
+msgstr ""
+"To run this website we only use technically necessary cookies. With your "
+"consent, we also use statistics and marketing services to improve what we "
+"offer. The choice is entirely yours, and you can withdraw it at any time."
+
+msgid "Mehr dazu in der"
+msgstr "More in our"
+
+msgid "Datenschutzerklärung"
+msgstr "privacy policy"
+
+msgid "Notwendig"
+msgstr "Necessary"
+
+msgid "Anmeldung, Sicherheit (CSRF) und Sitzung. Immer aktiv."
+msgstr "Sign-in, security (CSRF) and session. Always on."
+
+msgid "Statistik"
+msgstr "Statistics"
+
+msgid ""
+"Microsoft Clarity: anonyme Nutzungsanalyse, um die Website zu verbessern."
+msgstr "Microsoft Clarity: anonymous usage analysis to improve the website."
+
+msgid "Marketing"
+msgstr "Marketing"
+
+msgid "Google Ads: Messung des Erfolgs unserer Anzeigen (Conversion-Tracking)."
+msgstr "Google Ads: measuring how well our ads work (conversion tracking)."
+
+msgid "Alle akzeptieren"
+msgstr "Accept all"
+
+msgid "Nur notwendige"
+msgstr "Necessary only"
+
+msgid "Einstellungen"
+msgstr "Settings"
+
+msgid "Auswahl speichern"
+msgstr "Save selection"
+
+msgid "Weniger anzeigen"
+msgstr "Show less"
+
+#, python-format
+msgid ""
+"Hallo%%20Davit%%2C%%20ich%%20interessiere%%20mich%%20f%%C3%%BCr%%20Englisch-"
+"Nachhilfe%%20und%%20h%%C3%%A4tte%%20eine%%20Frage."
+msgstr "Hi%%20Davit%%2C%%20I%%E2%%80%%99m%%20interested%%20in%%20English%%20tutoring%%20and%%20have%%20a%%20question."
+
+msgid "Davit direkt über WhatsApp kontaktieren"
+msgstr "Message Davit directly on WhatsApp"
+
+msgid "Erste Stunde kostenlos &amp; unverbindlich buchen | The Green Pencil"
+msgstr "Book your free, no-obligation first lesson | The Green Pencil"
+
+msgid "Englisch-Nachhilfe"
+msgstr "English Tutoring"
+
+msgid "Anmelden"
+msgstr "Sign in"
+
+msgid "Live-Verfügbarkeit · kostenlose Schnupperstunde"
+msgstr "Live availability · free trial lesson"
+
+msgid "Buche dein <em>kostenloses Kennenlerngespräch</em>."
+msgstr "Book your <em>free intro call</em>."
+
+msgid ""
+"Wähle einen Tutor und ein freies Zeitfenster. Die erste Einheit ist ein "
+"<b>unverbindliches Kennenlernen</b>: kostenlos, ohne Konto und ohne "
+"Zahlungsdaten."
+msgstr ""
+"Choose a tutor and a free time slot. The first session is a <b>no-obligation "
+"get-to-know-you</b>: free, with no account and no payment details needed."
+
+msgid "15-Minuten-Einheit · ganz ohne Einheiten · einmal pro Person"
+msgstr "15-minute session · no lesson credits needed · once per person"
+
+msgid "Tutor wählen"
+msgstr "Choose a tutor"
+
+msgid "Diese Woche"
+msgstr "This week"
+
+msgid "Vorherige Woche"
+msgstr "Previous week"
+
+msgid "Nächste Woche"
+msgstr "Next week"
+
+msgid "Zurzeit ist kein Tutor verfügbar. Bitte versuche es später erneut."
+msgstr "No tutor is available right now. Please try again later."
+
+msgid "Englisch-Tutor"
+msgstr "English tutor"
+
+msgid "Vormittag"
+msgstr "Morning"
+
+msgid "bis 12:00"
+msgstr "until 12:00"
+
+msgid "Nachmittag"
+msgstr "Afternoon"
+
+msgid "12–17 Uhr"
+msgstr "12:00–17:00"
+
+msgid "Abend"
+msgstr "Evening"
+
+msgid "ab 17:00"
+msgstr "from 17:00"
+
+msgid "Voll"
+msgstr "Full"
+
+msgid "Schließen"
+msgstr "Close"
+
+msgid "Schnupperstunde buchen"
+msgstr "Book your trial lesson"
+
+msgid "Dein Name"
+msgstr "Your name"
+
+msgid "Vor- und Nachname"
+msgstr "First and last name"
+
+msgid "E-Mail"
+msgstr "Email"
+
+msgid "du@beispiel.at"
+msgstr "you@example.com"
+
+msgid "Telefon"
+msgstr "Phone"
+
+msgid "für WhatsApp & Rückfragen"
+msgstr "for WhatsApp & questions"
+
+msgid "Kostenlos buchen"
+msgstr "Book for free"
+
+msgid "Kostenlos & unverbindlich · keine Zahlungsdaten."
+msgstr "Free & no obligation · no payment details."
+
+msgid ""
+"Mit dem Buchen stimmst du der Verarbeitung deiner Angaben gemäß der __LINK__ "
+"zu."
+msgstr ""
+"By booking, you agree to your details being processed as described in our "
+"__LINK__."
+
+msgid "Wird gebucht…"
+msgstr "Booking…"
+
+msgid "Buchung fehlgeschlagen. Bitte versuche es erneut."
+msgstr "Booking failed. Please try again."
+
+msgid "Netzwerkfehler. Bitte versuche es erneut."
+msgstr "Network error. Please try again."
+
+msgid "Geschafft, __NAME__!"
+msgstr "You’re all set, __NAME__!"
+
+msgid ""
+"Deine kostenlose Schnupperstunde mit __TUTOR__ ist eingetragen. Wir melden "
+"uns per E-Mail zur Bestätigung."
+msgstr ""
+"Your free trial lesson with __TUTOR__ is booked. We’ll confirm it by email."
+
+msgid "Zur Startseite"
+msgstr "Back to home"
+
+msgid "Weiteren Termin ansehen"
+msgstr "See other times"
+
+msgid "Schnupperstunde gebucht 🎉"
+msgstr "Trial lesson booked 🎉"
+
+msgid "Termin absagen"
+msgstr "Cancel your booking"
+
+msgid "Schnupperstunde abgesagt"
+msgstr "Trial lesson cancelled"
+
+msgid "Stunde abgesagt"
+msgstr "Lesson cancelled"
+
+#, python-format
+msgid "Der Termin am <b>%(when)s</b> wurde storniert."
+msgstr "Your booking on <b>%(when)s</b> has been cancelled."
+
+msgid "Der Termin wurde storniert."
+msgstr "Your booking has been cancelled."
+
+msgid "Der Platz ist wieder frei."
+msgstr "The slot is free again."
+
+msgid "Die Einheit wurde gutgeschrieben."
+msgstr "The lesson credit has been returned to you."
+
+msgid "Da der Termin innerhalb von 24 Stunden lag, verfällt die Einheit."
+msgstr ""
+"As the lesson was less than 24 hours away, the lesson credit is forfeited."
+
+msgid "Du kannst dieses Fenster schließen."
+msgstr "You can close this window."
+
+msgid "Neue Schnupperstunde buchen"
+msgstr "Book a new trial lesson"
+
+msgid "Schnupperstunde absagen?"
+msgstr "Cancel your trial lesson?"
+
+msgid "Stunde absagen?"
+msgstr "Cancel your lesson?"
+
+msgid "Möchtest du diese kostenlose Englisch-Schnupperstunde wirklich absagen?"
+msgstr "Do you really want to cancel this free English trial lesson?"
+
+msgid "Möchtest du diese Englischstunde wirklich absagen?"
+msgstr "Do you really want to cancel this English lesson?"
+
+#, python-format
+msgid "mit %(name)s"
+msgstr "with %(name)s"
+
+msgid ""
+"Achtung: Der Termin ist in weniger als 24 Stunden. Bei einer Absage verfällt "
+"die Einheit."
+msgstr ""
+"Please note: the lesson is less than 24 hours away, so cancelling now "
+"forfeits the lesson credit."
+
+msgid "Ja, Termin absagen"
+msgstr "Yes, cancel"
+
+msgid "Doch nicht, zurück"
+msgstr "No, go back"
+
+msgid "Termin nicht gefunden"
+msgstr "Booking not found"
+
+msgid ""
+"Dieser Absage-Link ist nicht (mehr) gültig. Der Termin wurde vermutlich "
+"bereits abgesagt. Bei Fragen melde dich gerne bei Davit:"
+msgstr ""
+"This cancellation link is no longer valid. The booking has probably already "
+"been cancelled. If you have any questions, feel free to contact Davit:"
+
+msgid "Englisch-Nachhilfe in Wien &amp; online | The Green Pencil"
+msgstr "English Tutoring in Vienna &amp; Online | The Green Pencil"
+
+msgid ""
+"Persönliche Englisch-Nachhilfe mit Davit in Wien &amp; online für "
+"Schüler*innen, Studierende und Erwachsene, von A1 bis C1, von Schularbeit bis"
+" Matura. Erste Stunde unverbindlich."
+msgstr ""
+"Personal English tutoring with Davit in Vienna &amp; online for school "
+"students, university students and adults, from A1 to C1, from school tests to"
+" the Matura. The first session is free and without obligation."
+
+msgid ""
+"Englisch Nachhilfe Wien, Englisch Nachhilfe online, Englischunterricht Wien, "
+"Englisch Einzelunterricht, Matura Englisch, Schularbeit Englisch, "
+"Prüfungsvorbereitung Englisch, Englisch für Erwachsene, Nachprüfung Englisch"
+msgstr ""
+"English tutor Vienna, English tutoring Vienna, online English tutoring, "
+"private English lessons Vienna, English Matura preparation, English exam "
+"preparation, English for adults, Business English Vienna"
+
+msgid "Englisch-Nachhilfe in Wien &amp; online | The Green Pencil"
+msgstr "English Tutoring in Vienna &amp; Online | The Green Pencil"
+
+msgid ""
+"Persönlicher Englisch-Unterricht mit Davit: strukturiert, ruhig und in deinem"
+" Tempo. Von der Schularbeit bis zur Matura, für alle Niveaus A1–C1."
+msgstr ""
+"Personal English lessons with Davit: structured, calm and at your own pace. "
+"From school tests to the Matura, for all levels A1–C1."
+
+msgid "The Green Pencil · Englisch-Nachhilfe"
+msgstr "The Green Pencil · English Tutoring"
+
+msgid ""
+"Persönlicher Englisch-Unterricht mit Davit: strukturiert, ruhig und in deinem"
+" Tempo. Für Schüler*innen, Studierende und Erwachsene."
+msgstr ""
+"Personal English lessons with Davit: structured, calm and at your own pace. "
+"For school students, university students and adults."
+
+msgid "The Green Pencil · Englisch-Nachhilfe mit Davit Hovakimyan"
+msgstr "The Green Pencil · English tutoring with Davit Hovakimyan"
+
+msgid ""
+"Englisch-Nachhilfe in Wien und online. Einzelunterricht und "
+"Prüfungsvorbereitung für Schüler*innen, Studierende und Erwachsene, von der "
+"Schularbeit bis zur Matura, für alle Niveaus A1–C1."
+msgstr ""
+"English tutoring in Vienna and online. One-to-one lessons and exam "
+"preparation for school students, university students and adults, from school "
+"tests to the Matura, for all levels A1–C1."
+
+msgid "Wien"
+msgstr "Vienna"
+
+msgid "Englisch-Nachhilfe: Einzelunterricht und Prüfungsvorbereitung"
+msgstr "English tutoring: one-to-one lessons and exam preparation"
+
+msgid "Englisch-Nachhilfe und Prüfungsvorbereitung"
+msgstr "English tutoring and exam preparation"
+
+msgid "Wien, Österreich"
+msgstr "Vienna, Austria"
+
+msgid "Für wen ist die Englisch-Nachhilfe geeignet?"
+msgstr "Who is the English tutoring for?"
+
+msgid ""
+"Für Schüler*innen, Studierende und Erwachsene. Alle Altersstufen und alle "
+"Niveaus von A1 bis C1, vom ersten Satz bis zur Matura."
+msgstr ""
+"For school students, university students and adults. All ages and all levels "
+"from A1 to C1, from your very first sentence to the Matura."
+
+msgid "Wie schnell kann ich mit der Englisch-Nachhilfe starten?"
+msgstr "How soon can I start?"
+
+msgid ""
+"Sofort. Du wählst einfach einen freien Termin im Kalender. Die erste Einheit "
+"ist ein unverbindliches Kennenlernen, in dem wir deinen Lernstand und dein "
+"Ziel anschauen."
+msgstr ""
+"Right away. Just pick a free slot in the calendar. The first session is a "
+"free, no-obligation intro where we look at your current level and your goals."
+
+msgid "Findet die Englisch-Nachhilfe online statt?"
+msgstr "Do the lessons take place online?"
+
+msgid ""
+"Ja. Der Unterricht findet bequem online per Video statt: flexibel, "
+"ortsunabhängig und ganz in deinem Tempo."
+msgstr ""
+"Yes. Lessons take place online by video: flexible, from wherever you are, and"
+" entirely at your own pace."
+
+msgid "Über mich"
+msgstr "About me"
+
+msgid "Angebot"
+msgstr "Lessons"
+
+msgid "Ansatz"
+msgstr "Approach"
+
+msgid "Preise"
+msgstr "Prices"
+
+msgid "Stimmen"
+msgstr "Reviews"
+
+msgid "Stunde buchen"
+msgstr "Book a lesson"
+
+msgid "Englisch-Nachhilfe in Wien · online"
+msgstr "English tutoring in Vienna · online"
+
+msgid "Englisch, das <em>sitzen bleibt</em>, damit du es nicht musst."
+msgstr "English that <em>sticks</em>, so you don’t get stuck."
+
+msgid ""
+"Persönlicher Englisch-Unterricht mit lernpsychologischem Fundament für "
+"Schüler*innen aller Altersstufen, Studierende und Erwachsene. Vom ersten Satz"
+" bis zur Prüfung: Schritt für Schritt, in deinem Tempo."
+msgstr ""
+"Personal English lessons grounded in the psychology of learning, for school "
+"students of all ages, university students and adults. From your first "
+"sentence to your exam: step by step, at your own pace."
+
+msgid "Kostenloses Kennenlerngespräch buchen"
+msgstr "Book a free intro call"
+
+msgid "Mehr erfahren"
+msgstr "Learn more"
+
+msgid "45-Minuten-Einheiten · flexible Termine · unverbindliches Kennenlernen"
+msgstr "45-minute lessons · flexible times · free intro, no obligation"
+
+msgid "3.000+"
+msgstr "3,000+"
+
+msgid "gehaltene Unterrichtsstunden"
+msgstr "lessons taught"
+
+msgid ""
+"Schüler*innen aller Altersstufen und Schulformen (AHS, HAK, HTL, NMS, VS, …)"
+msgstr "students of all ages and school types (AHS, HAK, HTL, NMS, VS, …)"
+
+msgid "alle Niveaus, vom Start bis fortgeschritten"
+msgstr "all levels, from beginner to advanced"
+
+msgid "Bilingual"
+msgstr "Bilingual"
+
+msgid "Englisch auf Muttersprachniveau"
+msgstr "native-level English"
+
+msgid "Englisch-Tutor &amp; Psychologiestudent"
+msgstr "English tutor &amp; psychology student"
+
+msgid "Hallo, ich bin Davit."
+msgstr "Hi, I’m Davit."
+
+msgid ""
+"Ich bin zweisprachig mit Englisch aufgewachsen und unterrichte seit 2021 als "
+"selbstständiger Tutor, mit Leidenschaft für die Sprache und dafür, wie "
+"Menschen am besten lernen."
+msgstr ""
+"I grew up bilingual with English and have been teaching as an independent "
+"tutor since 2021, with a passion for the language and for how people learn "
+"best."
+
+msgid ""
+"Im <strong>Psychologiestudium</strong> an der Universität Wien lernte ich "
+"auch, wie Menschen am besten lernen. Dieses Wissen fließt direkt in meinen "
+"Unterricht ein: Ich achte auf Motivation, Selbstvertrauen und nachhaltiges "
+"Lernen, damit Fortschritt sich gut anfühlt und auch bleibt."
+msgstr ""
+"Studying <strong>psychology</strong> at the University of Vienna also taught "
+"me how people learn best. That knowledge goes straight into my lessons: I pay"
+" attention to motivation, confidence and lasting learning, so progress feels "
+"good and stays with you."
+
+msgid ""
+"In über <strong>3.000 Stunden mit mehr als 80 Schüler*innen</strong> habe ich"
+" gelernt, dass es nicht die eine richtige Methode gibt. Ich passe meinen "
+"Unterricht an jeden Menschen an: geduldig, klar und auf Augenhöhe."
+msgstr ""
+"Over <strong>3,000 hours with more than 80 students</strong>, I’ve learned "
+"that there is no single right method. I adapt my teaching to each person: "
+"patient, clear and on equal terms."
+
+msgid "Englisch (Muttersprache)"
+msgstr "English (native speaker)"
+
+msgid "Psychologie, Uni Wien"
+msgstr "Psychology, University of Vienna"
+
+msgid "Stoffwiederholung &amp; Prüfungsvorbereitung"
+msgstr "Revision &amp; exam preparation"
+
+msgid "Deutsch &amp; Armenisch fließend"
+msgstr "Fluent German &amp; Armenian"
+
+msgid "Das Angebot"
+msgstr "What I offer"
+
+msgid "Unterricht, der zu deinem Ziel passt."
+msgstr "Lessons built around your goal."
+
+msgid ""
+"Ob du selbstbewusster sprechen, eine Prüfung bestehen oder einfach wieder "
+"Freude an der Sprache finden willst, wir setzen genau dort an, wo du gerade "
+"stehst."
+msgstr ""
+"Whether you want to speak more confidently, pass an exam or simply enjoy the "
+"language again, we start exactly where you are right now."
+
+msgid "Zusammenarbeit mit Teens"
+msgstr "Working with teens"
+
+msgid ""
+"Schule im Griff, ohne Stress. Fokus auf <strong>Schularbeiten, Tests und "
+"Matura</strong>, mit klarer Struktur, ehrlichem Feedback und der Motivation, "
+"dranzubleiben."
+msgstr ""
+"On top of school, without the stress. Focus on <strong>school tests, exams "
+"and the Matura</strong>, with clear structure, honest feedback and the "
+"motivation to keep going."
+
+msgid "Zusammenarbeit mit Kindern"
+msgstr "Working with children"
+
+msgid ""
+"Spielerisch zur Sprache. Fokus auf eine <strong>solide Basis und Freude am "
+"Englisch</strong>, mit Geschichten, Spielen und vielen kleinen "
+"Erfolgserlebnissen."
+msgstr ""
+"Learning through play. Focus on <strong>solid foundations and a love of "
+"English</strong>, with stories, games and lots of small wins."
+
+msgid "Zusammenarbeit mit Studierenden"
+msgstr "Working with university students"
+
+msgid ""
+"Englisch auf akademischem Niveau. Fokus auf <strong>Präsentationen, Arbeiten "
+"und Fachvokabular</strong>. Präzise formulieren und souverän auftreten."
+msgstr ""
+"English at academic level. Focus on <strong>presentations, papers and subject"
+" vocabulary</strong>. Express yourself precisely and present with confidence."
+
+msgid "Zusammenarbeit mit Berufstätigen"
+msgstr "Working with professionals"
+
+msgid ""
+"Englisch, das im Job trägt. Fokus auf <strong>Meetings, E-Mails und "
+"Verhandlungssicherheit</strong>, flexibel terminiert und auf deine Branche "
+"zugeschnitten."
+msgstr ""
+"English that works on the job. Focus on <strong>meetings, emails and "
+"negotiating with confidence</strong>, flexibly scheduled and tailored to your"
+" field."
+
+msgid "Mein Ansatz"
+msgstr "My approach"
+
+msgid "Lernen mit Köpfchen und Geduld."
+msgstr "Learning smart, with patience."
+
+msgid "Drei Grundsätze, die jeden Unterricht prägen."
+msgstr "Three principles behind every lesson."
+
+msgid "Lernpsychologisch fundiert"
+msgstr "Grounded in learning science"
+
+msgid ""
+"Ich nutze, was die Forschung über Motivation und Gedächtnis weiß, damit du "
+"effizienter lernst und Gelerntes wirklich verankerst."
+msgstr ""
+"I use what research knows about motivation and memory, so you learn more "
+"efficiently and what you learn really sticks."
+
+msgid "Individuell angepasst"
+msgstr "Tailored to you"
+
+msgid ""
+"Keine Schablone. Tempo, Themen und Methoden richten sich nach dir, ob du "
+"strukturiert übst oder lieber im Gespräch lernst."
+msgstr ""
+"No one-size-fits-all. Pace, topics and methods follow you, whether you like "
+"structured practice or prefer learning through conversation."
+
+msgid "Nachhaltig &amp; motivierend"
+msgstr "Lasting &amp; motivating"
+
+msgid ""
+"Kleine Erfolge, die sich summieren. Wir bauen gemeinsam dein Selbstvertrauen "
+"auf, damit du dranbleibst und Freude an der Sprache behältst."
+msgstr ""
+"Small wins that add up. Together we build your confidence so you keep going "
+"and keep enjoying the language."
+
+msgid "Faire Preise, klare Pakete."
+msgstr "Fair prices, simple packages."
+
+#, python-format
+msgid ""
+"Mit dem %(n)ser-Paket zahlst du <strong>€%(price)s pro Einheit</strong>. So "
+"lernen fast alle meine Schüler*innen."
+msgstr ""
+"With the %(n)s-lesson package you pay <strong>€%(price)s per lesson</strong>."
+" That’s how almost all my students learn."
+
+msgid "1 Einheit dauert 45 Minuten. Keine Abos, keine versteckten Kosten."
+msgstr "One lesson is 45 minutes. No subscriptions, no hidden costs."
+
+#, python-format
+msgid "%(n)s Einheit"
+msgid_plural "%(n)s Einheiten"
+msgstr[0] "%(n)s lesson"
+msgstr[1] "%(n)s lessons"
+
+msgid "/ Einheit"
+msgstr "/ lesson"
+
+#, python-format
+msgid "%(price)s für %(n)s Einheiten"
+msgstr "%(price)s for %(n)s lessons"
+
+#, python-format
+msgid "€%(price)s pro Einheit"
+msgstr "€%(price)s per lesson"
+
+msgid "Loslegen"
+msgstr "Get started"
+
+msgid ""
+"Das <strong>erste Kennenlerngespräch mit mir ist kostenlos</strong> und "
+"unverbindlich, ganz ohne Zahlungsdaten. Einheiten buchst du erst, wenn du "
+"weitermachen möchtest."
+msgstr ""
+"Your <strong>first intro call with me is free</strong> and without "
+"obligation, with no payment details needed. You only buy lessons once you "
+"decide to continue."
+
+msgid "Stimmen anderer Schüler*Innen"
+msgstr "What other students say"
+
+msgid "Was Schüler*innen und Eltern über den Unterricht mit Davit sagen."
+msgstr ""
+"What students and parents say about learning with Davit (translated from "
+"German)."
+
+msgid "5 von 5 Sternen"
+msgstr "5 out of 5 stars"
+
+msgid ""
+"Davit hat meine Tochter (erste Klasse TGM) während der Sommerferien (!) dazu "
+"motiviert, sich über sechs Wochen regelmäßig mit Englisch zu beschäftigen. Er"
+" ist sehr sympathisch, nett und zuverlässig in der Kommunikation mit mir. "
+"Außerdem ist er sehr strukturiert und der Online-Unterricht funktioniert sehr"
+" gut. Am Anfang war ich diesbezüglich skeptisch."
+msgstr ""
+"Davit motivated my daughter (first year at TGM) to work on her English "
+"regularly for six weeks, during the summer holidays (!). He is very likeable,"
+" kind and reliable in his communication with me. He is also very structured, "
+"and the online lessons work really well. I was sceptical about that at first."
+
+msgid ""
+"Vor allem aber sagt meine Tochter, dass der Unterricht mit Davit Spaß macht "
+"und er die Dinge sehr gut erklären kann, so dass sie alles gut versteht. "
+"Alles in allem können wir Davit nur wärmstens empfehlen!"
+msgstr ""
+"Above all, my daughter says that lessons with Davit are fun and that he "
+"explains things so well that she understands everything. All in all, we can "
+"recommend Davit most warmly!"
+
+msgid "Mutter einer Schülerin · TGM, 1. Klasse"
+msgstr "Mother of a student · TGM, first year"
+
+msgid ""
+"Davit ist ein professioneller, einfühlsamer und sehr motivierter Lehrer. Er "
+"hat es geschafft, nach schlechten Noten und negativen Erfahrungen in der "
+"Schule meinen Sohn aus dem Motivationstief zu holen."
+msgstr ""
+"Davit is a professional, empathetic and very motivated teacher. After bad "
+"grades and negative experiences at school, he managed to pull my son out of "
+"his motivation slump."
+
+msgid ""
+"Er geht auf die Probleme des Schülers immer sehr gut ein und erklärt die "
+"Inhalte verständlich. Mein Sohn kam mit ihm sehr gut zurecht und hat sich in "
+"Englisch deutlich verbessert. Einfach nur zu empfehlen. Danke Davit!"
+msgstr ""
+"He always responds really well to a student’s difficulties and explains "
+"things clearly. My son got on very well with him and his English has "
+"improved noticeably. Highly recommended. Thank you, Davit!"
+
+msgid "Mutter eines Schülers"
+msgstr "Mother of a student"
+
+msgid ""
+"Nicht nur, dass seine Muttersprache Englisch ist, er beherrscht auch Deutsch "
+"ebenso sehr gut. Bei ihm habe ich das Gefühl, die netteste Englisch-Nachhilfe"
+" von ganz Wien an meiner Seite zu haben."
+msgstr ""
+"Not only is English his native language, his German is excellent too. With "
+"him I feel like I have the nicest English tutor in all of Vienna on my side."
+
+msgid ""
+"In kürzester Zeit habe ich mich dank ihm sehr verbessert. Von ihm zu lernen "
+"macht mir Spaß und motiviert mich, auch weil er sehr verständnisvoll und "
+"freundlich ist. Er holt einen dort ab, wo man gerade steht. Mit ihm habe ich "
+"das Gefühl gewonnen, die Matura schaffen zu können :-)"
+msgstr ""
+"Thanks to him I improved a lot in a very short time. Learning with him is "
+"fun and keeps me motivated, also because he is so understanding and "
+"friendly. He meets you exactly where you are. With him I’ve come to feel "
+"that I can pass the Matura :-)"
+
+msgid "Matura-Vorbereitung"
+msgstr "Matura preparation"
+
+msgid "Bereit für dein kostenloses Kennenlerngespräch?"
+msgstr "Ready for your free intro call?"
+
+msgid ""
+"Such dir einfach einen Termin im Kalender aus. Die erste Einheit ist ein "
+"unverbindliches Kennenlernen. Wir schauen, wo du stehst und wohin du willst."
+msgstr ""
+"Just pick a time in the calendar. The first session is a free, no-obligation "
+"intro. We look at where you are and where you want to go."
+
+msgid "Jetzt Termin buchen"
+msgstr "Book a time now"
+
+msgid "Häufige Fragen ansehen"
+msgstr "Read the FAQ"
+
+msgid "Englisch-Nachhilfe mit Davit Hovakimyan · Wien, Österreich"
+msgstr "English tutoring with Davit Hovakimyan · Vienna, Austria"
+
+msgid "AGB"
+msgstr "Terms"
+
+msgid "Widerruf"
+msgstr "Withdrawal"
+
+msgid "Impressum"
+msgstr "Legal notice"
+
+msgid "Datenschutz"
+msgstr "Privacy"
+
+#, python-format
+msgid ""
+"Hallo%%20Davit%%2C%%20ich%%20habe%%20eine%%20Frage%%20zur%%20Englisch-"
+"Nachhilfe."
+msgstr "Hi%%20Davit%%2C%%20I%%20have%%20a%%20question%%20about%%20English%%20tutoring."
+
+msgid "← Zur Startseite"
+msgstr "← Back to home"

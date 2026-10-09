@@ -1,0 +1,27 @@
+You're all set, {{ guest_first }}!
+
+Your free English trial lesson with {{ tutor_first }} is booked.
+There's no obligation: we'll look together at where you are and where you want to go.
+
+Date:  {{ date_long }}
+Time:  {{ time_range }} (15 minutes, Vienna time)
+Tutor: {{ tutor_first }}
+{% if call_link %}Video: {{ call_link }}
+{% endif %}
+Attached is a calendar file (.ics) so you can save the appointment.
+{% if call_link %}The lesson takes place online. Just join via the video link above at the
+booked time. {% else %}We'll be in touch before the lesson with all the details (location or video
+link). {% endif %}Simply reply to this email if you have any questions or would like to
+reschedule.
+{% if cancel_url %}
+Can't make it after all? You can cancel the trial lesson here:
+{{ cancel_url }}
+{% endif %}
+
+--
+The Green Pencil · English tutoring · Vienna, Austria
+Legal notice: {{ site_home }}/impressum/
+Privacy:      {{ site_home }}/datenschutz/
+
+You are receiving this email because a trial lesson was booked with your
+address.

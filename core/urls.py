@@ -3,19 +3,31 @@ from django.urls import path
 from django.views.generic import RedirectView, TemplateView
 from . import views
 
-urlpatterns = [
+# Public pages: German at their plain path, English under /en/ (fluent/urls.py
+# mounts this list with i18n_patterns). {% url %} on a page keeps its language.
+public_urlpatterns = [
     path('', views.landing_view, name='landing'),
-    path('app/', views.app_view, name='app'),
-    path('login/', views.login_view, name='login'),
     # Pure-content pages: legal notices required in Austria (Impressum §5 ECG,
-    # Datenschutz GDPR Art. 13/14, AGB, Widerruf FAGG) and the FAQ.
-    path('impressum/', TemplateView.as_view(template_name='impressum.html'), name='impressum'),
-    path('datenschutz/', TemplateView.as_view(template_name='datenschutz.html'), name='datenschutz'),
-    path('agb/', TemplateView.as_view(template_name='agb.html'), name='agb'),
-    path('widerruf/', TemplateView.as_view(template_name='widerruf.html'), name='widerruf'),
-    path('faq/', TemplateView.as_view(template_name='faq.html'), name='faq'),
+    # Datenschutz GDPR Art. 13/14, AGB, Widerruf FAGG) and the FAQ. English
+    # visitors get the templates/en/ version of each.
+    path('impressum/', views.LocalizedTemplateView.as_view(template_name='impressum.html'), name='impressum'),
+    path('datenschutz/', views.LocalizedTemplateView.as_view(template_name='datenschutz.html'), name='datenschutz'),
+    path('agb/', views.LocalizedTemplateView.as_view(template_name='agb.html'), name='agb'),
+    path('widerruf/', views.LocalizedTemplateView.as_view(template_name='widerruf.html'), name='widerruf'),
+    path('faq/', views.LocalizedTemplateView.as_view(template_name='faq.html'), name='faq'),
     path('intro/', views.intro_view, name='intro'),
     path('cancel/<str:token>/', views.booking_cancel_view, name='booking_cancel'),
+    # The intro page posts to the endpoint of its own language, so a guest on
+    # /en/intro/ gets English error messages and an English confirmation mail.
+    path('api/intro-bookings/', views.api_intro_booking, name='api_intro_booking'),
+]
+
+urlpatterns = [
+    # Free CEFR level check (runs entirely in the browser) feeding the intro booking.
+    # German only for now, so it sits outside the /en/ patterns.
+    path('einstufung/', TemplateView.as_view(template_name='level_check.html'), name='level_check'),
+    path('app/', views.app_view, name='app'),
+    path('login/', views.login_view, name='login'),
     # Tutor connects their Zoom/Teams account (OAuth redirect dance).
     path('oauth/video/<str:provider>/connect/', views.video_oauth_start, name='video_oauth_start'),
     path('oauth/video/<str:provider>/callback/', views.video_oauth_callback, name='video_oauth_callback'),
@@ -25,7 +37,6 @@ urlpatterns = [
     path('favicon.ico', RedirectView.as_view(url=static('favicon.ico'), permanent=True)),
     path('robots.txt', views.robots_txt, name='robots_txt'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap_xml'),
-    path('api/intro-bookings/', views.api_intro_booking),
     path('api/login/', views.api_login),
     path('api/logout/', views.api_logout),
     # Password lifecycle: forced first-login change, and the e-mailed
@@ -44,6 +55,8 @@ urlpatterns = [
     path('api/bookings/<int:pk>/exercises/', views.api_session_exercises),
     path('api/exercises/<int:ex_id>/', views.api_session_exercise_detail),
     path('api/bookings/<int:pk>/files/', views.api_session_files),
+    path('api/bookings/<int:pk>/files/import/', views.api_session_file_import),
+    path('api/bookings/<int:pk>/pdf/', views.api_session_pdf),
     path('api/session-files/<int:file_id>/', views.api_session_file_detail),
     path('api/credits/<str:slug>/', views.api_credits),
     path('api/transactions/<int:txn_id>/cancel/', views.api_cancel_transaction),
@@ -62,11 +75,16 @@ urlpatterns = [
     path('api/availability/', views.api_availability),
     path('api/custom-times/', views.api_custom_times),
     path('api/notes/<str:slug>/', views.api_notes),
+    path('api/school-tests/', views.api_school_tests),
+    path('api/school-tests/<int:pk>/', views.api_school_test_detail),
     path('api/lessons/<str:slug>/', views.api_lessons),
+    path('api/topics/', views.api_topics),
+    path('api/topics/<str:lesson_id>/', views.api_topic_detail),
     path('api/lesson-files/download/<int:file_id>/', views.api_lesson_file_download),
     path('api/lesson-files/<int:file_id>/', views.api_lesson_file_detail),
     path('api/lesson-files/<str:lesson_id>/', views.api_lesson_files),
     path('api/users/', views.api_users),
     path('api/users/<str:slug>/', views.api_user_detail),
+    path('api/users/<str:slug>/avatar/', views.api_user_avatar),
     path('api/settings/', views.api_settings),
 ]

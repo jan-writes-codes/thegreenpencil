@@ -1,0 +1,15 @@
+Cancelled: your trial lesson
+
+Hi {{ person_first }},
+
+your trial lesson with {{ tutor_first }} has been cancelled.
+
+Date:  {{ when }}
+Tutor: {{ tutor_first }}
+
+You can book a new time whenever you like:
+{{ site_home }}/intro/
+--
+The Green Pencil · English tutoring · Vienna, Austria
+Legal notice: {{ site_home }}/impressum/
+Privacy:      {{ site_home }}/datenschutz/

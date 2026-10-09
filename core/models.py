@@ -12,6 +12,10 @@ class User(AbstractUser):
     initials = models.CharField(max_length=4, default='')
     credits = models.IntegerField(default=0)
     photo = models.TextField(blank=True, null=True)  # base64 data URL
+    # Self-chosen profile picture: an emoji on a solid background colour. Shown
+    # when there's no photo; empty means the initials avatar.
+    avatar_emoji = models.CharField(max_length=16, blank=True, default='')
+    avatar_bg = models.CharField(max_length=7, blank=True, default='')
     color1 = models.CharField(max_length=20, default='#c2714d')
     color2 = models.CharField(max_length=20, default='#a85535')
     billing_name = models.CharField(max_length=200, blank=True)
@@ -364,6 +368,33 @@ class ActiveLesson(models.Model):
         return f'{self.student.slug}: {self.lesson_id}'
 
 
+class CurriculumTopic(models.Model):
+    """A topic in the shared Lernmaterialien library: one level (A1–C1) and one
+    skill area. ``lesson_id`` is the key ActiveLesson and LessonFile point at,
+    so the original hard-coded lessons ('a1-1' …) keep their unlocks and files."""
+    LEVEL_CHOICES = [(l, l) for l in ('A1', 'A2', 'B1', 'B2', 'C1')]
+    SKILL_CHOICES = [
+        ('listening', 'Listening'),
+        ('reading', 'Reading'),
+        ('grammar', 'Grammar'),
+        ('liu', 'Language in Use'),
+        ('writing', 'Writing'),
+        ('speaking', 'Speaking'),
+    ]
+    lesson_id = models.CharField(max_length=20, unique=True)
+    level = models.CharField(max_length=2, choices=LEVEL_CHOICES)
+    skill = models.CharField(max_length=10, choices=SKILL_CHOICES)
+    title = models.CharField(max_length=200)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['level', 'position', 'id']
+
+    def __str__(self):
+        return f'{self.lesson_id}: {self.title}'
+
+
 def lesson_upload_path(instance, filename):
     return f'lessons/{instance.lesson_id}/{filename}'
 
@@ -489,10 +520,46 @@ class SessionFile(models.Model):
     name = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, blank=True)
     size = models.PositiveIntegerField(default=0)
-    data = models.BinaryField(editable=False)
+    # Empty when the file is a Lernmaterialien file linked into the lesson:
+    # the bytes are then read from ``material`` instead of being stored twice.
+    data = models.BinaryField(editable=False, null=True)
+    material = models.ForeignKey('LessonFile', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='session_links')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name='session_uploads')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['created_at']
+
+
+class SchoolTest(models.Model):
+    """A Schularbeit, test or exam a student has coming up (or had). The
+    student or tutor enters the date; afterwards the grade and a short
+    reflection — what went well, what to work on — so the next lessons know
+    where to focus."""
+    KIND_SCHULARBEIT = 'sa'
+    KIND_TEST = 'test'
+    KIND_MATURA = 'matura'
+    KIND_OTHER = 'other'
+    KIND_CHOICES = [
+        (KIND_SCHULARBEIT, 'Schularbeit'), (KIND_TEST, 'Test'),
+        (KIND_MATURA, 'Matura'), (KIND_OTHER, 'Prüfung'),
+    ]
+
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='school_tests')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_SCHULARBEIT)
+    date = models.DateField()
+    topic = models.CharField(max_length=200, blank=True)   # what it covers
+    grade = models.PositiveSmallIntegerField(null=True, blank=True)  # Austrian 1–5
+    went_well = models.TextField(blank=True)
+    to_improve = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='school_tests_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'created_at']
+
+    def __str__(self):
+        return f'{self.student.slug}: {self.get_kind_display()} {self.date}'

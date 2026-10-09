@@ -19,17 +19,21 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.translation import get_language, gettext
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.views.generic import TemplateView
 from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
-    VideoConnection, ErrorCard, SessionExercise, SessionFile,
+    VideoConnection, ErrorCard, SessionExercise, SessionFile, CurriculumTopic,
+    SchoolTest,
 )
 from django.db.models import Prefetch
 from . import emails, video
 from .ical import build_tutor_feed
 from .receipts_pdf import render_receipt_pdf
+from .lesson_pdf import lesson_pdf_filename, render_lesson_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +97,8 @@ def serialize_user(u):
         "color1": u.color1,
         "color2": u.color2,
         "photo": u.photo,
+        "avatarEmoji": u.avatar_emoji,
+        "avatarBg": u.avatar_bg,
         "role": u.role,
         "billing": {
             "name": u.billing_name,
@@ -166,6 +172,21 @@ def serialize_session_file(f):
         "size": f.size,
         "by": (f.uploaded_by.get_full_name() if f.uploaded_by_id and f.uploaded_by else ""),
         "url": f"/api/session-files/{f.pk}/",
+        # Linked from Lernmaterialien rather than uploaded to this lesson.
+        "materialId": f.material_id,
+    }
+
+
+def serialize_school_test(t):
+    return {
+        "id": t.pk,
+        "studentId": t.student.slug,
+        "kind": t.kind,
+        "date": t.date.isoformat(),
+        "topic": t.topic,
+        "grade": t.grade,
+        "wentWell": t.went_well,
+        "toImprove": t.to_improve,
     }
 
 
@@ -262,6 +283,10 @@ def serialize_receipt(r):
         "isStorno": r.reverses_id is not None,
         "reversesNo": (r.reverses.number if r.reverses_id and r.reverses else ""),
     }
+
+
+def serialize_topic(t):
+    return {"id": t.lesson_id, "level": t.level, "skill": t.skill, "t": t.title}
 
 
 def serialize_lesson_file(lf):
@@ -647,14 +672,14 @@ def _client_ip(request):
 def _throttled(key, limit, window):
     """Count one hit on ``key``; True once more than ``limit`` hits fall within
     ``window`` seconds of each other (each hit extends the window)."""
-    # ponytail: per-process cache (LocMemCache) — each gunicorn worker counts on
-    # its own. Point CACHES at a shared backend if the app runs several instances.
+    # The default cache is the database (settings.CACHES), so all gunicorn
+    # workers share one count and a deploy doesn't reset it.
     hits = cache.get(key, 0) + 1
     cache.set(key, hits, window)
     return hits > limit
 
 
-TOO_MANY = "Zu viele Versuche — bitte warte ein paar Minuten."
+TOO_MANY = "Zu viele Versuche. Bitte warte ein paar Minuten."
 
 
 def acting_tutor(request, slug=None):
@@ -698,12 +723,23 @@ def landing_view(request):
             "price": raw.get("price", ""),
             "per_unit": round(total / n) if total and n > 0 else None,
             "feat": is_popular,
-            "tag": "Beliebteste Wahl" if is_popular else "",
+            "tag": gettext("Beliebteste Wahl") if is_popular else "",
         })
     # The popular pack's per-unit price is the headline figure in the pricing
     # copy — it's what nearly every student actually pays.
     featured = next((p for p in packs if p["feat"] and p["per_unit"]), None)
     return render(request, "landing.html", {"packs": packs, "featured": featured})
+
+
+class LocalizedTemplateView(TemplateView):
+    """A content page whose English text lives in its own template
+    (templates/en/<name>) rather than in the translation catalogue: the FAQ and
+    legal pages are long prose, which reads and edits better as a whole page."""
+
+    def get_template_names(self):
+        if get_language() == "en":
+            return [f"en/{self.template_name}"]
+        return [self.template_name]
 
 
 def login_view(request):
@@ -731,7 +767,9 @@ def password_reset_view(request, uidb64, token):
 
 # Public, crawler-facing pages worth listing in the sitemap. The booking app and
 # API endpoints are intentionally excluded — they're gated or non-content.
-SITEMAP_PATHS = ["/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
+# Each is listed in German and English (/en/...), with hreflang alternates.
+SITEMAP_PATHS = ["/", "/faq/", "/intro/", "/impressum/", "/datenschutz/", "/agb/", "/widerruf/"]
+SITEMAP_DE_ONLY = ["/einstufung/"]
 
 
 def robots_txt(request):
@@ -743,6 +781,7 @@ def robots_txt(request):
         "Allow: /",
         "Disallow: /app/",
         "Disallow: /api/",
+        "Disallow: /en/api/",
         f"Sitemap: {sitemap_url}",
         "",
     ])
@@ -750,15 +789,27 @@ def robots_txt(request):
 
 
 def sitemap_xml(request):
-    # Minimal XML sitemap of the public pages, with absolute URLs.
-    urls = "".join(
-        f"<url><loc>{request.build_absolute_uri(p)}</loc></url>"
-        for p in SITEMAP_PATHS
-    )
+    # Minimal XML sitemap of the public pages, with absolute URLs. Every page
+    # is listed once per language, each entry naming all its language versions.
+    def alternates(path):
+        return {code: request.build_absolute_uri(("" if code == "de" else f"/{code}") + path)
+                for code, _name in dj_settings.LANGUAGES}
+
+    entries = []
+    for p in SITEMAP_PATHS:
+        alts = alternates(p)
+        links = "".join(
+            f'<xhtml:link rel="alternate" hreflang="{code}" href="{url}"/>'
+            for code, url in alts.items()
+        )
+        entries += [f"<url><loc>{url}</loc>{links}</url>" for url in alts.values()]
+    # German-only public pages: one entry, no alternates.
+    entries += [f"<url><loc>{request.build_absolute_uri(p)}</loc></url>" for p in SITEMAP_DE_ONLY]
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        f"{urls}</urlset>"
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+        'xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+        f"{''.join(entries)}</urlset>"
     )
     return HttpResponse(body, content_type="application/xml")
 
@@ -821,14 +872,43 @@ def intro_view(request):
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _PHOTO_RE = re.compile(r"^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$")
 
-# Shown to guests on every booking error so they always have a way to reach a
-# human: Davit's mobile and e-mail.
-_INTRO_CONTACT = "Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at"
+
+_CEFR = ("A1", "A2", "B1", "B2", "C1")
+_SCORE_RE = re.compile(r"^(\d{1,2})-(\d{1,2})$")
+
+
+def _level_check_note(lc):
+    """One-line summary of the guest's public level check for the tutor, built
+    only from whitelisted values (the client sends structured fields, never
+    free text). Empty when the guest didn't take the check."""
+    if not isinstance(lc, dict):
+        return ""
+    level = lc.get("level")
+    if level not in _CEFR + ("pre-A1",):
+        return ""
+    head = "unter A1 (Einstieg)" if level == "pre-A1" else level
+    toward = lc.get("toward")
+    if toward in _CEFR and toward != level:
+        head += f", auf dem Weg zu {toward}"
+    parts = [f"Level-Check: {head}"]
+    for key, label in (("gv", "Grammatik/Wortschatz"), ("rd", "Lesen")):
+        m = _SCORE_RE.match(str(lc.get(key) or ""))
+        if m and int(m.group(1)) <= int(m.group(2)) <= 40:
+            parts.append(f"{label} {m.group(1)}/{m.group(2)}")
+    selfs = [f"{label} {lc.get(key)}" for key, label in
+             (("speak", "Sprechen"), ("write", "Schreiben"), ("listen", "Hören"))
+             if lc.get(key) in _CEFR]
+    if selfs:
+        parts.append("Selbsteinschätzung: " + ", ".join(selfs))
+    return " · ".join(parts)
 
 
 def _intro_error(message, status):
-    """Guest-facing booking error: always carries Davit's contact details."""
-    return JsonResponse({"error": f"{message} {_INTRO_CONTACT}"}, status=status)
+    """Guest-facing booking error: always carries Davit's contact details (his
+    mobile and e-mail), so guests always have a way to reach a human. The
+    endpoint also lives under /en/, where the messages come out in English."""
+    contact = gettext("Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at")
+    return JsonResponse({"error": f"{message} {contact}"}, status=status)
 
 
 @require_http_methods(["POST"])
@@ -840,7 +920,7 @@ def api_intro_booking(request):
     touches a User row. Capped at one intro per e-mail.
     """
     if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
-        return _intro_error(TOO_MANY, 429)
+        return _intro_error(gettext("Zu viele Versuche. Bitte warte ein paar Minuten."), 429)
     expire_booking_requests()  # expired requests free their slots
     data = parse_body(request)
     name = (data.get("name") or "").strip()
@@ -851,29 +931,29 @@ def api_intro_booking(request):
     time_str = (data.get("time") or "").strip()
 
     if not name:
-        return _intro_error("Bitte gib deinen Namen ein.", 400)
+        return _intro_error(gettext("Bitte gib deinen Namen ein."), 400)
     try:
         validate_email(email)
     except ValidationError:
-        return _intro_error("Bitte gib eine gültige E-Mail-Adresse ein.", 400)
+        return _intro_error(gettext("Bitte gib eine gültige E-Mail-Adresse ein."), 400)
     # Phone is required so the tutor can reach the guest (WhatsApp / callback).
     if len(re.sub(r"[^0-9]", "", phone)) < 6:
         return _intro_error(
-            "Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen).", 400
+            gettext("Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen)."), 400
         )
     if not _TIME_RE.match(time_str):
-        return _intro_error("Ungültige Uhrzeit.", 400)
+        return _intro_error(gettext("Ungültige Uhrzeit."), 400)
 
     tutor = User.objects.filter(role="tutor", slug=tutor_slug).first()
     if tutor is None:
-        return _intro_error("Tutor nicht gefunden.", 400)
+        return _intro_error(gettext("Tutor nicht gefunden."), 400)
     try:
         booking_date = date.fromisoformat(date_key)
     except (ValueError, AttributeError, TypeError):
-        return _intro_error("Ungültiger Termin.", 400)
+        return _intro_error(gettext("Ungültiger Termin."), 400)
 
     if booking_date < timezone.localdate():
-        return _intro_error("Dieser Termin liegt in der Vergangenheit.", 400)
+        return _intro_error(gettext("Dieser Termin liegt in der Vergangenheit."), 400)
 
     # One free intro per e-mail *per tutor* — a guest may try a Schnupperstunde
     # with each tutor once, but not book the same tutor twice.
@@ -881,15 +961,15 @@ def api_intro_booking(request):
         is_intro=True, tutor=tutor, guest_email__iexact=email
     ).exists():
         return _intro_error(
-            "Für diese E-Mail wurde bei diesem Tutor bereits eine Schnupperstunde gebucht.",
+            gettext("Für diese E-Mail wurde bei diesem Tutor bereits eine Schnupperstunde gebucht."),
             409,
         )
     # Slot must be free and not explicitly closed by the tutor.
     conflict = _slot_unavailable(tutor, booking_date, time_str)
     if conflict == "slot_taken":
-        return _intro_error("Dieser Termin ist bereits vergeben.", 409)
+        return _intro_error(gettext("Dieser Termin ist bereits vergeben."), 409)
     if conflict:
-        return _intro_error("Dieser Termin ist nicht verfügbar.", 409)
+        return _intro_error(gettext("Dieser Termin ist nicht verfügbar."), 409)
 
     booking = Booking.objects.create(
         tutor=tutor, student=None,
@@ -900,12 +980,13 @@ def api_intro_booking(request):
         student_name=name, student_slug="intro",
         # Capability token for the cancel links in both confirmation e-mails.
         cancel_token=secrets.token_urlsafe(24),
+        notes=_level_check_note(data.get("levelCheck")),
     )
     # Fire-and-forget: create the video call (when the tutor has Zoom/Teams
     # connected) and send both confirmations — a hiccup in either must never
     # fail the booking itself. One queued job so the call link exists before
     # the e-mails render.
-    emails.queue_email(emails.send_intro_notifications, booking.pk)
+    emails.queue_email(emails.send_intro_notifications, booking.pk, get_language())
     return JsonResponse({
         "ok": True,
         "tutorName": tutor.get_full_name() or tutor.username,
@@ -933,13 +1014,13 @@ def booking_cancel_view(request, token):
     within_24h = (not booking.is_intro and not booking.is_requested
                   and _booking_within_24h(booking))
     if request.method == "POST":
-        when = emails.when(booking)
+        when = emails.when(booking, get_language())
         refund_txn, _ = _cancel_booking(booking, forfeit=within_24h)
         return render(request, "intro_cancel.html", {
             "state": "done", "when": when, "is_intro": booking.is_intro,
             "refunded": refund_txn is not None,
         })
-    ctx = emails._booking_ctx(booking, "deinem Tutor")
+    ctx = emails._booking_ctx(booking, gettext("deinem Tutor"), lang=get_language())
     return render(request, "intro_cancel.html", {
         "state": "confirm",
         "is_intro": booking.is_intro,
@@ -1035,6 +1116,12 @@ def app_view(request):
         cards_qs = cards_qs.filter(student=user)
     error_cards = [serialize_error_card(c) for c in cards_qs]
 
+    # Schularbeiten / tests: a student gets their own, tutor/admin all.
+    tests_qs = SchoolTest.objects.select_related("student")
+    if is_student:
+        tests_qs = tests_qs.filter(student=user)
+    school_tests = [serialize_school_test(t) for t in tests_qs]
+
     # Active lessons: {slug: [lesson_ids]}
     active_lessons = {}
     for s in visible_students:
@@ -1077,7 +1164,9 @@ def app_view(request):
         "studentNotes": student_notes,
         "activeLessons": active_lessons,
         "lessonFiles": lesson_files,
+        "topics": [serialize_topic(t) for t in CurriculumTopic.objects.all()],
         "errorCards": error_cards,
+        "schoolTests": school_tests,
         "settings": {
             "creditPrice": settings.credit_price,
             "packs": packs,
@@ -1269,7 +1358,7 @@ def _booking_within_24h(b):
     return b.start - timezone.now() < timedelta(hours=24)
 
 
-def _cancel_booking(b, *, forfeit, label="Buchung storniert — Einheit erstattet",
+def _cancel_booking(b, *, forfeit, label="Buchung storniert, Einheit erstattet",
                     sub=None, notify=True):
     """Delete booking ``b``: refund its credit unless ``forfeit``, mail both sides
     (when ``notify``) and remove its auto-created Zoom/Teams meeting.
@@ -1299,8 +1388,8 @@ def decline_request(b, *, reason):
     """Decline a student's booking request: free the slot, refund the credit and
     tell the student why. ``reason`` is "declined" (tutor) or "expired"."""
     snapshot = emails._cancel_snapshot(b, refunded=True)
-    label = ("Anfrage abgelehnt — Einheit erstattet" if reason == "declined"
-             else "Anfrage nicht bestätigt — Einheit erstattet")
+    label = ("Anfrage abgelehnt, Einheit erstattet" if reason == "declined"
+             else "Anfrage nicht bestätigt, Einheit erstattet")
     _cancel_booking(b, forfeit=False, label=label, notify=False)
     emails.queue_email(emails.send_lesson_request_declined, snapshot, reason)
 
@@ -1463,10 +1552,10 @@ def api_booking_detail(request, pk):
         # and sends no cancellation e-mails (there is nothing to call off; the
         # refund shows up in the student's credit history instead).
         retroactive = b.date < timezone.localdate()
-        label, sub = "Buchung storniert — Einheit erstattet", None
+        label, sub = "Buchung storniert, Einheit erstattet", None
         if retroactive:
             actor = request.user.get_full_name() or request.user.username
-            label = "Stunde rückwirkend storniert — Einheit erstattet"
+            label = "Stunde rückwirkend storniert, Einheit erstattet"
             sub = f"{b.ledger_sub()} · von {actor}"
         # A tutor/admin removal always returns the credit; a student cancelling
         # inside the 24h window forfeits it (mirrors the booking UI's policy).
@@ -1515,6 +1604,16 @@ def api_booking_detail(request, pk):
             b.summary = str(data["summary"] or "")[:5000]
         if "homework" in data:
             b.homework = str(data["homework"] or "")[:5000]
+        if "callLink" in data:
+            # Rendered as a clickable href, so only web links: a bare
+            # "zoom.us/j/…" gets https://, any other scheme (javascript:, data:)
+            # is refused.
+            link = str(data["callLink"] or "").strip()[:500]
+            if link and not re.match(r"^https?://", link, re.I):
+                if re.match(r"^[a-z][a-z0-9+.-]*:", link, re.I) and not re.match(r"^[^/:]+:\d", link):
+                    return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+                link = "https://" + link
+            data["callLink"] = link
         if "callLink" in data and data["callLink"] != b.call_link:
             # A hand-edited link supersedes the auto-created meeting: remove
             # the orphan from the tutor's account and drop the reference so a
@@ -1743,6 +1842,32 @@ def api_session_exercise_detail(request, ex_id):
     return JsonResponse({"exercise": serialize_exercise(e)})
 
 
+def _session_file_bytes(sf):
+    """A lesson file's content: its own bytes, or the Lernmaterialien file it links to."""
+    if sf.data is not None:
+        return bytes(sf.data)
+    return _lesson_file_bytes(sf.material) if sf.material_id else None
+
+
+@require_http_methods(["GET"])
+@require_roles("student", "tutor", "admin")
+def api_session_pdf(request, pk):
+    """The lesson's overview as a PDF (summary, vocab, mistakes, exercises,
+    homework, worksheets) for the tutor to send on, or the student to keep.
+    Same access as the lesson page: a student only gets their own lessons."""
+    b = _session_booking(request, pk)
+    if not b:
+        raise Http404
+    try:
+        pdf = render_lesson_pdf(b, sheet_bytes=_session_file_bytes)
+    except Exception:
+        logger.exception("lesson pdf failed for booking %s", b.pk)
+        return JsonResponse({"error": "pdf_unavailable"}, status=503)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{lesson_pdf_filename(b)}"'
+    return resp
+
+
 @require_http_methods(["POST"])
 @require_roles("student", "tutor", "admin")
 def api_session_files(request, pk):
@@ -1782,7 +1907,33 @@ def api_session_file_detail(request, file_id):
             return JsonResponse({"error": "forbidden"}, status=403)
         sf.delete()
         return JsonResponse({"ok": True})
-    return _attachment(bytes(sf.data), sf.name, sf.content_type)
+    data = _session_file_bytes(sf)
+    if data is None:
+        raise Http404
+    return _attachment(data, sf.name, sf.content_type)
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_session_file_import(request, pk):
+    """Put a Lernmaterialien file into a lesson as a worksheet. The lesson only
+    links to it, so the file is stored once however many lessons use it."""
+    b = _session_booking(request, pk)
+    if not b:
+        return JsonResponse({"error": "not found"}, status=404)
+    lf = LessonFile.objects.defer("data").filter(pk=parse_body(request).get("materialId")).first()
+    if not lf:
+        return JsonResponse({"error": "Datei nicht gefunden."}, status=404)
+    if not LessonFile.objects.filter(pk=lf.pk, data__isnull=False).exists():
+        return JsonResponse({"error": "Diese Datei ist nicht mehr verfügbar."}, status=400)
+    sf = SessionFile.objects.defer("data").filter(booking=b, material=lf).first()
+    if not sf:
+        sf = SessionFile.objects.create(
+            booking=b, kind=SessionFile.KIND_WORKSHEET, name=lf.original_name, size=lf.size,
+            data=None, material=lf, uploaded_by=request.user,
+            content_type=lf.content_type or mimetypes.guess_type(lf.original_name)[0] or "application/octet-stream",
+        )
+    return JsonResponse({"file": serialize_session_file(sf)})
 
 
 # ---------------------------------------------------------------------------
@@ -2007,7 +2158,7 @@ def api_checkout(request):
                     "currency": "eur",
                     "unit_amount": amount,
                     "product_data": {
-                        "name": f"{n} Einheiten — the green pencil",
+                        "name": f"{n} Einheiten · the green pencil",
                         "description": "1 Einheit = 45 Minuten Englisch-Einzelunterricht",
                     },
                 },
@@ -2103,7 +2254,7 @@ def _create_settle_checkout(request, student, n, settings, *, success_path, canc
                     "currency": "eur",
                     "unit_amount": unit_euros * 100,
                     "product_data": {
-                        "name": f"{n} offene Einheiten — the green pencil",
+                        "name": f"{n} offene Einheiten · the green pencil",
                         "description": "Begleichung offener Einheiten · 1 Einheit = 45 Minuten",
                     },
                 },
@@ -2350,6 +2501,82 @@ def api_notes(request, slug):
 
 
 # ---------------------------------------------------------------------------
+# Schularbeiten / tests API
+# ---------------------------------------------------------------------------
+
+SCHOOL_TEST_KINDS = {c for c, _ in SchoolTest.KIND_CHOICES}
+
+
+def _school_test_fields(data, test):
+    """Apply the editable fields present in ``data`` to ``test``; ValueError
+    names the first invalid one."""
+    if "kind" in data:
+        if data["kind"] not in SCHOOL_TEST_KINDS:
+            raise ValueError("unknown kind")
+        test.kind = data["kind"]
+    if "date" in data:
+        try:
+            test.date = date.fromisoformat(str(data["date"]))
+        except ValueError:
+            raise ValueError("invalid date")
+    if "grade" in data:
+        g = data["grade"]
+        if g in (None, ""):
+            test.grade = None
+        elif isinstance(g, int) and not isinstance(g, bool) and 1 <= g <= 5:
+            test.grade = g
+        else:
+            raise ValueError("grade must be 1–5")
+    for key, attr, limit in (("topic", "topic", 200), ("wentWell", "went_well", 2000),
+                             ("toImprove", "to_improve", 2000)):
+        if key in data:
+            setattr(test, attr, str(data[key] or "").strip()[:limit])
+
+
+@require_http_methods(["POST"])
+@require_roles("student", "tutor", "admin")
+def api_school_tests(request):
+    """Add a Schularbeit/test. A student adds their own; tutor/admin name the
+    student by ``studentSlug``."""
+    data = parse_body(request)
+    if request.user.role == "student":
+        student = request.user
+    else:
+        student = User.objects.filter(slug=data.get("studentSlug"), role="student").first()
+        if student is None:
+            return JsonResponse({"error": "unknown student"}, status=400)
+    if not data.get("date"):
+        return JsonResponse({"error": "date required"}, status=400)
+    test = SchoolTest(student=student, created_by=request.user)
+    try:
+        _school_test_fields(data, test)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    test.save()
+    return JsonResponse({"test": serialize_school_test(test)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_school_test_detail(request, pk):
+    qs = SchoolTest.objects.select_related("student")
+    if request.user.role == "student":
+        qs = qs.filter(student=request.user)
+    test = qs.filter(pk=pk).first()
+    if test is None:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        test.delete()
+        return JsonResponse({"ok": True})
+    try:
+        _school_test_fields(parse_body(request), test)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    test.save()
+    return JsonResponse({"test": serialize_school_test(test)})
+
+
+# ---------------------------------------------------------------------------
 # Lessons API
 # ---------------------------------------------------------------------------
 
@@ -2370,12 +2597,105 @@ def api_lessons(request, slug):
 
 
 # ---------------------------------------------------------------------------
+# Topics API (the Lernmaterialien library: level × skill)
+# ---------------------------------------------------------------------------
+
+TOPIC_LEVELS = {c for c, _ in CurriculumTopic.LEVEL_CHOICES}
+TOPIC_SKILLS = {c for c, _ in CurriculumTopic.SKILL_CHOICES}
+
+
+def _topic_fields(data, topic=None):
+    """Validated level/skill/title from a request body; on edit, missing keys
+    keep the topic's current value. Returns (fields, error)."""
+    level = data.get("level", topic.level if topic else "")
+    skill = data.get("skill", topic.skill if topic else "")
+    title = (data.get("title", topic.title if topic else "") or "").strip()
+    if level not in TOPIC_LEVELS:
+        return None, "Unbekanntes Niveau."
+    if skill not in TOPIC_SKILLS:
+        return None, "Unbekannter Bereich."
+    if not title:
+        return None, "Bitte einen Titel eingeben."
+    return {"level": level, "skill": skill, "title": title[:200]}, None
+
+
+@require_http_methods(["POST"])
+@require_roles("tutor", "admin")
+def api_topics(request):
+    fields, err = _topic_fields(parse_body(request))
+    if err:
+        return JsonResponse({"error": err}, status=400)
+    last = CurriculumTopic.objects.order_by("-position").first()
+    while True:
+        lesson_id = f"{fields['level'].lower()}-{secrets.token_hex(4)}"
+        if not CurriculumTopic.objects.filter(lesson_id=lesson_id).exists():
+            break
+    t = CurriculumTopic.objects.create(
+        lesson_id=lesson_id, position=(last.position + 1) if last else 0, **fields
+    )
+    return JsonResponse(serialize_topic(t))
+
+
+@require_http_methods(["PATCH", "DELETE"])
+@require_roles("tutor", "admin")
+def api_topic_detail(request, lesson_id):
+    try:
+        t = CurriculumTopic.objects.get(lesson_id=lesson_id)
+    except CurriculumTopic.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        # The topic's files and every student's unlock go with it.
+        for lf in LessonFile.objects.filter(lesson_id=lesson_id):
+            _delete_lesson_file(lf)
+        ActiveLesson.objects.filter(lesson_id=lesson_id).delete()
+        t.delete()
+        return JsonResponse({"ok": True})
+    fields, err = _topic_fields(parse_body(request), t)
+    if err:
+        return JsonResponse({"error": err}, status=400)
+    for k, v in fields.items():
+        setattr(t, k, v)
+    t.save()
+    return JsonResponse(serialize_topic(t))
+
+
+# ---------------------------------------------------------------------------
 # Lesson files API (PDF materials, shared per lesson)
 # ---------------------------------------------------------------------------
+
+def _lesson_file_bytes(lf):
+    """A Lernmaterialien file's content, or None if it is gone."""
+    if lf.data is not None:
+        return bytes(lf.data)
+    if lf.file:  # legacy upload on the web server's disk (gone after a redeploy)
+        try:
+            with lf.file.open("rb") as fh:
+                return fh.read()
+        except (FileNotFoundError, ValueError):
+            return None
+    return None
+
+
+def _delete_lesson_file(lf):
+    """Delete a Lernmaterialien file. Lessons it was linked into get their own
+    copy first, so removing it from the library never empties a lesson."""
+    links = SessionFile.objects.defer("data").filter(material=lf, data__isnull=True)
+    if links.exists():
+        data = _lesson_file_bytes(lf)
+        if data is not None:
+            for sf in links:
+                sf.data = data
+                sf.save(update_fields=["data"])
+    if lf.file:
+        lf.file.delete(save=False)  # legacy on-disk upload
+    lf.delete()
+
 
 @require_http_methods(["POST"])
 @require_roles("tutor", "admin")
 def api_lesson_files(request, lesson_id):
+    if not CurriculumTopic.objects.filter(lesson_id=lesson_id).exists():
+        return JsonResponse({"error": "Unbekanntes Thema."}, status=404)
     f = request.FILES.get("file")
     if not f:
         return JsonResponse({"error": "Keine Datei hochgeladen."}, status=400)
@@ -2402,9 +2722,7 @@ def api_lesson_file_detail(request, file_id):
         lf = LessonFile.objects.get(pk=file_id)
     except LessonFile.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
-    if lf.file:
-        lf.file.delete(save=False)  # legacy on-disk upload
-    lf.delete()
+    _delete_lesson_file(lf)
     return JsonResponse({"ok": True})
 
 
@@ -2585,6 +2903,44 @@ def api_user_detail(request, slug):
     if isinstance(data.get("billing"), dict):
         _apply_billing(u, data["billing"])
     u.save()
+    return JsonResponse(serialize_user(u))
+
+
+_AVATAR_BG_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+@require_http_methods(["PUT"])
+@require_roles("student", "tutor", "admin")
+def api_user_avatar(request, slug):
+    """Set an emoji + background-colour avatar. Students pick their own; tutors
+    and admins can set it for a student (admins for anyone). An empty emoji
+    resets to the initials avatar."""
+    try:
+        u = User.objects.get(slug=slug)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+    me = request.user
+    allowed = (u == me or me.role == "admin"
+               or (me.role == "tutor" and u.role == "student"))
+    if not allowed:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    data = parse_body(request)
+    emoji = str(data.get("emoji") or "").strip()
+    bg = str(data.get("bg") or "").strip()
+    if emoji:
+        # Only non-ASCII (emoji) characters: the value is shown as avatar text,
+        # so this keeps it from turning into a free-form nickname.
+        if len(emoji) > 16 or any(ord(ch) < 128 for ch in emoji):
+            return JsonResponse({"error": "Ungültiges Emoji."}, status=400)
+        if not _AVATAR_BG_RE.match(bg):
+            return JsonResponse({"error": "Ungültige Farbe."}, status=400)
+        u.avatar_emoji, u.avatar_bg = emoji, bg.lower()
+        # The emoji is the new profile picture, so it replaces a photo.
+        u.photo = None
+    else:
+        u.avatar_emoji, u.avatar_bg = "", ""
+    u.save(update_fields=["avatar_emoji", "avatar_bg", "photo"])
     return JsonResponse(serialize_user(u))
 
 

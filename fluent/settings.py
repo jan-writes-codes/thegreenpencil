@@ -35,16 +35,25 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Answers /healthz/ before host validation and the HTTPS redirect, so
+    # Render's internal health check and uptime monitors always reach it.
+    'core.middleware.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     # WhiteNoise serves collected static files in production (DEBUG off). It must
     # come right after SecurityMiddleware and before everything else.
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    # Turn away oversized uploads before their body is read.
+    'core.middleware.UploadSizeLimitMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # Picks the language from the URL: public pages live unprefixed in German
+    # and under /en/ in English (see fluent/urls.py). Everything else is German.
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.csp.ContentSecurityPolicyMiddleware',
 ]
 
 ROOT_URLCONF = 'fluent.urls'
@@ -58,6 +67,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.template.context_processors.i18n',
+                'core.context_processors.language_switch',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -150,6 +161,27 @@ else:
     # No ESP configured: surface mail in the console rather than failing.
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# --- Error tracking (Sentry, optional) ---------------------------------------
+# Set SENTRY_DSN to report unhandled exceptions (views, the Stripe webhook,
+# management commands run from cron) to Sentry. Unset, nothing is sent. Create
+# the Sentry project in the EU region (de.sentry.io) for data residency.
+# No personal data leaves the server: user details, cookies, IPs and request
+# bodies are not attached, only the stack trace and the URL.
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        # "production" / "test", so both services can share one Sentry project.
+        environment=os.environ.get('SENTRY_ENVIRONMENT')
+        or ('development' if DEBUG else 'production'),
+        release=os.environ.get('RENDER_GIT_COMMIT') or None,
+        send_default_pii=False,
+        max_request_body_size='never',
+        traces_sample_rate=0.0,
+    )
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -157,7 +189,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-LANGUAGE_CODE = 'en-us'
+# German is the site's language. The public pages (landing, FAQ, intro
+# booking, legal) also exist in English under /en/; the app stays German.
+# Short strings are translated through locale/en/LC_MESSAGES/django.po; the
+# prose pages (FAQ, legal) have their own English templates in templates/en/.
+LANGUAGE_CODE = 'de'
+LANGUAGES = [
+    ('de', 'Deutsch'),
+    ('en', 'English'),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
 TIME_ZONE = 'Europe/Vienna'
 USE_I18N = True
 USE_TZ = True
@@ -185,6 +226,17 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Login/reset/booking throttles count in the database so every gunicorn worker
+# sees the same hits and a deploy doesn't reset them. The table is created by
+# migration core.0019 (no separate `createcachetable` step needed).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+        'OPTIONS': {'MAX_ENTRIES': 10000},
+    }
+}
+
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
@@ -198,6 +250,34 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
+# Content-Security-Policy (set by core.csp). Pages use inline scripts,
+# styles and handlers, so 'unsafe-inline' stays; the policy still blocks eval,
+# plugins, <base> hijacking, off-site form posts and scripts from any host not
+# listed. The only third-party hosts are the trackers _consent.html loads after
+# consent: Microsoft Clarity and Google Ads (gtag), per their CSP guidance.
+_GOOGLE = ("https://*.googletagmanager.com https://*.google-analytics.com "
+           "https://*.analytics.google.com https://*.g.doubleclick.net "
+           "https://*.google.com https://*.google.at https://*.googleadservices.com "
+           "https://pagead2.googlesyndication.com")
+_CLARITY = "https://*.clarity.ms https://c.bing.com"
+CONTENT_SECURITY_POLICY = '; '.join([
+    "default-src 'self'",
+    # 'wasm-unsafe-eval' lets WebAssembly compile (in-browser OCR of scanned
+    # worksheets); it does not re-enable JavaScript eval.
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://*.googletagmanager.com "
+    "https://*.googleadservices.com https://*.clarity.ms",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    f"connect-src 'self' {_GOOGLE} {_CLARITY}",
+    "frame-src https://td.doubleclick.net https://www.googletagmanager.com",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
 
 # HTTPS-only hardening kicks in automatically in production (DEBUG off).
 if not DEBUG:

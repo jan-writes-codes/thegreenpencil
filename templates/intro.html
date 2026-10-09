@@ -1,6 +1,6 @@
-{% load static %}
+{% load static i18n %}
 <!DOCTYPE html>
-<html lang="de"><head>
+<html lang="{{ LANGUAGE_CODE }}"><head>
 {% include "_consent.html" %}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -10,7 +10,8 @@
      permanent off-tone strip along the screen edges. -->
 <meta name="csrf-token" content="{{ csrf_token }}">
 <meta name="robots" content="noindex">
-<title>Erste Stunde buchen — kostenlos &amp; unverbindlich | The Green Pencil</title>
+{% include "_hreflang.html" %}
+<title>{% translate "Erste Stunde kostenlos &amp; unverbindlich buchen | The Green Pencil" %}</title>
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
 {% include "_fonts.html" %}
@@ -151,6 +152,16 @@
   .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 90; background: var(--ink); color: #fbf8f1; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 500; box-shadow: 0 18px 40px -18px rgba(0,0,0,0.6); opacity: 0; transition: 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   @media (max-width: 720px) { .hero { padding: 30px 0 4px; } }
+  .top-actions .btn { white-space: nowrap; }
+  @media (max-width: 600px) {
+    .top .wrap { padding-left: 16px; padding-right: 16px; }
+    .top-in { gap: 8px; }
+    .top-actions { gap: 6px; }
+    .brand { gap: 8px; }
+    .wordmark { font-size: 17px; }
+    .wordmark .sub { font-size: 8.5px; letter-spacing: 0.13em; margin-top: 3px; }
+    .top-actions .btn { padding: 10px 12px; font-size: 13.5px; }
+  }
 </style>
 </head>
 <body>
@@ -160,12 +171,13 @@
        intermittently drop the backdrop-filter. -->
   <header class="top">
     <div class="wrap top-in">
-      <a class="brand" href="/">
+      <a class="brand" href="{% url 'landing' %}">
         <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
-        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+        <div class="wordmark">the green <span>pencil</span><span class="sub">{% translate "Englisch-Nachhilfe" %}</span></div>
       </a>
       <div class="top-actions">
-        <a class="btn ghost" href="{% url 'login' %}">Anmelden</a>
+        {% include "_lang_switch.html" %}
+        <a class="btn ghost" href="{% url 'login' %}">{% translate "Anmelden" %}</a>
       </div>
     </div>
   </header>
@@ -174,27 +186,31 @@
     <main>
       <section class="hero">
         <div class="wrap">
-          <div class="eyebrow"><span class="dot"></span>Live-Verfügbarkeit · kostenlose Schnupperstunde</div>
-          <h1 class="hero-h">Buche dein <em>kostenloses Kennenlerngespräch</em>.</h1>
-          <p class="hero-sub">Wähle einen Tutor und ein freies Zeitfenster. Die erste Einheit ist ein <b>unverbindliches Kennenlernen</b> — kostenlos, kein Konto und keine Zahlungsdaten nötig.</p>
+          <div class="eyebrow"><span class="dot"></span>{% translate "Live-Verfügbarkeit · kostenlose Schnupperstunde" %}</div>
+          <h1 class="hero-h">{% translate "Buche dein <em>kostenloses Kennenlerngespräch</em>." %}</h1>
+          <p class="hero-sub">{% translate "Wähle einen Tutor und ein freies Zeitfenster. Die erste Einheit ist ein <b>unverbindliches Kennenlernen</b>: kostenlos, ohne Konto und ohne Zahlungsdaten." %}</p>
           <div class="hero-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>
-            15-Minuten-Einheit · ganz ohne Einheiten · einmal pro Person
+            {% translate "15-Minuten-Einheit · ganz ohne Einheiten · einmal pro Person" %}
+          </div>
+          <div class="hero-note" id="lcNote" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            <span id="lcText"></span>
           </div>
         </div>
       </section>
 
       <section class="wrap">
         <div class="panel booker">
-          <div class="section-lbl">Tutor wählen</div>
+          <div class="section-lbl">{% translate "Tutor wählen" %}</div>
           <div class="tutor-row" id="tutorRow"></div>
 
           <div class="cal-head">
             <div class="cal-month" id="monthLabel"></div>
             <div class="weeknav">
-              <button class="today-btn" id="todayBtn">Diese Woche</button>
-              <button id="prevWeek" aria-label="Vorherige Woche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
-              <button id="nextWeek" aria-label="Nächste Woche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+              <button class="today-btn" id="todayBtn">{% translate "Diese Woche" %}</button>
+              <button id="prevWeek" aria-label="{% translate "Vorherige Woche" %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <button id="nextWeek" aria-label="{% translate "Nächste Woche" %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
             </div>
           </div>
           <div class="cal-scroll"><div class="cal" id="daysRow"></div></div>
@@ -213,7 +229,7 @@
   const DATA = JSON.parse(document.getElementById("intro-data").textContent);
   const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
   // Shown on booking errors so guests always have a way to reach a human.
-  const CONTACT = "Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at";
+  const CONTACT = "{{ _("Melde dich gerne bei Davit: +43 676 397 5535 oder davit@thegreenpencil.at")|escapejs }}";
   const $ = (s) => document.querySelector(s);
 
   const TUTORS = DATA.tutors || [];
@@ -223,6 +239,21 @@
   const NOW = new Date(); NOW.setHours(0,0,0,0);
   const REAL = new Date();
   let state = { tutor: (TUTORS[0]||{}).slug || "", weekOffset: 0, selected: null, booking: false };
+
+  // Result handed over from the public level check (/einstufung/): sent along
+  // with the booking so the tutor sees the guest's level up front.
+  const LEVEL_CHECK = (function(){
+    const p = new URLSearchParams(window.location.search);
+    if(!p.get("level")) return null;
+    const lc = {};
+    ["level","toward","gv","rd","speak","write","listen"].forEach(k => { if(p.get(k)) lc[k] = p.get(k); });
+    return lc;
+  })();
+  if(LEVEL_CHECK && /^(A1|A2|B1|B2|C1|pre-A1)$/.test(LEVEL_CHECK.level)){
+    const lv = LEVEL_CHECK.level === "pre-A1" ? "Einstieg" : LEVEL_CHECK.level;
+    document.getElementById("lcText").textContent = `Dein Level-Check (${lv}) wird mit der Buchung an deinen Tutor geschickt.`;
+    document.getElementById("lcNote").hidden = false;
+  }
 
 {% include "_calendar.js" %}
   function bookedConflict(date,time,tid){
@@ -271,12 +302,12 @@
   // ---- render ----
   function renderTutors(){
     const row=$("#tutorRow"); row.innerHTML="";
-    if(!TUTORS.length){ row.innerHTML=`<div class="no-slot">Zurzeit ist kein Tutor verfügbar — bitte später erneut versuchen.</div>`; return; }
+    if(!TUTORS.length){ row.innerHTML=`<div class="no-slot">{{ _("Zurzeit ist kein Tutor verfügbar. Bitte versuche es später erneut.")|escapejs }}</div>`; return; }
     TUTORS.forEach(t=>{
       const d=document.createElement("div");
       d.className="tutor-chip"+(t.slug===state.tutor?" sel":"");
       d.innerHTML=`<div class="av" style="${avStyle(t)}">${esc(t.initials||"T")}</div>
-        <div><div class="tc-name">${esc(t.firstName||t.name)}</div><div class="tc-role">Englisch-Tutor</div></div>`;
+        <div><div class="tc-name">${esc(t.firstName||t.name)}</div><div class="tc-role">{{ _("Englisch-Tutor")|escapejs }}</div></div>`;
       d.onclick=()=>{ state.tutor=t.slug; renderTutors(); renderWeek(); };
       row.appendChild(d);
     });
@@ -284,9 +315,9 @@
 
   // Vormittag < 12:00 · Nachmittag 12:00–17:00 · Abend ab 17:00 (by start hour).
   const BANDS = [
-    { label: "Vormittag",  hint: "bis 12:00", test: h => h < 12 },
-    { label: "Nachmittag", hint: "12–17 Uhr", test: h => h >= 12 && h < 17 },
-    { label: "Abend",      hint: "ab 17:00",  test: h => h >= 17 },
+    { label: "{{ _("Vormittag")|escapejs }}",  hint: "{{ _("bis 12:00")|escapejs }}", test: h => h < 12 },
+    { label: "{{ _("Nachmittag")|escapejs }}", hint: "{{ _("12–17 Uhr")|escapejs }}", test: h => h >= 12 && h < 17 },
+    { label: "{{ _("Abend")|escapejs }}",      hint: "{{ _("ab 17:00")|escapejs }}",  test: h => h >= 17 },
   ];
   function renderWeek(){
     const weekStart = addDays(startOfWeek(NOW), state.weekOffset*7);
@@ -336,7 +367,7 @@
           });
         } else if(perDay[i].length===0 && bi===0){
           // Whole day has no slots — show the placeholder once, in the first band.
-          const n=document.createElement("div"); n.className="no-slot"; n.textContent=d.isPastDay?"—":"Voll";
+          const n=document.createElement("div"); n.className="no-slot"; n.textContent=d.isPastDay?"·":"{{ _("Voll")|escapejs }}";
           cell.appendChild(n);
         }
         grid.appendChild(cell);
@@ -352,18 +383,18 @@
     state.selected={ date, time, key:ymd(date), tutorSlug:state.tutor };
     const m=$("#bookModal");
     m.innerHTML=`<div class="modal-card" id="bookCard">
-      <button class="modal-x" id="bookX" aria-label="Schließen">×</button>
-      <h3>Schnupperstunde buchen</h3>
+      <button class="modal-x" id="bookX" aria-label="{{ _("Schließen")|escapejs }}">×</button>
+      <h3>{{ _("Schnupperstunde buchen")|escapejs }}</h3>
       <div class="when"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>${esc(t.firstName||t.name)} · ${fmtLong(date)} · ${time}–${endTime(time)}</div>
-      <label class="lab" for="biName">Dein Name</label>
-      <input class="inp" id="biName" type="text" autocomplete="name" placeholder="Vor- und Nachname">
-      <label class="lab" for="biEmail">E-Mail</label>
-      <input class="inp" id="biEmail" type="email" autocomplete="email" placeholder="du@beispiel.at">
-      <label class="lab" for="biPhone">Telefon <span style="color:var(--muted);font-weight:400;">· für WhatsApp &amp; Rückfragen</span></label>
+      <label class="lab" for="biName">{{ _("Dein Name")|escapejs }}</label>
+      <input class="inp" id="biName" type="text" autocomplete="name" placeholder="{{ _("Vor- und Nachname")|escapejs }}">
+      <label class="lab" for="biEmail">{{ _("E-Mail")|escapejs }}</label>
+      <input class="inp" id="biEmail" type="email" autocomplete="email" placeholder="{{ _("du@beispiel.at")|escapejs }}">
+      <label class="lab" for="biPhone">{{ _("Telefon")|escapejs }} <span style="color:var(--muted);font-weight:400;">· {{ _("für WhatsApp & Rückfragen")|escapejs }}</span></label>
       <input class="inp" id="biPhone" type="tel" autocomplete="tel" placeholder="+43 660 1234567">
       <div class="err" id="bookErr"></div>
-      <button class="btn" id="bookSubmit" style="width:100%;margin-top:16px;"><span class="grainbtn"></span>Kostenlos buchen</button>
-      <div class="fineprint">Kostenlos &amp; unverbindlich · keine Zahlungsdaten. Mit dem Buchen stimmst du der Verarbeitung deiner Angaben gemäß <a href="{% url 'datenschutz' %}" target="_blank" rel="noopener">Datenschutzerklärung</a> zu.</div>
+      <button class="btn" id="bookSubmit" style="width:100%;margin-top:16px;"><span class="grainbtn"></span>{{ _("Kostenlos buchen")|escapejs }}</button>
+      <div class="fineprint">{{ _("Kostenlos & unverbindlich · keine Zahlungsdaten.")|escapejs }} ${"{{ _("Mit dem Buchen stimmst du der Verarbeitung deiner Angaben gemäß der __LINK__ zu.")|escapejs }}".replace("__LINK__", `<a href="{% url 'datenschutz' %}" target="_blank" rel="noopener">{{ _("Datenschutzerklärung")|escapejs }}</a>`)}</div>
     </div>`;
     m.hidden=false;
     $("#bookCard").onclick=(e)=>e.stopPropagation();
@@ -380,16 +411,16 @@
     const email=($("#biEmail").value||"").trim();
     const phone=($("#biPhone").value||"").trim();
     const err=$("#bookErr");
-    if(!name){ err.textContent="Bitte gib deinen Namen ein."; return; }
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ err.textContent="Bitte gib eine gültige E-Mail-Adresse ein."; return; }
-    if(phone.replace(/[^0-9]/g,"").length<6){ err.textContent="Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen)."; return; }
+    if(!name){ err.textContent="{{ _("Bitte gib deinen Namen ein.")|escapejs }}"; return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ err.textContent="{{ _("Bitte gib eine gültige E-Mail-Adresse ein.")|escapejs }}"; return; }
+    if(phone.replace(/[^0-9]/g,"").length<6){ err.textContent="{{ _("Bitte gib eine gültige Telefonnummer an (für WhatsApp & Rückfragen).")|escapejs }}"; return; }
     err.textContent="";
     state.booking=true;
-    const btn=$("#bookSubmit"); if(btn){ btn.disabled=true; btn.textContent="Wird gebucht…"; }
-    fetch("/api/intro-bookings/", {
+    const btn=$("#bookSubmit"); if(btn){ btn.disabled=true; btn.textContent="{{ _("Wird gebucht…")|escapejs }}"; }
+    fetch("{% url 'api_intro_booking' %}", {
       method:"POST",
       headers:{ "Content-Type":"application/json", "X-CSRFToken":CSRF },
-      body:JSON.stringify({ tutorSlug:sel.tutorSlug, date:sel.key, time:sel.time, name, email, phone }),
+      body:JSON.stringify({ tutorSlug:sel.tutorSlug, date:sel.key, time:sel.time, name, email, phone, levelCheck:LEVEL_CHECK }),
     }).then(async r=>{
       const data = await r.json().catch(()=>({}));
       state.booking=false;
@@ -401,13 +432,13 @@
         showConfirmation(name, data);
         renderWeek();
       } else {
-        if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>Kostenlos buchen'; }
-        $("#bookErr").textContent = data.error || ("Buchung fehlgeschlagen — bitte erneut versuchen. "+CONTACT);
+        if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>{{ _("Kostenlos buchen")|escapejs }}'; }
+        $("#bookErr").textContent = data.error || ("{{ _("Buchung fehlgeschlagen. Bitte versuche es erneut.")|escapejs }} "+CONTACT);
       }
     }).catch(()=>{
       state.booking=false;
-      if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>Kostenlos buchen'; }
-      $("#bookErr").textContent = "Netzwerkfehler — bitte erneut versuchen. "+CONTACT;
+      if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>{{ _("Kostenlos buchen")|escapejs }}'; }
+      $("#bookErr").textContent = "{{ _("Netzwerkfehler. Bitte versuche es erneut.")|escapejs }} "+CONTACT;
     });
   }
 
@@ -415,16 +446,16 @@
     const m=$("#bookModal");
     const first=(name||"").split(" ")[0];
     m.innerHTML=`<div class="modal-card center" id="bookCard">
-      <button class="modal-x" id="bookX" aria-label="Schließen">×</button>
+      <button class="modal-x" id="bookX" aria-label="{{ _("Schließen")|escapejs }}">×</button>
       <div class="ok-ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></div>
-      <h3>Geschafft, ${esc(first)}!</h3>
-      <p style="color:var(--muted);margin-top:10px;">Deine kostenlose Schnupperstunde mit <b>${esc(data.tutorName||"")}</b> ist eingetragen. Wir melden uns per E-Mail zur Bestätigung.</p>
-      <a class="btn" href="/" style="width:100%;margin-top:18px;"><span class="grainbtn"></span>Zur Startseite</a>
-      <button class="btn ghost" id="bookClose" style="width:100%;margin-top:10px;">Weiteren Termin ansehen</button>
+      <h3>${"{{ _("Geschafft, __NAME__!")|escapejs }}".replace("__NAME__", esc(first))}</h3>
+      <p style="color:var(--muted);margin-top:10px;">${"{{ _("Deine kostenlose Schnupperstunde mit __TUTOR__ ist eingetragen. Wir melden uns per E-Mail zur Bestätigung.")|escapejs }}".replace("__TUTOR__", "<b>"+esc(data.tutorName||"")+"</b>")}</p>
+      <a class="btn" href="{% url 'landing' %}" style="width:100%;margin-top:18px;"><span class="grainbtn"></span>{{ _("Zur Startseite")|escapejs }}</a>
+      <button class="btn ghost" id="bookClose" style="width:100%;margin-top:10px;">{{ _("Weiteren Termin ansehen")|escapejs }}</button>
     </div>`;
     $("#bookCard").onclick=(e)=>e.stopPropagation();
     $("#bookX").onclick=closeBook; $("#bookClose").onclick=closeBook;
-    toast("Schnupperstunde gebucht 🎉");
+    toast("{{ _("Schnupperstunde gebucht 🎉")|escapejs }}");
   }
 
   // ---- wire ----

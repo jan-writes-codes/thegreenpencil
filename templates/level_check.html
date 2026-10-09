@@ -1,0 +1,500 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de"><head>
+{% include "_consent.html" %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kostenloser Englisch-Einstufungstest (A1–C1) | The Green Pencil</title>
+<meta name="description" content="Finde in rund 10 Minuten heraus, wo dein Englisch steht: kostenloser Level-Check nach dem Europäischen Referenzrahmen (A1–C1), ohne Anmeldung. Danach direkt eine kostenlose Kennenlernstunde mit Davit buchen.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://thegreenpencil.at/einstufung/">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{% static 'favicon-192.png' %}">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_AT">
+<meta property="og:title" content="Kostenloser Englisch-Level-Check (A1–C1) | The Green Pencil">
+<meta property="og:description" content="Wo steht dein Englisch? 10 Minuten, ohne Anmeldung, mit Ergebnis nach dem Europäischen Referenzrahmen.">
+<meta property="og:image" content="https://thegreenpencil.at{% static 'og_image.png' %}">
+{% include "_fonts.html" %}
+<style>
+  :root {
+    --bg: #f5f2ea; --ink: #243528; --muted: #6e7d6e; --faint: #9aa897;
+    --line: rgba(36,53,40,0.16); --line-2: rgba(36,53,40,0.09); --glass: rgba(251,248,241,0.60);
+    --c1: #309050; --c2: #d0925a; --c3: #277a42; --accent: var(--c1); --good: #3aa55c; --bad: #b8492c;
+    --radius: 18px;
+    --font-display: "Bricolage Grotesque", "Hanken Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Hanken Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Same root tone and overflow rules as the intro page (see intro.html). */
+  html { background: #ece9e1; }
+  body { font-family: var(--font-body); background: #ece9e1; color: var(--ink); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+  .field { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(96px); opacity: 0.42; mix-blend-mode: multiply; }
+  .blob.b1 { width: 60vw; height: 60vw; left: -16vw; top: -24vw; background: radial-gradient(circle at 30% 30%, var(--c1), transparent 62%); }
+  .blob.b2 { width: 52vw; height: 52vw; right: -14vw; top: -12vw; background: radial-gradient(circle at 60% 40%, var(--c2), transparent 60%); }
+  .blob.b3 { width: 58vw; height: 58vw; right: 4vw; bottom: -30vw; background: radial-gradient(circle at 50% 50%, var(--c3), transparent 60%); }
+  .page { position: relative; z-index: 2; overflow-x: clip; }
+  @supports not (overflow-x: clip) { html, body { overflow-x: hidden; } }
+  .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 28px; }
+  @media (max-width: 520px) { .wrap { padding: 0 16px; } }
+
+  header.top { position: sticky; top: 0; z-index: 40; backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(251,248,241,0.72), rgba(251,248,241,0.22)); border-bottom: 1px solid var(--line-2);
+    padding-top: env(safe-area-inset-top); overflow-x: clip; }
+  .top-in { display: flex; align-items: center; gap: 20px; padding-top: 14px; padding-bottom: 14px; max-width: 1060px; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+  .mark { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; display: grid; place-items: center;
+    background: linear-gradient(120deg, #4cb56b 0%, var(--c1) 72%); box-shadow: 0 12px 26px -10px rgba(58,165,92,0.55); }
+  .mark img { width: 18px; height: auto; filter: brightness(0) invert(1); transform: translateY(-1px); }
+  .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; }
+  .wordmark span { color: var(--accent); }
+  .wordmark .sub { display: block; font-size: 10px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
+  .top-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .top-actions .btn { white-space: nowrap; }
+  @media (max-width: 400px) { .top-actions .btn { padding: 10px 14px; font-size: 14px; } .wordmark { font-size: 19px; } }
+
+  .btn { font-family: var(--font-body); font-weight: 600; font-size: 15px; border: 0; border-radius: 13px; cursor: pointer;
+    padding: 12px 20px; color: #fbf8f1; position: relative; overflow: hidden; transition: 0.18s; letter-spacing: -0.01em;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 9px; justify-content: center;
+    background: linear-gradient(120deg, var(--c1), #277a42 95%); box-shadow: 0 14px 30px -16px rgba(31,122,67,0.7); }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 20px 38px -16px rgba(31,122,67,0.8); }
+  .btn[disabled] { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
+  .btn.ghost { background: var(--glass); color: var(--ink); box-shadow: none; border: 1px solid var(--line); }
+  .btn.ghost:hover { background: rgba(251,248,241,0.85); }
+  .btn.lg { padding: 15px 24px; font-size: 16px; }
+
+  .hero { padding: 46px 0 8px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--c3);
+    background: var(--glass); border: 1px solid var(--line); border-radius: 100px; padding: 7px 14px; }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 4px rgba(58,165,92,0.18); }
+  h1.hero-h { font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 5vw, 50px); line-height: 1.04; letter-spacing: -0.03em; margin: 18px 0 0; max-width: 17ch; }
+  h1.hero-h em { font-style: normal; color: var(--c1); }
+  .hero-sub { font-size: 17px; color: var(--muted); max-width: 56ch; margin-top: 14px; }
+
+  .panel { background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(10px); padding: 26px; margin: 26px 0 60px; }
+  @media (max-width: 520px) { .panel { padding: 18px; } }
+  .section-lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); margin-bottom: 12px; }
+  .facts { list-style: none; display: grid; gap: 10px; margin: 4px 0 22px; }
+  .facts li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+  .facts svg { flex: none; width: 18px; height: 18px; color: var(--c1); margin-top: 3px; }
+  .fineprint { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
+  .fineprint a { color: var(--c1); }
+
+  /* Progress: one segment per CEFR stage. */
+  .prog { display: flex; gap: 6px; margin-bottom: 8px; }
+  .prog i { flex: 1; height: 6px; border-radius: 6px; background: var(--line-2); overflow: hidden; position: relative; }
+  .prog i b { position: absolute; inset: 0 auto 0 0; background: var(--c1); border-radius: 6px; transition: width 0.25s; }
+  .prog-lbl { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-bottom: 20px; }
+
+  .passage { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; font-size: 15px; line-height: 1.65; margin-bottom: 18px; white-space: pre-line; }
+  .q-kind { font-size: 12.5px; font-weight: 600; color: var(--c3); margin-bottom: 6px; }
+  .q-text { font-family: var(--font-display); font-weight: 700; font-size: clamp(19px, 2.6vw, 23px); letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 18px; }
+  .q-text .gap { display: inline-block; min-width: 3.2em; border-bottom: 2px solid var(--c1); }
+  .opts { display: grid; gap: 9px; }
+  .opt { font-family: var(--font-body); font-size: 15.5px; text-align: left; color: var(--ink); background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: 0.13s; display: flex; gap: 12px; align-items: center; }
+  .opt:hover { border-color: var(--c1); }
+  .opt .k { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 12.5px; font-weight: 700;
+    color: var(--muted); background: rgba(36,53,40,0.06); }
+  .opt.sel { border-color: var(--c1); background: color-mix(in oklch, var(--c1) 10%, #fff); box-shadow: 0 8px 22px -16px rgba(31,122,67,0.8); }
+  .opt.sel .k { background: var(--c1); color: #fff; }
+  .opt.idk { background: transparent; border-style: dashed; color: var(--muted); font-size: 14.5px; }
+  .opt.idk.sel { color: var(--ink); }
+  .q-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
+  .q-hint { font-size: 12.5px; color: var(--faint); }
+  @media (max-width: 520px) { .q-hint { display: none; } }
+
+  /* Result */
+  .res-level { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .badge { font-family: var(--font-display); font-weight: 800; font-size: 46px; letter-spacing: -0.03em; line-height: 1;
+    width: 104px; height: 104px; border-radius: 26px; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(135deg, #4cb56b, var(--c3)); box-shadow: 0 20px 40px -20px rgba(31,122,67,0.8); flex: none; }
+  .res-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 3.2vw, 28px); letter-spacing: -0.02em; line-height: 1.15; }
+  .res-sub { color: var(--muted); font-size: 15px; margin-top: 4px; }
+  .res-desc { margin-top: 18px; font-size: 15.5px; }
+  .ladder { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 22px 0 6px; }
+  .ladder div { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--faint); padding: 8px 0; border-radius: 10px; background: rgba(36,53,40,0.05); }
+  .ladder div.on { background: color-mix(in oklch, var(--c1) 18%, #fff); color: var(--c3); }
+  .ladder div.cur { background: var(--c1); color: #fff; }
+  .ladder div.next { background: repeating-linear-gradient(135deg, rgba(48,144,80,0.12) 0 6px, rgba(48,144,80,0.04) 6px 12px); color: var(--c3); }
+  .skills { display: grid; gap: 12px; margin-top: 8px; }
+  .skill .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; }
+  .skill .row span { color: var(--muted); font-weight: 500; }
+  .bar { height: 8px; border-radius: 8px; background: rgba(36,53,40,0.08); margin-top: 6px; overflow: hidden; }
+  .bar b { display: block; height: 100%; border-radius: 8px; background: var(--c1); }
+  .note { font-size: 14.5px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 18px; }
+  .divider { height: 1px; background: var(--line-2); margin: 26px 0; }
+  .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .review { margin-top: 12px; display: grid; gap: 10px; }
+  .review[hidden] { display: none; }
+  .rv { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; }
+  .rv .lv { font-size: 11.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.08em; }
+  .rv .yours { color: var(--bad); }
+  .rv .right { color: var(--c3); font-weight: 600; }
+  .linkbtn { background: none; border: 0; color: var(--c1); font: inherit; font-weight: 600; cursor: pointer; padding: 0; text-decoration: underline; }
+
+  .self-q { margin-top: 18px; }
+  .self-q .q-text { font-size: 17px; margin-bottom: 10px; }
+  .self-q .opt { font-size: 14.5px; padding: 10px 12px; }
+</style>
+</head>
+<body>
+  <div class="field"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+  <header class="top">
+    <div class="wrap top-in">
+      <a class="brand" href="/">
+        <div class="mark"><img src="{% static 'pencil-mark.png' %}" alt="" /></div>
+        <div class="wordmark">the green <span>pencil</span><span class="sub">Englisch-Nachhilfe</span></div>
+      </a>
+      <div class="top-actions">
+        <a class="btn ghost" href="{% url 'intro' %}">Stunde buchen</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="page">
+    <main>
+      <section class="hero" id="hero">
+        <div class="wrap">
+          <div class="eyebrow"><span class="dot"></span>Kostenlos · ohne Anmeldung · ca. 10 Minuten</div>
+          <h1 class="hero-h">Wo steht dein <em>Englisch</em> gerade?</h1>
+          <p class="hero-sub">Der Level-Check ordnet dich nach dem Europäischen Referenzrahmen ein, von A1 (Einstieg) bis C1 (fortgeschritten). So wissen wir beide schon vor der ersten Stunde, wo wir ansetzen.</p>
+        </div>
+      </section>
+
+      <section class="wrap">
+        <div class="panel" id="stage" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const LEVELS = ["A1", "A2", "B1", "B2", "C1"];
+  const LEVEL_NAMES = {
+    A1: "Einstieg", A2: "Grundlagen", B1: "Selbstständig", B2: "Sicher", C1: "Fortgeschritten",
+  };
+  // What each level means in everyday terms (shown on the result).
+  const LEVEL_DESC = {
+    A1: "Du verstehst und verwendest einfache, alltägliche Ausdrücke und kannst dich und andere vorstellen. Jetzt geht es darum, ein solides Fundament aus Grundwortschatz und den wichtigsten Zeitformen aufzubauen.",
+    A2: "Du kommst in vertrauten Alltagssituationen zurecht: einkaufen, über dich und deine Familie erzählen, einfache Nachrichten verstehen. Der nächste Schritt sind Vergangenheitsformen und längere Sätze, damit du freier erzählen kannst.",
+    B1: "Du kannst dich in den meisten Alltagssituationen verständigen, über Erfahrungen berichten und deine Meinung kurz begründen. Das ist ungefähr das Niveau der Unterstufe bis frühen Oberstufe; Richtung B2 geht es um Genauigkeit und mehr Wortschatz.",
+    B2: "Du verstehst auch anspruchsvollere Texte und kannst dich spontan und fließend unterhalten. B2 ist das Ziel der AHS-Matura; jetzt zählen Feinheiten wie Stil, Kollokationen und komplexere Satzstrukturen.",
+    C1: "Du verwendest Englisch flexibel und präzise, auch im Studium oder Beruf. Hier geht es um Feinschliff: Register, idiomatische Ausdrücke und souveränes Schreiben.",
+  };
+  const SKILL_NAMES = { grammar: "Grammatik", vocab: "Wortschatz", reading: "Leseverstehen" };
+
+  // ---- Question bank -------------------------------------------------------
+  // Each item: level, skill, prompt (use ___ for the gap), options (first one is
+  // the correct answer; the order is shuffled on screen), optional passage id.
+  const PASSAGES = {
+    A2: { title: "Eine Nachricht", text:
+"Hi Anna,\n\nI'm really sorry, but I can't come to your party on Saturday. My grandmother is ill, so I'm visiting her in Graz with my parents. We're taking the train on Friday evening and coming back on Sunday afternoon.\n\nCan we meet next week instead? Maybe on Wednesday after school?\n\nLove, Julia" },
+    B1: { title: "Ein Zeitungsartikel", text:
+"Many teenagers say they are too tired in the morning to concentrate at school. Scientists explain that this is not just laziness: during puberty, the body's internal clock shifts, so teenagers naturally fall asleep and wake up later than adults.\n\nSome schools in the USA have started classes an hour later. The results were positive: students got more sleep, were late less often and their grades improved slightly. However, not everyone was happy. Some parents complained that the new times made it harder to organise their own working day." },
+    B2: { title: "Ein Kommentar", text:
+"Remote work was once seen as a perk reserved for a lucky few. Since 2020, however, it has become routine for millions, and the debate has shifted from whether it works to how it should work.\n\nAdvocates point to the hours saved on commuting and the greater autonomy employees enjoy. Critics counter that the benefits are unevenly distributed: experienced staff with established networks tend to thrive, while newcomers miss out on the informal learning that happens when colleagues overhear each other's problems.\n\nRather than ordering everyone back full-time, several firms have responded by designating \"anchor days\" on which whole teams are expected in the office." },
+  };
+  const BANK = [
+    // A1
+    { level: "A1", skill: "grammar", q: "My sister ___ a teacher.", o: ["is", "are", "am", "be"] },
+    { level: "A1", skill: "grammar", q: "___ you like coffee?", o: ["Do", "Does", "Are", "Is"] },
+    { level: "A1", skill: "grammar", q: "There ___ two apples on the table.", o: ["are", "is", "be", "has"] },
+    { level: "A1", skill: "grammar", q: "I get up ___ seven o'clock.", o: ["at", "in", "on", "to"] },
+    { level: "A1", skill: "vocab",   q: "The opposite of “cold” is ___.", o: ["hot", "tall", "slow", "empty"] },
+    { level: "A1", skill: "grammar", q: "This is my brother. ___ name is Tom.", o: ["His", "He", "Him", "He's"] },
+    // A2
+    { level: "A2", skill: "grammar", q: "We ___ to Italy last summer.", o: ["went", "go", "goes", "going"] },
+    { level: "A2", skill: "grammar", q: "She is ___ than her brother.", o: ["taller", "more tall", "tallest", "the taller"] },
+    { level: "A2", skill: "grammar", q: "Sorry, I can't talk right now. I ___ dinner.", o: ["am cooking", "cook", "cooks", "cooked"] },
+    { level: "A2", skill: "grammar", q: "How ___ milk do we need?", o: ["much", "many", "lot", "few"] },
+    { level: "A2", skill: "grammar", q: "You ___ wear a helmet on a motorbike. It's the law.", o: ["must", "can", "might", "would"] },
+    { level: "A2", skill: "vocab",   q: "Can you ___ me a favour?", o: ["do", "make", "give", "take"] },
+    { level: "A2", skill: "reading", passage: "A2", q: "Why can't Julia go to the party?", o: ["She is visiting her grandmother, who is ill.", "She is ill herself.", "She has school on Saturday.", "She doesn't like parties."] },
+    { level: "A2", skill: "reading", passage: "A2", q: "When is Julia coming back?", o: ["On Sunday", "On Friday", "On Saturday", "On Wednesday"] },
+    // B1
+    { level: "B1", skill: "grammar", q: "If it ___ tomorrow, we'll stay at home.", o: ["rains", "will rain", "rained", "would rain"] },
+    { level: "B1", skill: "grammar", q: "I've lived in Vienna ___ 2015.", o: ["since", "for", "from", "ago"] },
+    { level: "B1", skill: "grammar", q: "This bridge ___ in 1890.", o: ["was built", "built", "has built", "is building"] },
+    { level: "B1", skill: "grammar", q: "She asked me where ___.", o: ["I lived", "did I live", "do I live", "I do live"] },
+    { level: "B1", skill: "grammar", q: "I'm not used to ___ up so early.", o: ["getting", "get", "got", "be getting"] },
+    { level: "B1", skill: "vocab",   q: "Could you ___ my cat while I'm on holiday?", o: ["look after", "look for", "look up", "look into"] },
+    { level: "B1", skill: "reading", passage: "B1", q: "According to the text, why are many teenagers tired in the morning?", o: ["Their internal clock changes during puberty.", "They are simply lazy.", "They use their phones late at night.", "Their classes are too difficult."] },
+    { level: "B1", skill: "reading", passage: "B1", q: "What was a problem with the later start times?", o: ["Some parents found it harder to plan their day.", "The students' grades got worse.", "Students were late more often.", "Teachers refused to work later."] },
+    // B2
+    { level: "B2", skill: "grammar", q: "If I ___ harder, I would have passed the exam.", o: ["had studied", "studied", "would study", "have studied"] },
+    { level: "B2", skill: "grammar", q: "By the time we arrived, the film ___.", o: ["had already started", "already starts", "has already started", "was already starting"] },
+    { level: "B2", skill: "grammar", q: "He denied ___ the money.", o: ["taking", "to take", "take", "that he take"] },
+    { level: "B2", skill: "grammar", q: "You ___ have told me earlier! Now it's too late.", o: ["should", "must", "will", "can"] },
+    { level: "B2", skill: "grammar", q: "___ the bad weather, the match went ahead.", o: ["Despite", "Although", "However", "Even"] },
+    { level: "B2", skill: "vocab",   q: "The factory had to ___ 200 workers because of the crisis.", o: ["lay off", "lay down", "lay out", "lay up"] },
+    { level: "B2", skill: "reading", passage: "B2", q: "What is the critics' main point?", o: ["Remote work benefits some employees more than others.", "Remote work does not really save time.", "Experienced staff dislike working from home.", "Companies lose money through remote work."] },
+    { level: "B2", skill: "reading", passage: "B2", q: "How have several firms reacted?", o: ["They set days on which whole teams come to the office.", "They have ended remote work completely.", "They only hire experienced staff now.", "They pay employees for their commute."] },
+    // C1
+    { level: "C1", skill: "grammar", q: "Not only ___ late, but he also forgot the tickets.", o: ["was he", "he was", "he were", "did he be"] },
+    { level: "C1", skill: "grammar", q: "Had I known about the problem, I ___ something.", o: ["would have done", "would do", "had done", "will have done"] },
+    { level: "C1", skill: "grammar", q: "It's high time we ___ a decision.", o: ["made", "make", "will make", "are making"] },
+    { level: "C1", skill: "vocab",   q: "The new policy has ___ a lot of criticism.", o: ["drawn", "made", "done", "put"] },
+    { level: "C1", skill: "vocab",   q: "She's highly ___ to accept the offer; she's already said she isn't interested.", o: ["unlikely", "improbable", "impossible", "doubtful"] },
+    { level: "C1", skill: "grammar", q: "I'd rather you ___ smoke in here.", o: ["didn't", "don't", "won't", "not"] },
+  ];
+
+  // Self-assessment (not scored): one "I can…" ladder per skill the multiple-
+  // choice part can't measure. Values are CEFR levels, "" = not sure.
+  const SELF = [
+    { key: "speak", label: "Sprechen", q: "Was trifft beim Sprechen am ehesten auf dich zu?", o: [
+      ["A1", "Ich kann mich vorstellen und einfache Fragen beantworten."],
+      ["A2", "Ich komme in einfachen Alltagsgesprächen zurecht, wenn mein Gegenüber langsam spricht."],
+      ["B1", "Ich kann über Erfahrungen erzählen und meine Meinung kurz begründen."],
+      ["B2", "Ich kann mich spontan und fließend unterhalten, auch über abstraktere Themen."],
+      ["C1", "Ich kann mich mühelos und präzise ausdrücken, auch in Diskussionen oder Präsentationen."],
+    ]},
+    { key: "write", label: "Schreiben", q: "Und beim Schreiben?", o: [
+      ["A1", "Ich kann kurze Sätze über mich schreiben, z. B. in einem Formular."],
+      ["A2", "Ich kann kurze Nachrichten und einfache E-Mails schreiben."],
+      ["B1", "Ich kann zusammenhängende Texte zu vertrauten Themen schreiben."],
+      ["B2", "Ich kann ausführliche Texte schreiben und Argumente abwägen (z. B. Matura-Textsorten)."],
+      ["C1", "Ich kann komplexe Sachverhalte klar und gut strukturiert darstellen."],
+    ]},
+    { key: "listen", label: "Hörverstehen", q: "Und beim Zuhören?", o: [
+      ["A1", "Ich verstehe einzelne Wörter und sehr einfache Sätze, wenn langsam gesprochen wird."],
+      ["A2", "Ich verstehe das Wichtigste bei klaren, einfachen Durchsagen und Gesprächen."],
+      ["B1", "Ich verstehe die Hauptpunkte, wenn deutlich über vertraute Themen gesprochen wird."],
+      ["B2", "Ich verstehe die meisten Filme und Serien im Original."],
+      ["C1", "Ich verstehe auch schnelle, umgangssprachliche Gespräche ohne große Mühe."],
+    ]},
+  ];
+
+  // A level counts as passed at two thirds right (4 of 6, 5 of 8 with the
+  // reading questions). The test stops at the first level that isn't passed;
+  // a near miss there (half or more right) reads as "on the way to" it.
+  const PASS = (n) => Math.round(n * 2 / 3);
+
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  // Within a stage: gap-fills first, then the reading passage's questions together.
+  const STAGES = LEVELS.map((lv) => {
+    const items = BANK.filter((it) => it.level === lv);
+    return shuffle(items.filter((it) => !it.passage)).concat(items.filter((it) => it.passage))
+      .map((it) => ({ ...it, shown: shuffle(it.o) }));
+  });
+
+  let st = { stage: 0, idx: 0, pick: null, answers: [], self: {} };
+
+  // ---- Screens -------------------------------------------------------------
+  function renderStart() {
+    $("#stage").innerHTML = `
+      <div class="section-lbl">So funktioniert's</div>
+      <ul class="facts">
+        <li>${check()}<span>Bis zu 36 kurze Aufgaben zu Grammatik, Wortschatz und Leseverstehen, von leicht bis anspruchsvoll.</span></li>
+        <li>${check()}<span>Der Test passt sich an: Wenn eine Stufe noch zu schwer ist, hört er dort auf. Niemand muss sich durch C1-Fragen quälen.</span></li>
+        <li>${check()}<span>Rate lieber nicht: Mit „Weiß ich nicht“ wird das Ergebnis genauer.</span></li>
+        <li>${check()}<span>Am Ende siehst du dein Niveau, deine Stärken und kannst direkt eine kostenlose Kennenlernstunde buchen.</span></li>
+      </ul>
+      <button class="btn lg" id="startBtn">Level-Check starten
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </button>
+      <div class="fineprint">Deine Antworten bleiben in deinem Browser und werden nicht gespeichert. Das Ergebnis ist eine Orientierung, kein offizielles Zertifikat.</div>`;
+    $("#startBtn").onclick = () => { $("#hero").hidden = true; window.scrollTo(0, 0); renderQuestion(); };
+  }
+  function check() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>'; }
+
+  function renderQuestion() {
+    const items = STAGES[st.stage];
+    const it = items[st.idx];
+    st.pick = null;
+    const prog = LEVELS.map((lv, i) => {
+      const w = i < st.stage ? 100 : i === st.stage ? Math.round(st.idx / items.length * 100) : 0;
+      return `<i><b style="width:${w}%"></b></i>`;
+    }).join("");
+    const passage = it.passage ? `<div class="q-kind">Lies den Text und beantworte die Frage.</div>
+      <div class="passage">${esc(PASSAGES[it.passage].text)}</div>` :
+      `<div class="q-kind">Welche Antwort passt in die Lücke?</div>`;
+    const qtext = esc(it.q).replace("___", '<span class="gap">&nbsp;</span>');
+    const opts = it.shown.map((o, i) => `<button class="opt" data-i="${i}"><span class="k">${i + 1}</span><span>${esc(o)}</span></button>`).join("");
+    $("#stage").innerHTML = `
+      <div class="prog">${prog}</div>
+      <div class="prog-lbl"><span>Stufe ${st.stage + 1} von ${LEVELS.length}</span><span>Frage ${st.idx + 1} von ${items.length}</span></div>
+      ${passage}
+      <div class="q-text">${qtext}</div>
+      <div class="opts">${opts}
+        <button class="opt idk" data-i="-1"><span class="k">?</span><span>Weiß ich nicht</span></button>
+      </div>
+      <div class="q-actions">
+        <span class="q-hint">Tipp: Tasten 1–4 zum Auswählen, Enter für weiter</span>
+        <button class="btn" id="nextBtn" disabled>Weiter</button>
+      </div>`;
+    document.querySelectorAll(".opt").forEach((b) => { b.onclick = () => select(Number(b.dataset.i)); });
+    $("#nextBtn").onclick = next;
+  }
+
+  function select(i) {
+    st.pick = i;
+    document.querySelectorAll(".opt").forEach((b) => b.classList.toggle("sel", Number(b.dataset.i) === i));
+    $("#nextBtn").disabled = false;
+  }
+
+  function next() {
+    if (st.pick === null) return;
+    const items = STAGES[st.stage];
+    const it = items[st.idx];
+    const chosen = st.pick >= 0 ? it.shown[st.pick] : null;
+    st.answers.push({ item: it, chosen, correct: chosen === it.o[0] });
+    st.idx++;
+    if (st.idx < items.length) return renderQuestion();
+    // Stage complete: continue only if it was passed and there is a next one.
+    const score = stageScore(st.stage);
+    st.stage++; st.idx = 0;
+    if (score.ok >= PASS(score.n) && st.stage < LEVELS.length) return renderQuestion();
+    renderSelf();
+  }
+
+  function stageScore(i) {
+    const lv = LEVELS[i];
+    const a = st.answers.filter((x) => x.item.level === lv);
+    return { n: a.length, ok: a.filter((x) => x.correct).length };
+  }
+
+  function renderSelf() {
+    const blocks = SELF.map((s) => `<div class="self-q" data-key="${s.key}">
+        <div class="q-text">${esc(s.q)}</div>
+        <div class="opts">${s.o.map(([lv, t]) => `<button class="opt" data-v="${lv}"><span>${esc(t)}</span></button>`).join("")}
+          <button class="opt idk" data-v=""><span>Bin mir nicht sicher</span></button>
+        </div></div>`).join("");
+    $("#stage").innerHTML = `
+      <div class="prog">${LEVELS.map(() => '<i><b style="width:100%"></b></i>').join("")}</div>
+      <div class="prog-lbl"><span>Fast geschafft</span><span>3 kurze Fragen</span></div>
+      <div class="q-kind">Zum Schluss: deine Selbsteinschätzung</div>
+      <p style="color:var(--muted);font-size:15px;">Sprechen, Schreiben und Hören lassen sich hier nicht testen. Wähle jeweils den Satz, der am besten zu dir passt. Das fließt nicht in die Wertung ein, hilft uns aber bei der Planung.</p>
+      ${blocks}
+      <div class="q-actions"><span></span><button class="btn" id="doneBtn">Ergebnis anzeigen</button></div>`;
+    document.querySelectorAll(".self-q").forEach((box) => {
+      box.querySelectorAll(".opt").forEach((b) => {
+        b.onclick = () => {
+          st.self[box.dataset.key] = b.dataset.v;
+          box.querySelectorAll(".opt").forEach((x) => x.classList.toggle("sel", x === b));
+        };
+      });
+    });
+    $("#doneBtn").onclick = renderResult;
+    window.scrollTo(0, 0);
+  }
+
+  function computeResult() {
+    let passed = -1;
+    for (let i = 0; i < LEVELS.length; i++) {
+      const s = stageScore(i);
+      if (!s.n || s.ok < PASS(s.n)) break;
+      passed = i;
+    }
+    // Near miss on the first level not passed: "on the way to" it.
+    let toward = null;
+    const nxt = passed + 1;
+    if (nxt < LEVELS.length) {
+      const s = stageScore(nxt);
+      if (s.n && s.ok >= s.n / 2) toward = LEVELS[nxt];
+    }
+    const skills = {};
+    st.answers.forEach((a) => {
+      const k = a.item.skill;
+      skills[k] = skills[k] || { n: 0, ok: 0 };
+      skills[k].n++; if (a.correct) skills[k].ok++;
+    });
+    // Grammar and vocabulary are reported together to the tutor (as on the plan).
+    const gv = st.answers.filter((a) => a.item.skill !== "reading");
+    const rd = st.answers.filter((a) => a.item.skill === "reading");
+    return {
+      level: passed >= 0 ? LEVELS[passed] : "A1",
+      below: passed < 0,  // didn't pass A1 yet: starting from scratch
+      toward, skills,
+      gv: [gv.filter((a) => a.correct).length, gv.length],
+      rd: [rd.filter((a) => a.correct).length, rd.length],
+    };
+  }
+
+  function renderResult() {
+    const r = computeResult();
+    const li = LEVELS.indexOf(r.level);
+    const title = r.below ? "Du stehst am Anfang, und das ist ein guter Startpunkt."
+      : r.level === "C1" ? "C1, eventuell sogar darüber"
+      : r.toward ? `${r.level}, auf dem Weg zu ${r.toward}` : `Solides ${r.level}`;
+    const sub = r.below ? "Wir starten gemeinsam bei A1." : `${r.level} · ${LEVEL_NAMES[r.level]}`;
+    const ladder = LEVELS.map((lv, i) => {
+      const cls = r.below ? (i === 0 ? "next" : "") : i < li ? "on" : i === li ? "cur" : lv === r.toward ? "next" : "";
+      return `<div class="${cls}">${lv}</div>`;
+    }).join("");
+    const skillRows = ["grammar", "vocab", "reading"].filter((k) => r.skills[k]).map((k) => {
+      const s = r.skills[k]; const pct = Math.round(s.ok / s.n * 100);
+      return `<div class="skill"><div class="row">${SKILL_NAMES[k]}<span>${s.ok} von ${s.n} richtig</span></div><div class="bar"><b style="width:${pct}%"></b></div></div>`;
+    }).join("");
+    const ranked = ["grammar", "vocab", "reading"].filter((k) => r.skills[k] && r.skills[k].n >= 2)
+      .map((k) => [k, r.skills[k].ok / r.skills[k].n]).sort((a, b) => b[1] - a[1]);
+    let strength = "";
+    if (ranked.length >= 2 && ranked[0][1] - ranked[ranked.length - 1][1] >= 0.2) {
+      strength = `<div class="note"><b>${SKILL_NAMES[ranked[0][0]]}</b> ist gerade deine Stärke, bei <b>${SKILL_NAMES[ranked[ranked.length - 1][0]]}</b> gibt es am meisten zu holen. Genau da setzen wir in der ersten Stunde an.</div>`;
+    }
+    const selfVals = SELF.filter((s) => st.self[s.key]).map((s) => `${s.label}: ${st.self[s.key]}`);
+    const wrong = st.answers.filter((a) => !a.correct);
+
+    // Hand the result to the intro booking via the URL, so it survives a new tab.
+    const qs = new URLSearchParams({ level: r.below ? "pre-A1" : r.level });
+    if (r.toward) qs.set("toward", r.toward);
+    qs.set("gv", r.gv.join("-"));
+    if (r.rd[1]) qs.set("rd", r.rd.join("-"));
+    SELF.forEach((s) => { if (st.self[s.key]) qs.set(s.key, st.self[s.key]); });
+
+    $("#stage").innerHTML = `
+      <div class="section-lbl">Dein Ergebnis</div>
+      <div class="res-level">
+        <div class="badge">${r.below ? "A1" : r.level}</div>
+        <div><div class="res-title">${esc(title)}</div><div class="res-sub">${esc(sub)}</div></div>
+      </div>
+      <div class="ladder">${ladder}</div>
+      <p class="res-desc">${esc(LEVEL_DESC[r.level])}</p>
+      <div class="divider"></div>
+      <div class="section-lbl">Nach Bereichen</div>
+      <div class="skills">${skillRows}</div>
+      ${strength}
+      ${selfVals.length ? `<p class="fineprint">Deine Selbsteinschätzung: ${esc(selfVals.join(" · "))}</p>` : ""}
+      <div class="divider"></div>
+      <div class="section-lbl">Wie geht's weiter?</div>
+      <p>In einer <b>kostenlosen Kennenlernstunde</b> schaut Davit sich dein Ergebnis gemeinsam mit dir an, hört dich sprechen und plant mit dir, wie du ${r.level === "C1" ? "dein Englisch weiter verfeinerst" : `Richtung ${r.below ? "A1" : LEVELS[Math.min(li + 1, 4)]} kommst`}. Dein Level-Check wird automatisch mitgeschickt.</p>
+      <div class="cta-row">
+        <a class="btn lg" id="bookCta" href="{% url 'intro' %}?${qs.toString()}">Kostenlose Kennenlernstunde buchen
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </a>
+        <button class="btn ghost lg" id="againBtn">Nochmal machen</button>
+      </div>
+      ${wrong.length ? `<p style="margin-top:20px;"><button class="linkbtn" id="reviewBtn">${wrong.length === 1 ? "1 Antwort" : wrong.length + " Antworten"} ansehen, die nicht gepasst ${wrong.length === 1 ? "hat" : "haben"}</button></p>
+      <div class="review" id="review" hidden>${wrong.map((a) => `<div class="rv"><div class="lv">${a.item.level} · ${SKILL_NAMES[a.item.skill]}</div>
+        <div>${esc(a.item.q)}</div>
+        <div>Deine Antwort: <span class="yours">${a.chosen ? esc(a.chosen) : "weiß ich nicht"}</span> · Richtig: <span class="right">${esc(a.item.o[0])}</span></div></div>`).join("")}</div>` : ""}
+      <div class="fineprint">Der Level-Check ist eine Orientierung nach dem Gemeinsamen Europäischen Referenzrahmen (GER) und ersetzt keine offizielle Prüfung.</div>`;
+    $("#againBtn").onclick = () => { window.location.reload(); };
+    const rb = $("#reviewBtn");
+    if (rb) rb.onclick = () => { const rv = $("#review"); rv.hidden = !rv.hidden; };
+    window.scrollTo(0, 0);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!$("#nextBtn")) return;
+    if (/^[1-4]$/.test(e.key)) {
+      const i = Number(e.key) - 1;
+      if (document.querySelector(`.opt[data-i="${i}"]`)) select(i);
+    } else if (e.key === "Enter" && st.pick !== null) {
+      e.preventDefault(); next();
+    }
+  });
+
+  renderStart();
+})();
+</script>
+
+{% include "_whatsapp_fab.html" %}
+</body>
+</html>

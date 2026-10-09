@@ -6,7 +6,8 @@ Termin:   {{ when }}
 Tutor:    {{ tutor_name }}
 Kontakt:  {{ guest_name }} <{{ guest_email }}>
 Telefon:  {{ guest_phone }} (WhatsApp / Rückruf für Rückfragen)
-{% if call_link %}Video:    {{ call_link }} (automatisch über dein verbundenes Konto erstellt)
+{% if level_check %}Niveau:   {{ level_check }}
+{% endif %}{% if call_link %}Video:    {{ call_link }} (automatisch über dein verbundenes Konto erstellt)
 {% endif %}
 Die Buchung steht bereits in deinem Kalender im Tutor-Portal.
 Antworte dem Gast direkt unter {{ guest_email }} oder melde dich telefonisch unter {{ guest_phone }}.

@@ -7,6 +7,6 @@ Tutor:    {{ tutor_name }}
 Kontakt:  {{ person_name }}{% if person_email %} <{{ person_email }}>{% endif %}
 {% if not is_intro %}{% if refunded %}
 Dem Schüler wurde die Einheit wieder gutgeschrieben.{% else %}
-Stornierung innerhalb von 24 Stunden — die Einheit wurde nicht erstattet.{% endif %}
+Stornierung innerhalb von 24 Stunden. Die Einheit wurde nicht erstattet.{% endif %}
 {% endif %}
 Der Termin wurde aus deinem Kalender im Tutor-Portal entfernt.

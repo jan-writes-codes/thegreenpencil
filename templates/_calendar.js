@@ -2,11 +2,16 @@
   // Inlined via a Django include; the including script defines AVAIL
   // ({tid: {"YYYY-MM-DD|HH:MM": bool}}) and CUSTOM ({tid: {"YYYY-MM-DD": [times]}}).
   const TIMES = (()=>{ const out=[]; for(let m=9*60; m<=20*60; m+=15){ out.push(String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")); } return out; })();
-  const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+{% load i18n %}{% get_current_language as CAL_LANG %}{% if CAL_LANG == "en" %}  // English names for the public intro page under /en/.
+  const DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const DOW_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const MONTHS_S = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+{% else %}  const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
   const DOW_FULL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
   const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
   const MONTHS_S = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
-
+{% endif %}
   function startOfWeek(d) { const x = new Date(d); const day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }

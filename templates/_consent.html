@@ -13,6 +13,7 @@
   Self-contained: this single include replaces the old _clarity.html include and
   the inline gtag.js block. Include it once in <head> on every public page.
 {% endcomment %}
+{% load i18n %}
 <script>
 (function () {
   "use strict";
@@ -111,7 +112,7 @@
     root.id = "tgp-consent";
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-live", "polite");
-    root.setAttribute("aria-label", "Cookie-Einstellungen");
+    root.setAttribute("aria-label", "{{ _("Cookie-Einstellungen")|escapejs }}");
 
     var style = document.createElement("style");
     style.textContent = css();
@@ -119,30 +120,28 @@
 
     root.innerHTML += "" +
     "<div class='tgp-card'>" +
-      "<h2>Wir respektieren deine Privatsphäre</h2>" +
-      "<p>Für den Betrieb dieser Website verwenden wir nur technisch notwendige Cookies. " +
-      "Mit deiner Einwilligung nutzen wir zusätzlich Statistik- und Marketing-Dienste, um unser Angebot zu verbessern. " +
-      "Du kannst frei entscheiden und deine Wahl jederzeit widerrufen. Mehr dazu in der " +
-      "<a href='/datenschutz/'>Datenschutzerklärung</a>.</p>" +
+      "<h2>{{ _("Wir respektieren deine Privatsphäre")|escapejs }}</h2>" +
+      "<p>{{ _("Für den Betrieb dieser Website verwenden wir nur technisch notwendige Cookies. Mit deiner Einwilligung nutzen wir zusätzlich Statistik- und Marketing-Dienste, um unser Angebot zu verbessern. Du kannst frei entscheiden und deine Wahl jederzeit widerrufen.")|escapejs }} " +
+      "{{ _("Mehr dazu in der")|escapejs }} <a href='{% url "datenschutz" %}'>{{ _("Datenschutzerklärung")|escapejs }}</a>.</p>" +
       "<div class='tgp-prefs' id='tgp-prefs' hidden>" +
         "<div class='tgp-row'>" +
           "<input type='checkbox' id='tgp-nec' checked disabled>" +
-          "<label for='tgp-nec'>Notwendig<span class='tgp-desc'>Anmeldung, Sicherheit (CSRF) und Sitzung. Immer aktiv.</span></label>" +
+          "<label for='tgp-nec'>{{ _("Notwendig")|escapejs }}<span class='tgp-desc'>{{ _("Anmeldung, Sicherheit (CSRF) und Sitzung. Immer aktiv.")|escapejs }}</span></label>" +
         "</div>" +
         "<div class='tgp-row'>" +
           "<input type='checkbox' id='tgp-stat'" + (stat ? " checked" : "") + ">" +
-          "<label for='tgp-stat'>Statistik<span class='tgp-desc'>Microsoft Clarity — anonyme Nutzungsanalyse, um die Website zu verbessern.</span></label>" +
+          "<label for='tgp-stat'>{{ _("Statistik")|escapejs }}<span class='tgp-desc'>{{ _("Microsoft Clarity: anonyme Nutzungsanalyse, um die Website zu verbessern.")|escapejs }}</span></label>" +
         "</div>" +
         "<div class='tgp-row'>" +
           "<input type='checkbox' id='tgp-mkt'" + (mkt ? " checked" : "") + ">" +
-          "<label for='tgp-mkt'>Marketing<span class='tgp-desc'>Google Ads — Messung des Erfolgs unserer Anzeigen (Conversion-Tracking).</span></label>" +
+          "<label for='tgp-mkt'>{{ _("Marketing")|escapejs }}<span class='tgp-desc'>{{ _("Google Ads: Messung des Erfolgs unserer Anzeigen (Conversion-Tracking).")|escapejs }}</span></label>" +
         "</div>" +
       "</div>" +
       "<div class='tgp-actions'>" +
-        "<button type='button' class='tgp-primary' id='tgp-accept'>Alle akzeptieren</button>" +
-        "<button type='button' class='tgp-secondary' id='tgp-reject'>Nur notwendige</button>" +
-        "<button type='button' class='tgp-link' id='tgp-toggle'>Einstellungen</button>" +
-        "<button type='button' class='tgp-secondary' id='tgp-save' hidden>Auswahl speichern</button>" +
+        "<button type='button' class='tgp-primary' id='tgp-accept'>{{ _("Alle akzeptieren")|escapejs }}</button>" +
+        "<button type='button' class='tgp-secondary' id='tgp-reject'>{{ _("Nur notwendige")|escapejs }}</button>" +
+        "<button type='button' class='tgp-link' id='tgp-toggle'>{{ _("Einstellungen")|escapejs }}</button>" +
+        "<button type='button' class='tgp-secondary' id='tgp-save' hidden>{{ _("Auswahl speichern")|escapejs }}</button>" +
       "</div>" +
     "</div>";
 
@@ -159,8 +158,8 @@
       var prefs = root.querySelector("#tgp-prefs");
       var save = root.querySelector("#tgp-save");
       var show = prefs.hasAttribute("hidden");
-      if (show) { prefs.removeAttribute("hidden"); save.removeAttribute("hidden"); this.textContent = "Weniger anzeigen"; }
-      else { prefs.setAttribute("hidden", ""); save.setAttribute("hidden", ""); this.textContent = "Einstellungen"; }
+      if (show) { prefs.removeAttribute("hidden"); save.removeAttribute("hidden"); this.textContent = "{{ _("Weniger anzeigen")|escapejs }}"; }
+      else { prefs.setAttribute("hidden", ""); save.setAttribute("hidden", ""); this.textContent = "{{ _("Einstellungen")|escapejs }}"; }
     };
   }
 

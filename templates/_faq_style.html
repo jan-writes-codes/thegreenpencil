@@ -1,0 +1,24 @@
+{% comment %}FAQ page styles, shared by the German and English FAQ.{% endcomment %}
+<style>
+  .lead { color: var(--muted); font-size: 16px; margin-bottom: 32px; }
+  details.faq { border: 1px solid var(--line); border-radius: 12px; padding: 4px 18px;
+    margin: 10px 0; background: rgba(251,248,241,0.5); transition: border-color .16s; }
+  details.faq[open] { border-color: rgba(48,144,80,0.4); }
+  details.faq summary { font-family: var(--font-display); font-weight: 700; font-size: 17px;
+    letter-spacing: -0.01em; cursor: pointer; list-style: none; padding: 14px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after { content: "+"; font-weight: 600; color: var(--c1);
+    font-size: 22px; line-height: 1; flex: 0 0 auto; transition: transform .18s; }
+  details.faq[open] summary::after { transform: rotate(45deg); }
+  details.faq .ans { padding: 0 0 16px; }
+  details.faq .ans p { margin-bottom: 10px; }
+  details.faq .ans p:last-child { margin-bottom: 0; }
+  .faq-cat { margin: 38px 0 6px; }
+  .faq-cat:first-of-type { margin-top: 8px; }
+  .faq-contact { margin-top: 40px; padding: 22px 22px; border: 1px solid var(--line);
+    border-radius: 14px; background: rgba(48,144,80,0.06); }
+  .faq-contact p { margin-bottom: 14px; }
+  .faq-contact .btn { display: inline-block; background: var(--c1); color: #fff;
+    text-decoration: none; font-weight: 600; padding: 11px 20px; border-radius: 11px; }
+</style>

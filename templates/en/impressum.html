@@ -1,0 +1,45 @@
+{% extends "legal_base.html" %}
+{% block title %}Legal notice{% endblock %}
+{% block content %}
+<h1>Legal notice (Impressum)</h1>
+<p class="updated muted">Disclosure under §5 of the Austrian E-Commerce Act (ECG) and §25 of the Austrian Media Act</p>
+{% include "en/_translation_note.html" %}
+
+<h2>Service provider / media owner</h2>
+<p>
+  Davit Hovakimyan<br>
+  Kraygasse 94/2/6<br>
+  1220 Vienna, Austria
+</p>
+
+<h2>Contact</h2>
+<p>
+  Email: <a href="mailto:davit18h@gmail.com">davit18h@gmail.com</a><br>
+  Phone: <a href="tel:+436763975535">+43 676 397 5535</a>
+</p>
+
+<h2>Nature of business</h2>
+<p>English tutoring and exam preparation (one-to-one and private lessons).</p>
+
+<h2>Consumer dispute resolution</h2>
+<p>
+  We are not obliged, and generally not willing, to take part in dispute resolution proceedings before
+  a consumer arbitration body.
+</p>
+
+<h2>Liability for content</h2>
+<p>
+  The content of this website has been prepared with the greatest possible care. However, we cannot
+  guarantee that it is accurate, complete or up to date.
+</p>
+
+<h2>Copyright</h2>
+<p>
+  The content published on this website is subject to Austrian copyright law. Any use beyond the limits
+  of copyright law requires the prior written consent of the respective author.
+</p>
+
+<p class="muted" style="margin-top:28px;font-size:14px;">
+  See also our <a href="{% url 'datenschutz' %}">privacy policy</a>.
+</p>
+{% endblock %}
