@@ -9,7 +9,7 @@ Tutor: {{ tutor_first }}
 {% if call_link %}Video: {{ call_link }}
 {% endif %}
 Attached is a calendar file (.ics) so you can save the appointment.
-{% if call_link %}The lesson takes place online — just join via the video link above at the
+{% if call_link %}The lesson takes place online. Just join via the video link above at the
 booked time. {% else %}We'll be in touch before the lesson with all the details (location or video
 link). {% endif %}Simply reply to this email if you have any questions or would like to
 reschedule.
@@ -19,7 +19,7 @@ Can't make it after all? You can cancel the trial lesson here:
 {% endif %}
 
 --
-The Green Pencil — English tutoring · Vienna, Austria
+The Green Pencil · English tutoring · Vienna, Austria
 Legal notice: {{ site_home }}/impressum/
 Privacy:      {{ site_home }}/datenschutz/
 

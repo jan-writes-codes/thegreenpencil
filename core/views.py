@@ -679,7 +679,7 @@ def _throttled(key, limit, window):
     return hits > limit
 
 
-TOO_MANY = "Zu viele Versuche — bitte warte ein paar Minuten."
+TOO_MANY = "Zu viele Versuche. Bitte warte ein paar Minuten."
 
 
 def acting_tutor(request, slug=None):
@@ -920,7 +920,7 @@ def api_intro_booking(request):
     touches a User row. Capped at one intro per e-mail.
     """
     if _throttled(f"intro:{_client_ip(request)}", 20, 60 * 60):
-        return _intro_error(gettext("Zu viele Versuche — bitte warte ein paar Minuten."), 429)
+        return _intro_error(gettext("Zu viele Versuche. Bitte warte ein paar Minuten."), 429)
     expire_booking_requests()  # expired requests free their slots
     data = parse_body(request)
     name = (data.get("name") or "").strip()
@@ -1358,7 +1358,7 @@ def _booking_within_24h(b):
     return b.start - timezone.now() < timedelta(hours=24)
 
 
-def _cancel_booking(b, *, forfeit, label="Buchung storniert — Einheit erstattet",
+def _cancel_booking(b, *, forfeit, label="Buchung storniert, Einheit erstattet",
                     sub=None, notify=True):
     """Delete booking ``b``: refund its credit unless ``forfeit``, mail both sides
     (when ``notify``) and remove its auto-created Zoom/Teams meeting.
@@ -1388,8 +1388,8 @@ def decline_request(b, *, reason):
     """Decline a student's booking request: free the slot, refund the credit and
     tell the student why. ``reason`` is "declined" (tutor) or "expired"."""
     snapshot = emails._cancel_snapshot(b, refunded=True)
-    label = ("Anfrage abgelehnt — Einheit erstattet" if reason == "declined"
-             else "Anfrage nicht bestätigt — Einheit erstattet")
+    label = ("Anfrage abgelehnt, Einheit erstattet" if reason == "declined"
+             else "Anfrage nicht bestätigt, Einheit erstattet")
     _cancel_booking(b, forfeit=False, label=label, notify=False)
     emails.queue_email(emails.send_lesson_request_declined, snapshot, reason)
 
@@ -1552,10 +1552,10 @@ def api_booking_detail(request, pk):
         # and sends no cancellation e-mails (there is nothing to call off; the
         # refund shows up in the student's credit history instead).
         retroactive = b.date < timezone.localdate()
-        label, sub = "Buchung storniert — Einheit erstattet", None
+        label, sub = "Buchung storniert, Einheit erstattet", None
         if retroactive:
             actor = request.user.get_full_name() or request.user.username
-            label = "Stunde rückwirkend storniert — Einheit erstattet"
+            label = "Stunde rückwirkend storniert, Einheit erstattet"
             sub = f"{b.ledger_sub()} · von {actor}"
         # A tutor/admin removal always returns the credit; a student cancelling
         # inside the 24h window forfeits it (mirrors the booking UI's policy).
@@ -2158,7 +2158,7 @@ def api_checkout(request):
                     "currency": "eur",
                     "unit_amount": amount,
                     "product_data": {
-                        "name": f"{n} Einheiten — the green pencil",
+                        "name": f"{n} Einheiten · the green pencil",
                         "description": "1 Einheit = 45 Minuten Englisch-Einzelunterricht",
                     },
                 },
@@ -2254,7 +2254,7 @@ def _create_settle_checkout(request, student, n, settings, *, success_path, canc
                     "currency": "eur",
                     "unit_amount": unit_euros * 100,
                     "product_data": {
-                        "name": f"{n} offene Einheiten — the green pencil",
+                        "name": f"{n} offene Einheiten · the green pencil",
                         "description": "Begleichung offener Einheiten · 1 Einheit = 45 Minuten",
                     },
                 },

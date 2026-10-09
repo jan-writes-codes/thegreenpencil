@@ -14,7 +14,7 @@
         <tr><td style="padding:24px 32px 4px;">
           <div style="display:inline-block;background:rgba(58,165,92,0.12);color:#277a42;font-size:13px;font-weight:600;padding:6px 12px;border-radius:100px;">✓ Schnupperstunde bestätigt</div>
           <h1 style="font-size:25px;line-height:1.15;letter-spacing:-0.02em;margin:16px 0 8px;">Geschafft, {{ guest_first }}!</h1>
-          <p style="font-size:15.5px;line-height:1.6;color:#4a5a4c;margin:0;">Deine <b>kostenlose Englisch-Schnupperstunde</b> mit {{ tutor_first }} ist eingetragen. Sie ist unverbindlich — wir schauen gemeinsam, wo du stehst und wohin du willst.</p>
+          <p style="font-size:15.5px;line-height:1.6;color:#4a5a4c;margin:0;">Deine <b>kostenlose Englisch-Schnupperstunde</b> mit {{ tutor_first }} ist eingetragen. Sie ist unverbindlich. Wir schauen gemeinsam, wo du stehst und wohin du willst.</p>
         </td></tr>
         <!-- details card -->
         <tr><td style="padding:20px 32px 4px;">
@@ -38,23 +38,23 @@
             </td></tr>
             {% endif %}
           </table>
-          <p style="font-size:13px;color:#6e7d6e;margin:10px 2px 0;">📅 Im Anhang findest du eine Kalender-Datei (<b>.ics</b>) — einfach öffnen, um den Termin zu speichern.</p>
+          <p style="font-size:13px;color:#6e7d6e;margin:10px 2px 0;">📅 Im Anhang findest du eine Kalender-Datei (<b>.ics</b>). Einfach öffnen, um den Termin zu speichern.</p>
         </td></tr>
         <!-- what's next -->
         <tr><td style="padding:18px 32px 4px;">
-          <p style="font-size:15px;line-height:1.6;color:#4a5a4c;margin:0;">{% if call_link %}Die Stunde findet online statt — tritt zur gebuchten Zeit einfach über den Video-Link oben bei.{% else %}Wir melden uns vor dem Termin mit allen Details (Ort bzw. Video-Link).{% endif %} Antworte einfach auf diese E-Mail, wenn du Fragen hast oder den Termin verschieben möchtest.</p>
+          <p style="font-size:15px;line-height:1.6;color:#4a5a4c;margin:0;">{% if call_link %}Die Stunde findet online statt. Tritt zur gebuchten Zeit einfach über den Video-Link oben bei.{% else %}Wir melden uns vor dem Termin mit allen Details (Ort bzw. Video-Link).{% endif %} Antworte einfach auf diese E-Mail, wenn du Fragen hast oder den Termin verschieben möchtest.</p>
         </td></tr>
         {% if cancel_url %}
         <!-- cancel -->
         <tr><td style="padding:14px 32px 4px;">
-          <p style="font-size:13px;line-height:1.6;color:#6e7d6e;margin:0;">Kannst du doch nicht? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Schnupperstunde absagen</a> — der Platz wird dann wieder frei.</p>
+          <p style="font-size:13px;line-height:1.6;color:#6e7d6e;margin:0;">Kannst du doch nicht? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Schnupperstunde absagen</a>, dann wird der Platz wieder frei.</p>
         </td></tr>
         {% endif %}
         <!-- footer -->
         <tr><td style="padding:24px 32px 28px;">
           <hr style="border:none;border-top:1px solid rgba(36,53,40,0.10);margin:0 0 16px;">
           <p style="font-size:12px;line-height:1.6;color:#9aa897;margin:0;">
-            The Green Pencil — Englisch-Nachhilfe · Wien, Österreich<br>
+            The Green Pencil · Englisch-Nachhilfe · Wien, Österreich<br>
             <a href="{{ site_url }}/impressum/" style="color:#309050;text-decoration:none;">Impressum</a> ·
             <a href="{{ site_url }}/datenschutz/" style="color:#309050;text-decoration:none;">Datenschutz</a>
           </p>

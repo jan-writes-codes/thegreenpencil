@@ -463,14 +463,14 @@ def _mail_html(lines):
         "font-size:14px;line-height:1.6;color:#243528\">"
         f"{body}"
         "<p style='margin:20px 0 0;color:#7a8b7f;font-size:12px'>"
-        "The Green Pencil — Englisch-Nachhilfe</p></div>"
+        "The Green Pencil · Englisch-Nachhilfe</p></div>"
     )
 
 
 def _send_with_pdf(subject, to, text_lines, html_lines, pdf, pdf_name):
     """Send a notification with the receipt PDF attached. Bodies just describe what
     the attachment is; the PDF is the actual document."""
-    text = "\n".join(text_lines) + "\n\nThe Green Pencil — Englisch-Nachhilfe"
+    text = "\n".join(text_lines) + "\n\nThe Green Pencil · Englisch-Nachhilfe"
     msg = _message(subject, to, text, _mail_html(html_lines))
     if pdf:
         msg.attach(pdf_name, pdf, "application/pdf")

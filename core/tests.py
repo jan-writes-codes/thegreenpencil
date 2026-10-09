@@ -3107,7 +3107,7 @@ class RetroactiveCancelTests(FluentDataMixin, TestCase):
         self.maya.refresh_from_db()
         self.assertEqual(self.maya.credits, before + 1)
         txn = CreditTransaction.objects.filter(student=self.maya).latest("id")
-        self.assertEqual(txn.label, "Stunde rückwirkend storniert — Einheit erstattet")
+        self.assertEqual(txn.label, "Stunde rückwirkend storniert, Einheit erstattet")
         self.assertEqual(txn.amount, 1)
         # Full transparency: the entry names who undid it and which lesson.
         self.assertIn("von Studio Admin", txn.sub)
@@ -3131,7 +3131,7 @@ class RetroactiveCancelTests(FluentDataMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.json()["retroactive"])
         txn = CreditTransaction.objects.filter(student=self.maya).latest("id")
-        self.assertEqual(txn.label, "Buchung storniert — Einheit erstattet")
+        self.assertEqual(txn.label, "Buchung storniert, Einheit erstattet")
         self.assertNotIn("von ", txn.sub)
         # A genuinely upcoming lesson still notifies both sides.
         self.assertGreater(len(mail.outbox), 0)
@@ -3574,7 +3574,7 @@ class BookingRequestTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.assertEqual(self.maya.credits, start)               # refunded
         self.assertTrue(any("Abgelehnt" in m.subject for m in mail.outbox))
         txn = CreditTransaction.objects.filter(student=self.maya).latest("id")
-        self.assertEqual((txn.amount, txn.label), (1, "Anfrage abgelehnt — Einheit erstattet"))
+        self.assertEqual((txn.amount, txn.label), (1, "Anfrage abgelehnt, Einheit erstattet"))
         self.assertEqual(self._book(actor=self.ines, student="ines").status_code, 200)
 
     def test_only_own_tutor_or_admin_may_answer(self):

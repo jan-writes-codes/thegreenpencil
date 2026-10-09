@@ -14,7 +14,7 @@
         <tr><td style="padding:24px 32px 4px;">
           <div style="display:inline-block;background:rgba(58,165,92,0.12);color:#277a42;font-size:13px;font-weight:600;padding:6px 12px;border-radius:100px;">✓ Trial lesson confirmed</div>
           <h1 style="font-size:25px;line-height:1.15;letter-spacing:-0.02em;margin:16px 0 8px;">You’re all set, {{ guest_first }}!</h1>
-          <p style="font-size:15.5px;line-height:1.6;color:#4a5a4c;margin:0;">Your <b>free English trial lesson</b> with {{ tutor_first }} is booked. There’s no obligation — we’ll look together at where you are and where you want to go.</p>
+          <p style="font-size:15.5px;line-height:1.6;color:#4a5a4c;margin:0;">Your <b>free English trial lesson</b> with {{ tutor_first }} is booked. There’s no obligation. We’ll look together at where you are and where you want to go.</p>
         </td></tr>
         <!-- details card -->
         <tr><td style="padding:20px 32px 4px;">
@@ -38,23 +38,23 @@
             </td></tr>
             {% endif %}
           </table>
-          <p style="font-size:13px;color:#6e7d6e;margin:10px 2px 0;">📅 Attached is a calendar file (<b>.ics</b>) — just open it to save the appointment.</p>
+          <p style="font-size:13px;color:#6e7d6e;margin:10px 2px 0;">📅 Attached is a calendar file (<b>.ics</b>). Just open it to save the appointment.</p>
         </td></tr>
         <!-- what's next -->
         <tr><td style="padding:18px 32px 4px;">
-          <p style="font-size:15px;line-height:1.6;color:#4a5a4c;margin:0;">{% if call_link %}The lesson takes place online — just join via the video link above at the booked time.{% else %}We’ll be in touch before the lesson with all the details (location or video link).{% endif %} Simply reply to this email if you have any questions or would like to reschedule.</p>
+          <p style="font-size:15px;line-height:1.6;color:#4a5a4c;margin:0;">{% if call_link %}The lesson takes place online. Just join via the video link above at the booked time.{% else %}We’ll be in touch before the lesson with all the details (location or video link).{% endif %} Simply reply to this email if you have any questions or would like to reschedule.</p>
         </td></tr>
         {% if cancel_url %}
         <!-- cancel -->
         <tr><td style="padding:14px 32px 4px;">
-          <p style="font-size:13px;line-height:1.6;color:#6e7d6e;margin:0;">Can’t make it after all? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Cancel the trial lesson</a> — the slot will then be free again.</p>
+          <p style="font-size:13px;line-height:1.6;color:#6e7d6e;margin:0;">Can’t make it after all? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Cancel the trial lesson</a> and the slot will be free again.</p>
         </td></tr>
         {% endif %}
         <!-- footer -->
         <tr><td style="padding:24px 32px 28px;">
           <hr style="border:none;border-top:1px solid rgba(36,53,40,0.10);margin:0 0 16px;">
           <p style="font-size:12px;line-height:1.6;color:#9aa897;margin:0;">
-            The Green Pencil — English tutoring · Vienna, Austria<br>
+            The Green Pencil · English tutoring · Vienna, Austria<br>
             <a href="{{ site_home }}/impressum/" style="color:#309050;text-decoration:none;">Legal notice</a> ·
             <a href="{{ site_home }}/datenschutz/" style="color:#309050;text-decoration:none;">Privacy</a>
           </p>

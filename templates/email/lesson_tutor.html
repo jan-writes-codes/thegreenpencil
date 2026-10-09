@@ -21,7 +21,7 @@
         </td></tr>
         <tr><td style="padding:16px 30px 26px;">
           <p style="font-size:13.5px;line-height:1.6;color:#6e7d6e;margin:0;">Die Buchung steht bereits in deinem Kalender im Tutor-Portal.{% if student_email %} Antworte {{ student_first }} direkt unter <a href="mailto:{{ student_email }}" style="color:#309050;">{{ student_email }}</a>.{% endif %}</p>
-          {% if cancel_url %}<p style="font-size:13.5px;line-height:1.6;color:#6e7d6e;margin:10px 0 0;">Musst du absagen? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Stunde stornieren</a> — die Einheit wird {{ student_first }} (außerhalb von 24 h) wieder gutgeschrieben.</p>{% endif %}
+          {% if cancel_url %}<p style="font-size:13.5px;line-height:1.6;color:#6e7d6e;margin:10px 0 0;">Musst du absagen? <a href="{{ cancel_url }}" style="color:#c2552f;text-decoration:underline;">Stunde stornieren</a>. Die Einheit wird {{ student_first }} (außerhalb von 24 h) wieder gutgeschrieben.</p>{% endif %}
         </td></tr>
       </table>
     </td></tr>

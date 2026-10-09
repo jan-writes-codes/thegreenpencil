@@ -23,7 +23,7 @@ def _event_lines(booking, stamp):
     end = start + timedelta(minutes=booking.minutes)
 
     with_name = booking.guest_name or booking.student_name or ""
-    summary = f"{booking.title} — {with_name}" if with_name else booking.title
+    summary = f"{booking.title} · {with_name}" if with_name else booking.title
     if booking.is_requested:
         summary = f"Anfrage: {summary}"  # still awaiting the tutor's confirmation
 
@@ -68,7 +68,7 @@ def build_tutor_feed(tutor, bookings):
         "PRODID:-//The Green Pencil//Tutor Schedule//DE",
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
-        f"X-WR-CALNAME:{ics_escape(f'The Green Pencil — Stunden von {first}')}",
+        f"X-WR-CALNAME:{ics_escape(f'The Green Pencil · Stunden von {first}')}",
         # Hint clients to re-poll hourly so cancellations/reschedules land fast.
         "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
         "X-PUBLISHED-TTL:PT1H",

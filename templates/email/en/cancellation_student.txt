@@ -10,6 +10,6 @@ Tutor: {{ tutor_first }}
 You can book a new time whenever you like:
 {{ site_home }}/intro/
 --
-The Green Pencil — English tutoring · Vienna, Austria
+The Green Pencil · English tutoring · Vienna, Austria
 Legal notice: {{ site_home }}/impressum/
 Privacy:      {{ site_home }}/datenschutz/

@@ -11,7 +11,7 @@
 <meta name="csrf-token" content="{{ csrf_token }}">
 <meta name="robots" content="noindex">
 {% include "_hreflang.html" %}
-<title>{% translate "Erste Stunde buchen — kostenlos &amp; unverbindlich | The Green Pencil" %}</title>
+<title>{% translate "Erste Stunde kostenlos &amp; unverbindlich buchen | The Green Pencil" %}</title>
 <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
 {% include "_fonts.html" %}
@@ -188,7 +188,7 @@
         <div class="wrap">
           <div class="eyebrow"><span class="dot"></span>{% translate "Live-Verfügbarkeit · kostenlose Schnupperstunde" %}</div>
           <h1 class="hero-h">{% translate "Buche dein <em>kostenloses Kennenlerngespräch</em>." %}</h1>
-          <p class="hero-sub">{% translate "Wähle einen Tutor und ein freies Zeitfenster. Die erste Einheit ist ein <b>unverbindliches Kennenlernen</b> — kostenlos, kein Konto und keine Zahlungsdaten nötig." %}</p>
+          <p class="hero-sub">{% translate "Wähle einen Tutor und ein freies Zeitfenster. Die erste Einheit ist ein <b>unverbindliches Kennenlernen</b>: kostenlos, ohne Konto und ohne Zahlungsdaten." %}</p>
           <div class="hero-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"></path></svg>
             {% translate "15-Minuten-Einheit · ganz ohne Einheiten · einmal pro Person" %}
@@ -302,7 +302,7 @@
   // ---- render ----
   function renderTutors(){
     const row=$("#tutorRow"); row.innerHTML="";
-    if(!TUTORS.length){ row.innerHTML=`<div class="no-slot">{{ _("Zurzeit ist kein Tutor verfügbar — bitte später erneut versuchen.")|escapejs }}</div>`; return; }
+    if(!TUTORS.length){ row.innerHTML=`<div class="no-slot">{{ _("Zurzeit ist kein Tutor verfügbar. Bitte versuche es später erneut.")|escapejs }}</div>`; return; }
     TUTORS.forEach(t=>{
       const d=document.createElement("div");
       d.className="tutor-chip"+(t.slug===state.tutor?" sel":"");
@@ -367,7 +367,7 @@
           });
         } else if(perDay[i].length===0 && bi===0){
           // Whole day has no slots — show the placeholder once, in the first band.
-          const n=document.createElement("div"); n.className="no-slot"; n.textContent=d.isPastDay?"—":"{{ _("Voll")|escapejs }}";
+          const n=document.createElement("div"); n.className="no-slot"; n.textContent=d.isPastDay?"·":"{{ _("Voll")|escapejs }}";
           cell.appendChild(n);
         }
         grid.appendChild(cell);
@@ -433,12 +433,12 @@
         renderWeek();
       } else {
         if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>{{ _("Kostenlos buchen")|escapejs }}'; }
-        $("#bookErr").textContent = data.error || ("{{ _("Buchung fehlgeschlagen — bitte erneut versuchen.")|escapejs }} "+CONTACT);
+        $("#bookErr").textContent = data.error || ("{{ _("Buchung fehlgeschlagen. Bitte versuche es erneut.")|escapejs }} "+CONTACT);
       }
     }).catch(()=>{
       state.booking=false;
       if(btn){ btn.disabled=false; btn.innerHTML='<span class="grainbtn"></span>{{ _("Kostenlos buchen")|escapejs }}'; }
-      $("#bookErr").textContent = "{{ _("Netzwerkfehler — bitte erneut versuchen.")|escapejs }} "+CONTACT;
+      $("#bookErr").textContent = "{{ _("Netzwerkfehler. Bitte versuche es erneut.")|escapejs }} "+CONTACT;
     });
   }
 
