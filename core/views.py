@@ -647,8 +647,8 @@ def _client_ip(request):
 def _throttled(key, limit, window):
     """Count one hit on ``key``; True once more than ``limit`` hits fall within
     ``window`` seconds of each other (each hit extends the window)."""
-    # ponytail: per-process cache (LocMemCache) — each gunicorn worker counts on
-    # its own. Point CACHES at a shared backend if the app runs several instances.
+    # The default cache is the database (settings.CACHES), so all gunicorn
+    # workers share one count and a deploy doesn't reset it.
     hits = cache.get(key, 0) + 1
     cache.set(key, hits, window)
     return hits > limit
@@ -1515,6 +1515,16 @@ def api_booking_detail(request, pk):
             b.summary = str(data["summary"] or "")[:5000]
         if "homework" in data:
             b.homework = str(data["homework"] or "")[:5000]
+        if "callLink" in data:
+            # Rendered as a clickable href, so only web links: a bare
+            # "zoom.us/j/…" gets https://, any other scheme (javascript:, data:)
+            # is refused.
+            link = str(data["callLink"] or "").strip()[:500]
+            if link and not re.match(r"^https?://", link, re.I):
+                if re.match(r"^[a-z][a-z0-9+.-]*:", link, re.I) and not re.match(r"^[^/:]+:\d", link):
+                    return JsonResponse({"error": "Link muss mit http(s):// beginnen."}, status=400)
+                link = "https://" + link
+            data["callLink"] = link
         if "callLink" in data and data["callLink"] != b.call_link:
             # A hand-edited link supersedes the auto-created meeting: remove
             # the orphan from the tutor's account and drop the reference so a

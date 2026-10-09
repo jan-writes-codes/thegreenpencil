@@ -1,7 +1,7 @@
 Django>=5.2,<5.3          # 5.2 LTS: security fixes until April 2028
 
 # --- Production serving ---
-gunicorn>=21,<23          # WSGI app server (replaces `runserver` in prod)
+gunicorn>=23,<24          # WSGI app server (replaces `runserver` in prod); 23 fixes request smuggling (CVE-2024-6827)
 whitenoise>=6,<7          # serves static files (logo, fonts, JS) when DEBUG is off
 
 # --- Payments ---

@@ -45,6 +45,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.csp.ContentSecurityPolicyMiddleware',
 ]
 
 ROOT_URLCONF = 'fluent.urls'
@@ -185,6 +186,17 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Login/reset/booking throttles count in the database so every gunicorn worker
+# sees the same hits and a deploy doesn't reset them. The table is created by
+# migration core.0019 (no separate `createcachetable` step needed).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+        'OPTIONS': {'MAX_ENTRIES': 10000},
+    }
+}
+
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
@@ -198,6 +210,34 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
+# Content-Security-Policy (set by core.csp). Pages use inline scripts,
+# styles and handlers, so 'unsafe-inline' stays; the policy still blocks eval,
+# plugins, <base> hijacking, off-site form posts and scripts from any host not
+# listed. The only third-party hosts are the trackers _consent.html loads after
+# consent: Microsoft Clarity and Google Ads (gtag), per their CSP guidance.
+_GOOGLE = ("https://*.googletagmanager.com https://*.google-analytics.com "
+           "https://*.analytics.google.com https://*.g.doubleclick.net "
+           "https://*.google.com https://*.google.at https://*.googleadservices.com "
+           "https://pagead2.googlesyndication.com")
+_CLARITY = "https://*.clarity.ms https://c.bing.com"
+CONTENT_SECURITY_POLICY = '; '.join([
+    "default-src 'self'",
+    # 'wasm-unsafe-eval' lets WebAssembly compile (in-browser OCR of scanned
+    # worksheets); it does not re-enable JavaScript eval.
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://*.googletagmanager.com "
+    "https://*.googleadservices.com https://*.clarity.ms",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    f"connect-src 'self' {_GOOGLE} {_CLARITY}",
+    "frame-src https://td.doubleclick.net https://www.googletagmanager.com",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
 
 # HTTPS-only hardening kicks in automatically in production (DEBUG off).
 if not DEBUG:

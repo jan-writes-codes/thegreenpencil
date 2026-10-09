@@ -2676,6 +2676,11 @@
       $("#tTimeInput").oninput=(e)=>{ const v=e.target.value; if(/^\d{2}:\d{2}$/.test(v)) $("#tTimeEnd").textContent="endet "+endTime(v, lessonMins(bk)); };
       $("#tCallLink").oninput=(e)=>{ bk.callLink=e.target.value.trim(); };
       $("#tNoteSave").onclick=()=>{
+        // Same rule as the server: web links only, a bare host gets https://.
+        if(bk.callLink && !/^https?:\/\//i.test(bk.callLink)){
+          if(/^[a-z][a-z0-9+.-]*:/i.test(bk.callLink) && !/^[^/:]+:\d/.test(bk.callLink)){ toast("Link muss mit http(s):// beginnen."); return; }
+          bk.callLink="https://"+bk.callLink; $("#tCallLink").value=bk.callLink;
+        }
         const nt=$("#tTimeInput").value;
         if(/^\d{2}:\d{2}$/.test(nt) && nt!==bk.time){
           if(bookingConflict(bk.date, nt, bk, bk.tutorId)){ toast("Diese Startzeit überschneidet eine andere Buchung — nicht geändert"); }
@@ -3613,7 +3618,9 @@
     if(!pdfDocs.has(f.id)) pdfDocs.set(f.id, (async ()=>{
       const lib=await loadPdfJs(), r=await fetch(f.url);
       if(!r.ok) throw new Error("download");
-      return lib.getDocument({ data: await r.arrayBuffer() }).promise;
+      // isEvalSupported:false closes CVE-2024-4367 (a crafted PDF's font could
+      // otherwise run script in this page).
+      return lib.getDocument({ data: await r.arrayBuffer(), isEvalSupported: false }).promise;
     })().catch(e=>{ pdfDocs.delete(f.id); throw e; }));
     return pdfDocs.get(f.id);
   }

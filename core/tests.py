@@ -37,6 +37,7 @@ from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from unittest import mock
 
+from django.conf import settings as dj_settings
 from django.core.cache import cache
 from django.test import TestCase as _DjangoTestCase, Client, override_settings
 from django.utils import timezone
@@ -2092,6 +2093,45 @@ class SecurityHardeningTests(FluentDataMixin, TestCase):
         self.assertIn("DJANGO_SECRET_KEY", r.stderr)
         env["DJANGO_SECRET_KEY"] = "k" * 50
         self.assertEqual(run().stdout.strip(), "False")   # DEBUG defaults off on Render
+
+    def test_call_link_must_be_a_web_link(self):
+        self.client.force_login(self.davit)
+        b = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                   date=date.today() + timedelta(days=7), time="09:30")
+        put = lambda link: self.client.put(f"/api/bookings/{b.pk}/", data=json.dumps({"callLink": link}),
+                                           content_type="application/json")
+        for bad in ("javascript:alert(document.cookie)", "JavaScript:alert(1)", "data:text/html,x"):
+            self.assertEqual(put(bad).status_code, 400, bad)
+        b.refresh_from_db()
+        self.assertEqual(b.call_link, "")
+        self.assertEqual(put("zoom.us/j/123").status_code, 200)   # bare host gets https://
+        b.refresh_from_db()
+        self.assertEqual(b.call_link, "https://zoom.us/j/123")
+        self.assertEqual(put("").status_code, 200)
+        b.refresh_from_db()
+        self.assertEqual(b.call_link, "")
+
+    def test_pages_send_a_content_security_policy(self):
+        for url in ("/", "/login/"):
+            csp = self.client.get(url).headers.get("Content-Security-Policy", "")
+            self.assertIn("default-src 'self'", csp, url)
+            self.assertIn("object-src 'none'", csp, url)
+            self.assertIn("frame-ancestors 'none'", csp, url)
+            self.assertNotIn("'unsafe-eval'", csp, url)
+            self.assertIn("'wasm-unsafe-eval'", csp, url)   # in-browser OCR of scanned PDFs
+            self.assertIn("worker-src 'self'", csp, url)
+
+    def test_pdf_viewer_runs_with_eval_disabled(self):
+        # CVE-2024-4367: pdf.js 3.x compiles font glyphs with eval unless told not to.
+        self.client.force_login(self.maya)
+        html = self.client.get("/app/").content.decode()
+        self.assertIn("isEvalSupported: false", html)
+
+    def test_throttle_counts_are_shared_through_the_database(self):
+        from django.db import connection
+        self.assertEqual(dj_settings.CACHES["default"]["BACKEND"],
+                         "django.core.cache.backends.db.DatabaseCache")
+        self.assertIn("django_cache", connection.introspection.table_names())
 
 
 # --------------------------------------------------------------------------- #
