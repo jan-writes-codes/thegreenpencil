@@ -2645,10 +2645,22 @@
     if(state.teacherManage){
       const bk=state.teacherManage, s=bookingStudent(bk);
       const guestLine = s.isGuest ? `<div class="rl">${esc(s.guestEmail||"Schnupperstunde · Gast")}</div>` : "";
+      // Lessons with their own page (#stunde-<pk>) keep topics and private notes
+      // there; the panel only schedules. A lesson that is over can't be
+      // rescheduled, so it just links to that page.
+      const hasPage = !bk.isIntro && bk._pk && bk.status!=="requested", ended = hasPage && lessonEnded(bk);
+      const first = esc(s.name.split(" ")[0]);
       card.innerHTML=`
         <div class="manage-eyebrow">${bk.isIntro?"Schnupperstunde · Gast":(bk.status==="requested"?"Anfrage · wartet auf dich":"Gebuchte Zeit")}</div>
         <div class="sum-head"><div class="avatar" style="${avatarStyle(s)}">${s.i}</div><div><div class="nm">${esc(s.name)}</div><div class="rl">${bk.time} · ${fmtLong(bk.date)}</div>${guestLine}</div></div>
         ${bk.status==="requested" && bk._pk ? `<div style="display:flex;gap:8px;margin:4px 0 14px;"><button class="btn" id="tReqConfirm" style="flex:1;"><span class="grainbtn"></span>Bestätigen</button><button class="btn ghost" id="tReqDecline" style="flex:1;">Ablehnen</button></div>` : ""}
+        ${ended ? `
+        <div class="done-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>
+          <span><b>Abgeschlossen.</b> Notizen, Zusammenfassung, Übungen und Fehler trägst du auf der Seite der Stunde ein.</span>
+        </div>
+        <a class="btn" id="tLessonEdit" href="#stunde-${bk._pk}"><span class="grainbtn"></span>Stunde öffnen →</a>
+        ` : `
         <label class="field-label">Titel der Stunde</label>
         <input class="bf-input" id="tTitle" value="${esc(bk.title)}">
         <label class="field-label" style="margin-top:12px;">Startzeit <span class="lbl-only">· ${lessonMins(bk)} Min.</span></label>
@@ -2658,24 +2670,26 @@
         </div>
         <label class="field-label" style="margin-top:12px;">Call-Link <span class="lbl-only">· Zoom, Teams…</span></label>
         <input class="bf-input" id="tCallLink" type="url" placeholder="https://… Meeting-Link einfügen" value="${esc(bk.callLink)}">
+        ${hasPage ? "" : `
         <label class="field-label" style="margin-top:12px;">Themen für die Stunde</label>
-        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${esc(s.name.split(' ')[0])}…">${esc(bk.notes)}</textarea>
+        <textarea class="notes-ta" id="tNoteTA" placeholder="Notizen für ${first}…">${esc(bk.notes)}</textarea>
         <label class="field-label" style="margin-top:12px;">Private Notizen <span class="lbl-only">· nur du</span></label>
-        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>
+        <textarea class="notes-ta private" id="tPrivTA" placeholder="Private Notizen zum Verlauf der Stunde…">${esc(bk.tutorNotes)}</textarea>`}
         <button class="btn" id="tNoteSave" style="margin-top:12px;"><span class="grainbtn"></span>Details speichern</button>
-        ${(!bk.isIntro && bk._pk && bk.status!=="requested") ? `<button class="btn ghost" id="tLessonEdit" style="margin-top:10px;">Stunde öffnen · Zusammenfassung, Übungen, Fehler</button>` : ""}
+        ${hasPage ? `<a class="btn ghost" id="tLessonEdit" href="#stunde-${bk._pk}" style="margin-top:10px;">Stunde öffnen · Notizen, Übungen, Fehler</a>` : ""}
+        `}
         <button class="btn danger-btn" id="tRemove" style="margin-top:10px;"><span class="grainbtn"></span>Aus der Zeit entfernen</button>
         <button class="btn-text" id="tBack">← Zurück</button>
         <div class="micro">${s.isGuest
           ? `Entfernen gibt die Zeit wieder frei. Eine Schnupperstunde verbraucht keine Einheit.`
           : `Entfernen gibt die Zeit frei und <b style='color:var(--c1)'>1 Einheit</b> zurück an ${esc(s.name.split(" ")[0])}.`}</div>
       `;
-      $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
-      $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
-      $("#tPrivTA").oninput=(e)=>{ bk.tutorNotes=e.target.value; };
-      $("#tTimeInput").oninput=(e)=>{ const v=e.target.value; if(/^\d{2}:\d{2}$/.test(v)) $("#tTimeEnd").textContent="endet "+endTime(v, lessonMins(bk)); };
-      $("#tCallLink").oninput=(e)=>{ bk.callLink=e.target.value.trim(); };
-      $("#tNoteSave").onclick=()=>{
+      if($("#tTitle")) $("#tTitle").oninput=(e)=>{ bk.title=e.target.value; };
+      if($("#tNoteTA")) $("#tNoteTA").oninput=(e)=>{ bk.notes=e.target.value; };
+      if($("#tPrivTA")) $("#tPrivTA").oninput=(e)=>{ bk.tutorNotes=e.target.value; };
+      if($("#tTimeInput")) $("#tTimeInput").oninput=(e)=>{ const v=e.target.value; if(/^\d{2}:\d{2}$/.test(v)) $("#tTimeEnd").textContent="endet "+endTime(v, lessonMins(bk)); };
+      if($("#tCallLink")) $("#tCallLink").oninput=(e)=>{ bk.callLink=e.target.value.trim(); };
+      if($("#tNoteSave")) $("#tNoteSave").onclick=()=>{
         // Same rule as the server: web links only, a bare host gets https://.
         if(bk.callLink && !/^https?:\/\//i.test(bk.callLink)){
           if(/^[a-z][a-z0-9+.-]*:/i.test(bk.callLink) && !/^[^/:]+:\d/.test(bk.callLink)){ toast("Link muss mit http(s):// beginnen."); return; }
@@ -2686,13 +2700,14 @@
           if(bookingConflict(bk.date, nt, bk, bk.tutorId)){ toast("Diese Startzeit überschneidet eine andere Buchung — nicht geändert"); }
           else { bk.time=nt; const dk=ymd(bk.date); if(!dayTimes(bk.date, bk.tutorId).includes(nt)){ const cm=customMap(bk.tutorId); cm[dk]=cm[dk]||[]; cm[dk].push(nt); } toast("Stunde verschoben auf "+nt); }
         } else { toast("Details gespeichert"); }
-        if (bk._pk) api('PUT', '/api/bookings/' + bk._pk + '/', {
-          title: bk.title, notes: bk.notes, tutorNotes: bk.tutorNotes, callLink: bk.callLink, time: bk.time
-        });
+        // Notes are only sent when edited here; otherwise the lesson page owns them.
+        if (bk._pk) api('PUT', '/api/bookings/' + bk._pk + '/', Object.assign(
+          { title: bk.title, callLink: bk.callLink, time: bk.time },
+          hasPage ? {} : { notes: bk.notes, tutorNotes: bk.tutorNotes }));
         renderTeacherWeek(); renderTutorLists(); renderAccount(); renderWeek(); renderTeacherSummary();
       };
       $("#tRemove").onclick=()=>teacherRemove(bk);
-      if($("#tLessonEdit")) $("#tLessonEdit").onclick=()=>openSession(bk._pk);
+      if($("#tLessonEdit")) $("#tLessonEdit").onclick=(e)=>{ e.preventDefault(); openSession(bk._pk); };
       if($("#tReqConfirm")) $("#tReqConfirm").onclick=()=>answerRequest(bk._pk, true);
       if($("#tReqDecline")) $("#tReqDecline").onclick=()=>{ state.teacherManage=null; answerRequest(bk._pk, false); };
       $("#tBack").onclick=()=>{ state.teacherManage=null; renderTeacherSummary(); };
