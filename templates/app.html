@@ -846,6 +846,22 @@
   .modal-overlay[hidden] { display: none; }
   .modal-card { width: min(460px, 100%); max-height: 84vh; overflow-y: auto; background: var(--bg-2); border: 1px solid var(--line);
     border-radius: 20px; padding: 26px; box-shadow: var(--shadow); position: relative; }
+  /* The tutor's student view: a near full-screen sheet in two columns — the
+     progress story (tiles, Schularbeiten, lesson timeline) on the left, the
+     admin side (credits, training, notes, materials, ledger) on the right. */
+  #studentModal { padding: 16px; }
+  #studentModal .modal-card.st-sheet { width: min(1240px, 100%); max-height: calc(100vh - 32px); padding: 28px 30px; }
+  .st-sheet-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 0 44px 8px 0; }
+  .st-sheet-top .sum-head { margin-bottom: 0; }
+  .st-sheet-top .modal-add { margin: 0; flex: 0 1 auto; }
+  .st-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 34px; align-items: start; }
+  .st-cols > .st-col-side { padding-left: 30px; border-left: 1px solid var(--line-2); }
+  @media (max-width: 900px) {
+    .st-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .st-cols > .st-col-side { padding-left: 0; border-left: 0; }
+    #studentModal { padding: 8px; }
+    #studentModal .modal-card.st-sheet { padding: 22px 18px; max-height: calc(100vh - 16px); }
+  }
   .modal-card .nm { font-family: var(--font-display); font-weight: 600; font-size: 18px; display: flex; align-items: center; gap: 9px; }
   .modal-x { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line);
     background: rgba(36,53,40,0.05); color: var(--ink); font-size: 18px; cursor: pointer; line-height: 1; transition: 0.15s; }
@@ -2979,9 +2995,10 @@
     const prevScroll = $("#modalCard") ? $("#modalCard").scrollTop : 0;
     const upc=state.bookings.filter(b=>b.studentId===s.id && (b.date>=NOW||sameDay(b.date,NOW))).length;
     $("#studentModal").innerHTML = `
-      <div class="modal-card" id="modalCard">
+      <div class="modal-card st-sheet" id="modalCard">
         <button class="modal-x" id="modalX" aria-label="Close">×</button>
-        <div class="sum-head" style="margin-bottom:18px;">
+        <div class="st-sheet-top">
+        <div class="sum-head">
           ${s.isGuest ? `<div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div>` : `<button class="av-edit" id="modalAvatarBtn" title="Profilbild ändern" aria-label="Profilbild ändern"><div class="avatar" style="${avatarStyle(s)};width:50px;height:50px;font-size:17px;">${avatarText(s)}</div></button>`}
           <div><div class="nm">${esc(s.name)}</div><div class="rl">${s.credits} Einheiten · ${upc} geplante Stunde${upc!==1?"n":""}</div></div>
         </div>
@@ -2998,14 +3015,17 @@
           <button class="mini-btn" id="settleLinkBtn" style="white-space:nowrap;">Zahlungslink</button>
         </div>
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
-        <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
-        ${errorTrainingMgrHtml(s)}
+        </div>
+        <div class="st-cols"><div class="st-col-main">
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Fortschritt</h2></div>
         ${progressStatsHtml(s.id)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Schularbeiten &amp; Tests</h2></div>
         <div id="modalTests">${schoolTestsHtml(s.id)}</div>
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Verlauf der Stunden</h2><span class="micro" style="margin:0;">Stunden und Tests auf einen Blick</span></div>
         ${studentTimelineHtml(s)}
+        </div><div class="st-col-side">
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
+        ${errorTrainingMgrHtml(s)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
           <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
@@ -3019,6 +3039,7 @@
         <div class="learn-preview" id="learnPreview" hidden style="margin-top:6px;"></div>
         <div class="section-h" style="margin:22px 2px 6px;"><h2>Verlauf</h2></div>
         <div class="activity modal-txns">${txnHtml(s.log)}</div>
+        </div></div>
       </div>`;
     $("#modalCard").onclick = (e)=>e.stopPropagation();
     $("#modalX").onclick = closeStudentModal;
