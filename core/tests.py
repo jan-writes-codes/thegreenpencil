@@ -47,6 +47,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import (
     User, Booking, Receipt, CreditTransaction, ActiveLesson, LessonFile,
     SiteSettings, AvailabilityOverride, ErrorCard, SessionExercise, SessionFile, CurriculumTopic,
+    SchoolTest,
 )
 
 
@@ -1128,7 +1129,7 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 "to enable frontend tests"
             )
 
-    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False, quick_adds=False, materials=False):
+    def run_probe(self, user, book=False, tz=None, admin_rename=False, admin_save=False, admin_pricing=False, learning=False, preview=False, admin_add_tutor=False, buy=False, quick_adds=False, materials=False, school_tests=False):
         self._skip_if_unavailable()
         self.client.force_login(user)
         html = self.client.get(reverse("app")).content.decode()
@@ -1160,6 +1161,8 @@ class _DomProbeBase(FluentDataMixin, TestCase):
                 cmd.append("--quick-adds")
             if materials:
                 cmd.append("--materials")
+            if school_tests:
+                cmd.append("--school-tests")
             out = subprocess.run(
                 cmd, capture_output=True, text=True, env=env, timeout=60
             )
@@ -3834,3 +3837,98 @@ class CreateAdminFromEnvTests(TestCase):
         self.assertTrue(u.check_password("pw-123456"))
         self.assertIn("already exists", self._run(**env))
         self.assertEqual(User.objects.filter(email="boss@example.at").count(), 1)
+
+
+# --------------------------------------------------------------------------- #
+# Schularbeiten / tests on the student profile
+# --------------------------------------------------------------------------- #
+class SchoolTestApiTests(FluentDataMixin, TestCase):
+    def post(self, url, data, method="post"):
+        return getattr(self.client, method)(url, data=json.dumps(data), content_type="application/json")
+
+    def test_student_adds_own_test_and_ignores_other_slug(self):
+        self.client.force_login(self.maya)
+        r = self.post("/api/school-tests/", {"date": "2026-11-20", "kind": "sa", "topic": "Unit 4",
+                                             "studentSlug": "ines"})
+        self.assertEqual(r.status_code, 200)
+        t = SchoolTest.objects.get()
+        self.assertEqual(t.student, self.maya)
+        self.assertEqual(r.json()["test"]["topic"], "Unit 4")
+
+    def test_tutor_adds_test_with_grade_and_reflection(self):
+        self.client.force_login(self.davit)
+        r = self.post("/api/school-tests/", {"studentSlug": "maya", "date": "2026-10-01", "grade": 2,
+                                             "wentWell": "Vocab", "toImprove": "Tenses"})
+        self.assertEqual(r.status_code, 200)
+        t = SchoolTest.objects.get()
+        self.assertEqual((t.student, t.grade, t.went_well, t.to_improve), (self.maya, 2, "Vocab", "Tenses"))
+
+    def test_validation(self):
+        self.client.force_login(self.davit)
+        for bad in ({"studentSlug": "maya"}, {"studentSlug": "maya", "date": "x"},
+                    {"studentSlug": "maya", "date": "2026-10-01", "grade": 6},
+                    {"studentSlug": "maya", "date": "2026-10-01", "kind": "quiz"},
+                    {"studentSlug": "nobody", "date": "2026-10-01"}):
+            self.assertEqual(self.post("/api/school-tests/", bad).status_code, 400, bad)
+        self.assertFalse(SchoolTest.objects.exists())
+
+    def test_student_cannot_touch_other_students_tests(self):
+        t = SchoolTest.objects.create(student=self.ines, date=date(2026, 11, 1))
+        self.client.force_login(self.maya)
+        self.assertEqual(self.post(f"/api/school-tests/{t.pk}/", {"grade": 1}, "put").status_code, 404)
+        self.assertEqual(self.client.delete(f"/api/school-tests/{t.pk}/").status_code, 404)
+        self.assertTrue(SchoolTest.objects.filter(pk=t.pk).exists())
+
+    def test_edit_and_delete(self):
+        t = SchoolTest.objects.create(student=self.maya, date=date(2026, 11, 1))
+        self.client.force_login(self.maya)
+        r = self.post(f"/api/school-tests/{t.pk}/", {"grade": 3, "toImprove": "Writing"}, "put")
+        self.assertEqual(r.status_code, 200)
+        t.refresh_from_db()
+        self.assertEqual((t.grade, t.to_improve), (3, "Writing"))
+        self.assertEqual(self.post(f"/api/school-tests/{t.pk}/", {"grade": None}, "put").json()["test"]["grade"], None)
+        self.assertEqual(self.client.delete(f"/api/school-tests/{t.pk}/").status_code, 200)
+        self.assertFalse(SchoolTest.objects.exists())
+
+    def test_anonymous_rejected(self):
+        self.assertEqual(self.post("/api/school-tests/", {"date": "2026-10-01"}).status_code, 401)
+
+    def test_payload_scoped_by_role(self):
+        SchoolTest.objects.create(student=self.maya, date=date(2026, 11, 1))
+        SchoolTest.objects.create(student=self.ines, date=date(2026, 11, 2))
+        self.client.force_login(self.maya)
+        mine = extract_payload(self.client.get(reverse("app")).content.decode())["schoolTests"]
+        self.assertEqual({t["studentId"] for t in mine}, {"maya"})
+        self.client.force_login(self.davit)
+        alls = extract_payload(self.client.get(reverse("app")).content.decode())["schoolTests"]
+        self.assertEqual({t["studentId"] for t in alls}, {"maya", "ines"})
+
+
+class SchoolTestDomTests(_DomProbeBase):
+    def test_tutor_profile_shows_tests_and_timeline(self):
+        soon = timezone.localdate() + timedelta(days=5)
+        SchoolTest.objects.create(student=self.maya, date=soon, topic="<i data-xss>Unit 4</i>")
+        SchoolTest.objects.create(student=self.maya, date=timezone.localdate() - timedelta(days=20),
+                                  grade=4, to_improve="Tenses")
+        Booking.objects.create(student=self.maya, tutor=self.davit, date=timezone.localdate() - timedelta(days=3),
+                               time="10:00", title="Maya lesson", summary="Past simple")
+        r = self.run_probe(self.davit, school_tests=True)["schoolTests"]
+        self.assertNotIn("error", r)
+        self.assertIn("in 5 Tagen", r["rosterSub"])
+        self.assertEqual(len(r["rows"]), 2)
+        self.assertIn("in 5 Tagen", r["rows"][0])
+        self.assertIn("Note 4", r["rows"][1])
+        self.assertTrue(any("Past simple" in x for x in r["timeline"]))
+        self.assertTrue(any("Daran arbeiten: Tenses" in x for x in r["timeline"]))
+        self.assertEqual(r["post"]["studentSlug"], "maya")
+        self.assertEqual((r["post"]["date"], r["post"]["grade"]), ("2026-12-01", 2))
+        self.assertEqual(len(r["after"]), 3)
+
+    def test_student_sees_own_tests_and_can_add(self):
+        r = self.run_probe(self.maya, school_tests=True)
+        self.assertEqual(r["initErrors"], [])
+        self.assertEqual(r["xss"], 0)
+        st = r["schoolTests"]
+        self.assertEqual(st["rows"], [])
+        self.assertEqual(st["post"]["topic"], "Past tenses")
+        self.assertEqual(len(st["after"]), 1)

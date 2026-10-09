@@ -348,6 +348,25 @@
   .lh-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
   .lh-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 100px; border: 1px solid var(--line); color: var(--muted); }
   .lh-pill.open { color: #a23a22; border-color: rgba(194,85,47,0.35); background: rgba(194,85,47,0.08); }
+  .st-list { display: flex; flex-direction: column; }
+  .st-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 4px; border-top: 1px solid var(--line-2); }
+  .st-row:first-child { border-top: 0; }
+  .st-when { flex: 0 0 66px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .st-when b { display: block; font-family: var(--font-display); font-size: 14px; color: var(--ink); }
+  .st-when .soon { color: #a23a22; font-weight: 600; }
+  .st-body { flex: 1; min-width: 0; font-size: 13.5px; }
+  .st-title { font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .st-grade { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 100px; background: color-mix(in oklch, var(--c1) 12%, transparent); color: var(--c3, var(--c1)); }
+  .st-grade.g4, .st-grade.g5 { background: rgba(194,85,47,0.1); color: #a23a22; }
+  .st-refl { margin-top: 4px; color: var(--muted); font-size: 12.5px; white-space: pre-line; }
+  .st-refl strong { color: var(--ink); font-weight: 600; }
+  .st-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 4px; border-top: 1px solid var(--line-2); }
+  .st-form .full { grid-column: 1 / -1; }
+  .st-form label { font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .st-form textarea.bf-input { min-height: 54px; resize: vertical; }
+  .st-form .st-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  @media (max-width: 520px) { .st-form { grid-template-columns: 1fr; } }
+  .tl-test { background: color-mix(in oklch, var(--c2, #d0925a) 9%, transparent); border-radius: 10px; }
   .lh-pill.done { color: var(--good); border-color: color-mix(in oklch, var(--good) 35%, transparent); background: color-mix(in oklch, var(--good) 9%, transparent); }
   .ld-block { margin-top: 18px; }
   .ld-block h4 { font-family: var(--font-display); font-size: 15px; margin-bottom: 6px; }
@@ -1222,7 +1241,10 @@
           <div class="eyebrow">Lernen · deine Stunden</div>
           <h1 class="title">Deine Stunden.</h1>
           <p class="sub">Alle Stunden, die du hattest — tippe eine an, um zu sehen, was ihr gemacht habt und welche Fehler ihr gefunden habt.</p>
-          <div class="panel" style="padding: 8px 22px; margin-top: 22px;"><div class="list lesson-hist" id="lessonHistory"></div></div>
+          <div class="section-h" style="margin-top: 26px;"><h2>Schularbeiten &amp; Tests</h2></div>
+          <div class="panel" style="padding: 8px 22px;"><div id="myTests"></div></div>
+          <div class="section-h" style="margin-top: 26px;"><h2>Stunden</h2></div>
+          <div class="panel" style="padding: 8px 22px;"><div class="list lesson-hist" id="lessonHistory"></div></div>
         </div>
       </section>
 
@@ -1539,6 +1561,9 @@
       time: b.time,
     })),
     errorCards: DJ.errorCards || [],  // Fehler-Training cards
+    schoolTests: (DJ.schoolTests || []).map(t => ({ ...t, date: new Date(t.date + 'T00:00:00') })),
+    testEdit: null,  // id of the Schularbeit being edited, or "new"
+    timelineAll: false,  // student profile: show the whole timeline
     studentQuery: "",
     lessonFiles: DJ.lessonFiles || {},  // {lesson_id: [{id,name,url}]}
     topics: DJ.topics || [],  // [{id, level, skill, t}] — the Lernmaterialien library
@@ -2900,7 +2925,7 @@
   }
 
   // ---------- Student history modal ----------
-  function openStudentModal(s){ state.teacherStudent=s; renderStudentModal(); $("#studentModal").hidden=false; }
+  function openStudentModal(s){ state.teacherStudent=s; state.testEdit=null; state.timelineAll=false; renderStudentModal(); $("#studentModal").hidden=false; }
   function closeStudentModal(){ state.teacherStudent=null; $("#studentModal").hidden=true; }
   function renderStudentModal(){
     const s=state.teacherStudent; if(!s) return;
@@ -2928,8 +2953,10 @@
         <div id="settleLinkOut" hidden style="margin:-4px 2px 4px;font-size:12px;color:var(--muted);word-break:break-all;"></div>` : ``}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Training</h2></div>
         ${errorTrainingMgrHtml(s)}
-        <div class="section-h" style="margin:20px 2px 6px;"><h2>Stunden</h2><span class="micro" style="margin:0;">jede Stunde hat ihre eigene Seite</span></div>
-        ${studentLessonsHtml(s)}
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Schularbeiten &amp; Tests</h2></div>
+        <div id="modalTests">${schoolTestsHtml(s.id)}</div>
+        <div class="section-h" style="margin:20px 2px 6px;"><h2>Verlauf der Stunden</h2><span class="micro" style="margin:0;">Stunden und Tests auf einen Blick</span></div>
+        ${studentTimelineHtml(s)}
         <div class="section-h" style="margin:20px 2px 6px;"><h2>Notizen</h2></div>
         <div class="snote-add">
           <input class="bf-input snote-input" id="snoteInput" placeholder="Notiz zu ${esc(s.name.split(' ')[0])}…">
@@ -2950,6 +2977,8 @@
     $("#studentModal").querySelectorAll("[data-review]").forEach(btn=> btn.onclick=()=>openFlashcards(state.errorCards.filter(c=>c.studentId===s.id && cardKind(c)===btn.dataset.review && c.status==="open"), "review"));
     $("#studentModal").querySelectorAll("[data-session]").forEach(btn=> btn.onclick=()=>openSession(+btn.dataset.session));
     $("#maddCustom").onclick=()=>openCustomTopUp(s, true);
+    bindSchoolTests($("#modalTests"), s.id, renderStudentModal);
+    const tlAll=$("#tlAll"); if(tlAll) tlAll.onclick=()=>{ state.timelineAll=true; renderStudentModal(); };
     const settleLinkBtn = $("#settleLinkBtn");
     if (settleLinkBtn) settleLinkBtn.onclick = () => {
       settleLinkBtn.disabled = true; settleLinkBtn.textContent = "…";
@@ -2999,7 +3028,7 @@
       const card=document.createElement("div"); card.className="rost";
       card.innerHTML=`
         <div class="avatar" style="${avatarStyle(s)};width:40px;height:40px;">${s.i}</div>
-        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}</div></div>
+        <div class="rinfo"><div class="rname">${esc(s.name)}</div><div class="rsub">${upc} geplante Stunde${upc!==1?"n":""}${nextTestLine(s.id)}</div></div>
         <div class="rcredits"><div class="rc-num">${s.credits}</div><div class="rc-lbl">Einheiten</div></div>
         <div class="rc-actions">
           ${creditQuickAdds().map(n=>`<button class="mini-btn" data-add="${n}">+${n}</button>`).join("")}
@@ -3710,6 +3739,7 @@
 
   // ----- Stunden list (student) -----
   function renderLessonHistory(){
+    const tl=$("#myTests"); if(tl){ tl.innerHTML=schoolTestsHtml(state.currentUser); bindSchoolTests(tl, state.currentUser, renderLessonHistory); }
     const el=$("#lessonHistory"); if(!el) return;
     const mine = state.bookings
       .filter(b=>b.studentId===state.currentUser && !b.isIntro && b.status!=="requested" && b._pk && lessonEnded(b))
@@ -4375,13 +4405,111 @@
         ${open.length ? `<button class="btn" data-review="${kind}" style="margin:6px 0 4px;"><span class="grainbtn"></span>Gemeinsam wiederholen · ${open.length} ${open.length===1?d.one:d.many}</button>` : `<div class="ld-empty">Nichts offen.</div>`}</div>`;
     }).join("");
   }
-  function studentLessonsHtml(s){
-    const ls=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
-      .sort((a,b)=>bookingStart(b)-bookingStart(a)).slice(0,10);
-    if(!ls.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
-    return ls.map(b=>{ const errs=lessonCards(b,"error"), open=errs.filter(c=>c.status==="open").length;
-      return `<button class="mini-btn" data-session="${b._pk}" style="display:flex;width:100%;justify-content:space-between;margin:4px 0;padding:9px 12px;font-size:13px;">
-        <span>${fmtAT(b.date)} · ${b.time}${lessonEnded(b) ? "" : " · geplant"}${b.summary ? " · ✎" : ""}</span><span>${errs.length ? `${open} Fehler offen` : "Stunde öffnen"} →</span></button>`; }).join("");
+  // ---------- Schularbeiten & tests ----------
+  // Students enter their own test dates; tutor and student add the grade and
+  // what went well / what to work on afterwards, so lessons know where to focus.
+  const TEST_KINDS = { sa:"Schularbeit", test:"Test", matura:"Matura", other:"Prüfung" };
+  const GRADE_NAMES = { 1:"Sehr gut", 2:"Gut", 3:"Befriedigend", 4:"Genügend", 5:"Nicht genügend" };
+  const daysUntil = d => Math.round((d - NOW) / 86400000);
+  function testsFor(sid){ return state.schoolTests.filter(t=>t.studentId===sid); }
+  function nextTestLine(sid){
+    const t=testsFor(sid).filter(t=>daysUntil(t.date)>=0).sort((a,b)=>a.date-b.date)[0];
+    if(!t) return "";
+    const n=daysUntil(t.date);
+    return ` · ${TEST_KINDS[t.kind]||"Test"} ${n===0?"heute":n===1?"morgen":`in ${n} Tagen`}`;
+  }
+  function testRowHtml(t){
+    const n=daysUntil(t.date), upcoming=n>=0;
+    const when = upcoming ? `<span class="${n<=14?"soon":""}">${n===0?"heute":n===1?"morgen":`in ${n} Tagen`}</span>` : "";
+    const grade = t.grade ? `<span class="st-grade g${t.grade}" title="${GRADE_NAMES[t.grade]}">Note ${t.grade}</span>` : (!upcoming ? `<span class="lh-pill">Note offen</span>` : "");
+    const refl = [t.wentWell?`<div><strong>Gut gelaufen:</strong> ${esc(t.wentWell)}</div>`:"", t.toImprove?`<div><strong>Daran arbeiten:</strong> ${esc(t.toImprove)}</div>`:""].join("");
+    return `<div class="st-row">
+      <div class="st-when"><b>${String(t.date.getDate()).padStart(2,"0")}.${String(t.date.getMonth()+1).padStart(2,"0")}.</b>${t.date.getFullYear()}<br>${when}</div>
+      <div class="st-body"><div class="st-title">${esc(TEST_KINDS[t.kind]||"Test")}${t.topic?` · ${esc(t.topic)}`:""} ${grade}</div>${refl?`<div class="st-refl">${refl}</div>`:""}</div>
+      <button class="mini-btn" data-test-edit="${t.id}">Bearbeiten</button>
+    </div>`;
+  }
+  function testFormHtml(t){
+    const v = t || { kind:"sa", topic:"", grade:null, wentWell:"", toImprove:"" };
+    const iso = t ? `${t.date.getFullYear()}-${String(t.date.getMonth()+1).padStart(2,"0")}-${String(t.date.getDate()).padStart(2,"0")}` : "";
+    const past = t && daysUntil(t.date) < 0;
+    return `<form class="st-form" id="testForm">
+      <label>Art<select class="bf-input" id="tfKind">${Object.entries(TEST_KINDS).map(([k,l])=>`<option value="${k}"${v.kind===k?" selected":""}>${l}</option>`).join("")}</select></label>
+      <label>Datum<input class="bf-input" type="date" id="tfDate" value="${iso}" required></label>
+      <label class="full">Stoff<input class="bf-input" id="tfTopic" maxlength="200" value="${esc(v.topic)}" placeholder="z. B. Past tenses, Unit 4–6, Brief schreiben"></label>
+      <label>Note<select class="bf-input" id="tfGrade"><option value="">noch keine</option>${[1,2,3,4,5].map(g=>`<option value="${g}"${v.grade===g?" selected":""}>${g} · ${GRADE_NAMES[g]}</option>`).join("")}</select></label>
+      <span></span>
+      <label class="full">Was ist gut gelaufen?<textarea class="bf-input" id="tfWell" maxlength="2000" placeholder="${past?"":"nach dem Test ausfüllen"}">${esc(v.wentWell)}</textarea></label>
+      <label class="full">Woran arbeiten wir?<textarea class="bf-input" id="tfImprove" maxlength="2000" placeholder="${past?"":"nach dem Test ausfüllen"}">${esc(v.toImprove)}</textarea></label>
+      <div class="st-actions">${t?`<button type="button" class="mini-btn danger" id="tfDelete">Löschen</button>`:""}<button type="button" class="mini-btn" id="tfCancel">Abbrechen</button><button type="submit" class="mini-btn" id="tfSave">Speichern</button></div>
+    </form>`;
+  }
+  function schoolTestsHtml(sid){
+    const all=testsFor(sid);
+    const up=all.filter(t=>daysUntil(t.date)>=0).sort((a,b)=>a.date-b.date);
+    const past=all.filter(t=>daysUntil(t.date)<0).sort((a,b)=>b.date-a.date);
+    const row = t => state.testEdit===t.id ? testFormHtml(t) : testRowHtml(t);
+    const empty = !all.length && state.testEdit!=="new" ? `<div class="empty-list" style="padding:14px 4px;">Noch keine Schularbeiten eingetragen.</div>` : "";
+    return `<div class="st-list">${up.map(row).join("")}${past.map(row).join("")}</div>${empty}
+      ${state.testEdit==="new" ? testFormHtml(null) : `<button class="mini-btn" id="testAdd" style="margin:8px 0 6px;">+ Schularbeit oder Test eintragen</button>`}`;
+  }
+  function bindSchoolTests(root, sid, rerender){
+    if(!root) return;
+    root.querySelectorAll("[data-test-edit]").forEach(b=> b.onclick=()=>{ state.testEdit=+b.dataset.testEdit; rerender(); });
+    const add=root.querySelector("#testAdd"); if(add) add.onclick=()=>{ state.testEdit="new"; rerender(); };
+    const form=root.querySelector("#testForm"); if(!form) return;
+    root.querySelector("#tfCancel").onclick=()=>{ state.testEdit=null; rerender(); };
+    const del=root.querySelector("#tfDelete");
+    if(del) del.onclick=async ()=>{
+      const id=state.testEdit;
+      if(del.dataset.armed!=="1"){ del.dataset.armed="1"; del.textContent="Wirklich löschen?"; return; }
+      const r=await apiResult('DELETE', `/api/school-tests/${id}/`);
+      if(!r.ok){ toast("Löschen fehlgeschlagen"); return; }
+      state.schoolTests=state.schoolTests.filter(t=>t.id!==id); state.testEdit=null; rerender(); toast("Gelöscht");
+    };
+    form.onsubmit=async (e)=>{
+      e.preventDefault();
+      const dateVal=root.querySelector("#tfDate").value;
+      if(!dateVal){ toast("Bitte ein Datum wählen"); return; }
+      const g=root.querySelector("#tfGrade").value;
+      const body={ kind:root.querySelector("#tfKind").value, date:dateVal, topic:root.querySelector("#tfTopic").value,
+        grade: g ? +g : null, wentWell:root.querySelector("#tfWell").value, toImprove:root.querySelector("#tfImprove").value };
+      const isNew = state.testEdit==="new";
+      if(isNew) body.studentSlug=sid;
+      const r=await apiResult(isNew?'POST':'PUT', isNew?'/api/school-tests/':`/api/school-tests/${state.testEdit}/`, body);
+      if(!r.ok || !r.data || !r.data.test){ toast("Speichern fehlgeschlagen"); return; }
+      const t={ ...r.data.test, date:new Date(r.data.test.date+'T00:00:00') };
+      state.schoolTests=state.schoolTests.filter(x=>x.id!==t.id).concat([t]);
+      state.testEdit=null; rerender(); toast("Gespeichert");
+      if(state.role!=="student") renderRoster();
+    };
+  }
+
+  // The student's progression in one list: every lesson with its summary,
+  // homework and card counts, with their Schularbeiten in between.
+  function studentTimelineHtml(s){
+    const lessons=state.bookings.filter(b=>b.studentId===s.id && !b.isIntro && b._pk && b.status!=="requested")
+      .map(b=>({ at:bookingStart(b), b }));
+    const tests=testsFor(s.id).map(t=>({ at:t.date, t }));
+    const items=lessons.concat(tests).sort((a,b)=>b.at-a.at);
+    if(!items.length) return `<div class="ld-empty" style="margin:0 2px;">Noch keine Stunden.</div>`;
+    const LIMIT=12, shown = state.timelineAll ? items : items.slice(0, LIMIT);
+    const rows = shown.map(it=>{
+      if(it.t){ const t=it.t;
+        return `<div class="li tl-test"><div class="dt"><div class="dm">${MONTHS_S[t.date.getMonth()]}</div><div class="dnum">${t.date.getDate()}</div></div>
+          <div class="info"><div class="t">${esc(TEST_KINDS[t.kind]||"Test")}${t.topic?` · ${esc(t.topic)}`:""} ${t.grade?`<span class="st-grade g${t.grade}">Note ${t.grade}</span>`:""}</div>
+          ${t.toImprove?`<div class="note-line">Daran arbeiten: ${esc(t.toImprove.split("\n")[0])}</div>`:""}</div></div>`; }
+      const b=it.b, errs=lessonCards(b,"error"), vocab=lessonCards(b,"vocab"), open=errs.filter(c=>c.status==="open").length;
+      return `<div class="li" data-session="${b._pk}" style="cursor:pointer;">
+        <div class="dt"><div class="dm">${MONTHS_S[b.date.getMonth()]}</div><div class="dnum">${b.date.getDate()}</div></div>
+        <div class="info"><div class="t">${esc(b.title)}${lessonEnded(b)?"":' <span class="lh-pill">geplant</span>'}</div>
+          ${b.summary?`<div class="note-line">${esc(b.summary.split("\n")[0])}</div>`:""}
+          ${b.homework?`<div class="note-line">Hausaufgabe: ${esc(b.homework.split("\n")[0])}</div>`:""}
+          <div class="lh-meta">${errs.length?`<span class="lh-pill ${open?"open":""}">${errs.length} Fehler${open?` · ${open} offen`:""}</span>`:""}${vocab.length?`<span class="lh-pill">${vocab.length} ${vocab.length===1?"Wort":"Wörter"}</span>`:""}${(b.exercises||[]).length?`<span class="lh-pill">${b.exercises.length} ${b.exercises.length===1?"Übung":"Übungen"}</span>`:""}${b.homework?`<span class="lh-pill ${b.homeworkDone?"done":"open"}">Hausaufgabe${b.homeworkDone?" ✓":""}</span>`:""}</div></div>
+        <div class="tail"><span class="lnk">Öffnen →</span></div></div>`;
+    }).join("");
+    const more = items.length>shown.length ? `<button class="mini-btn" id="tlAll" style="margin-top:8px;">Alle ${items.length} anzeigen</button>` : "";
+    return `<div class="list lesson-hist">${rows}</div>${more}`;
   }
 
   // ---------- View switching ----------

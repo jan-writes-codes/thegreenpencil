@@ -31,6 +31,7 @@ const doPreview = process.argv.includes("--preview");
 const doBuy = process.argv.includes("--buy");
 const doQuickAdds = process.argv.includes("--quick-adds");
 const doMaterials = process.argv.includes("--materials");
+const doSchoolTests = process.argv.includes("--school-tests");
 if (!file) {
   console.error("usage: node dom_probe.js <app.html> [--book]");
   process.exit(2);
@@ -75,6 +76,12 @@ const dom = new JSDOM(html, {
           color1: "#9aa0a6", color2: "#6b7177", photo: null, tempPassword: "tmp-stu-pw",
           billing: { line1: "", postcode: "", city: "", country: "Österreich" },
         }) });
+      }
+      if (u.endsWith("/api/school-tests/") && method === "POST") {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ test: {
+          id: 777, studentId: body.studentSlug || "maya", kind: body.kind, date: body.date,
+          topic: body.topic, grade: body.grade, wentWell: body.wentWell, toImprove: body.toImprove,
+        } }) });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ pk: 999 }) });
     };
@@ -258,6 +265,43 @@ setTimeout(() => {
           .map((a) => a.getAttribute("href")).filter(Boolean);
         finish({ preview: { fileLinks: links } });
       }, 80);
+    }, 80);
+    return;
+  }
+
+  if (doSchoolTests) {
+    // Tutor: open Maya's profile; student: open "Deine Stunden". Read the
+    // Schularbeiten list and timeline, then add a test through the form.
+    const isStudent = !!document.querySelector('.tab[data-view="lessons"]') &&
+      getComputedStyle(document.querySelector('.tab[data-view="lessons"]')).display !== "none";
+    let root;
+    if (isStudent) {
+      document.querySelector('.tab[data-view="lessons"]').click();
+      root = () => $("#myTests");
+    } else {
+      const card = [...document.querySelectorAll("#rosterList .rost")].find((c) => /Maya/.test(c.textContent));
+      if (!card) return finish({ schoolTests: { error: "no roster card for Maya" } });
+      var rosterSub = card.querySelector(".rsub").textContent;
+      card.click();
+      root = () => $("#modalTests");
+    }
+    setTimeout(() => {
+      if (!root()) return finish({ schoolTests: { error: "no tests section" } });
+      const rows = [...root().querySelectorAll(".st-row")].map((r) => r.textContent.replace(/\s+/g, " ").trim());
+      const timeline = [...document.querySelectorAll("#studentModal .lesson-hist .li")].map((r) => r.textContent.replace(/\s+/g, " ").trim());
+      root().querySelector("#testAdd").click();
+      setTimeout(() => {
+        const r = root();
+        r.querySelector("#tfDate").value = "2026-12-01";
+        r.querySelector("#tfTopic").value = "Past tenses";
+        r.querySelector("#tfGrade").value = "2";
+        r.querySelector("#testForm").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+        setTimeout(() => {
+          const post = apiCalls.find((c) => c.url.endsWith("/api/school-tests/") && c.method === "POST");
+          const after = [...root().querySelectorAll(".st-row")].map((x) => x.textContent.replace(/\s+/g, " ").trim());
+          finish({ schoolTests: { rows, timeline, rosterSub: rosterSub || null, post: post ? post.body : null, after } });
+        }, 80);
+      }, 40);
     }, 80);
     return;
   }

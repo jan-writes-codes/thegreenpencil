@@ -25,6 +25,7 @@ from .models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
     CustomTime, StudentNote, ActiveLesson, SiteSettings, LessonFile,
     VideoConnection, ErrorCard, SessionExercise, SessionFile, CurriculumTopic,
+    SchoolTest,
 )
 from django.db.models import Prefetch
 from . import emails, video
@@ -166,6 +167,19 @@ def serialize_session_file(f):
         "size": f.size,
         "by": (f.uploaded_by.get_full_name() if f.uploaded_by_id and f.uploaded_by else ""),
         "url": f"/api/session-files/{f.pk}/",
+    }
+
+
+def serialize_school_test(t):
+    return {
+        "id": t.pk,
+        "studentId": t.student.slug,
+        "kind": t.kind,
+        "date": t.date.isoformat(),
+        "topic": t.topic,
+        "grade": t.grade,
+        "wentWell": t.went_well,
+        "toImprove": t.to_improve,
     }
 
 
@@ -1039,6 +1053,12 @@ def app_view(request):
         cards_qs = cards_qs.filter(student=user)
     error_cards = [serialize_error_card(c) for c in cards_qs]
 
+    # Schularbeiten / tests: a student gets their own, tutor/admin all.
+    tests_qs = SchoolTest.objects.select_related("student")
+    if is_student:
+        tests_qs = tests_qs.filter(student=user)
+    school_tests = [serialize_school_test(t) for t in tests_qs]
+
     # Active lessons: {slug: [lesson_ids]}
     active_lessons = {}
     for s in visible_students:
@@ -1083,6 +1103,7 @@ def app_view(request):
         "lessonFiles": lesson_files,
         "topics": [serialize_topic(t) for t in CurriculumTopic.objects.all()],
         "errorCards": error_cards,
+        "schoolTests": school_tests,
         "settings": {
             "creditPrice": settings.credit_price,
             "packs": packs,
@@ -2362,6 +2383,82 @@ def api_notes(request, slug):
         return JsonResponse({"ok": True, "date": note.created_at.strftime("%d.%m.%Y")})
     except User.DoesNotExist as e:
         return JsonResponse({"error": str(e)}, status=404)
+
+
+# ---------------------------------------------------------------------------
+# Schularbeiten / tests API
+# ---------------------------------------------------------------------------
+
+SCHOOL_TEST_KINDS = {c for c, _ in SchoolTest.KIND_CHOICES}
+
+
+def _school_test_fields(data, test):
+    """Apply the editable fields present in ``data`` to ``test``; ValueError
+    names the first invalid one."""
+    if "kind" in data:
+        if data["kind"] not in SCHOOL_TEST_KINDS:
+            raise ValueError("unknown kind")
+        test.kind = data["kind"]
+    if "date" in data:
+        try:
+            test.date = date.fromisoformat(str(data["date"]))
+        except ValueError:
+            raise ValueError("invalid date")
+    if "grade" in data:
+        g = data["grade"]
+        if g in (None, ""):
+            test.grade = None
+        elif isinstance(g, int) and not isinstance(g, bool) and 1 <= g <= 5:
+            test.grade = g
+        else:
+            raise ValueError("grade must be 1–5")
+    for key, attr, limit in (("topic", "topic", 200), ("wentWell", "went_well", 2000),
+                             ("toImprove", "to_improve", 2000)):
+        if key in data:
+            setattr(test, attr, str(data[key] or "").strip()[:limit])
+
+
+@require_http_methods(["POST"])
+@require_roles("student", "tutor", "admin")
+def api_school_tests(request):
+    """Add a Schularbeit/test. A student adds their own; tutor/admin name the
+    student by ``studentSlug``."""
+    data = parse_body(request)
+    if request.user.role == "student":
+        student = request.user
+    else:
+        student = User.objects.filter(slug=data.get("studentSlug"), role="student").first()
+        if student is None:
+            return JsonResponse({"error": "unknown student"}, status=400)
+    if not data.get("date"):
+        return JsonResponse({"error": "date required"}, status=400)
+    test = SchoolTest(student=student, created_by=request.user)
+    try:
+        _school_test_fields(data, test)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    test.save()
+    return JsonResponse({"test": serialize_school_test(test)})
+
+
+@require_http_methods(["PUT", "DELETE"])
+@require_roles("student", "tutor", "admin")
+def api_school_test_detail(request, pk):
+    qs = SchoolTest.objects.select_related("student")
+    if request.user.role == "student":
+        qs = qs.filter(student=request.user)
+    test = qs.filter(pk=pk).first()
+    if test is None:
+        return JsonResponse({"error": "not found"}, status=404)
+    if request.method == "DELETE":
+        test.delete()
+        return JsonResponse({"ok": True})
+    try:
+        _school_test_fields(parse_body(request), test)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    test.save()
+    return JsonResponse({"test": serialize_school_test(test)})
 
 
 # ---------------------------------------------------------------------------

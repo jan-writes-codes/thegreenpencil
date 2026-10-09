@@ -523,3 +523,35 @@ class SessionFile(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+
+class SchoolTest(models.Model):
+    """A Schularbeit, test or exam a student has coming up (or had). The
+    student or tutor enters the date; afterwards the grade and a short
+    reflection — what went well, what to work on — so the next lessons know
+    where to focus."""
+    KIND_SCHULARBEIT = 'sa'
+    KIND_TEST = 'test'
+    KIND_MATURA = 'matura'
+    KIND_OTHER = 'other'
+    KIND_CHOICES = [
+        (KIND_SCHULARBEIT, 'Schularbeit'), (KIND_TEST, 'Test'),
+        (KIND_MATURA, 'Matura'), (KIND_OTHER, 'Prüfung'),
+    ]
+
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='school_tests')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_SCHULARBEIT)
+    date = models.DateField()
+    topic = models.CharField(max_length=200, blank=True)   # what it covers
+    grade = models.PositiveSmallIntegerField(null=True, blank=True)  # Austrian 1–5
+    went_well = models.TextField(blank=True)
+    to_improve = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='school_tests_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'created_at']
+
+    def __str__(self):
+        return f'{self.student.slug}: {self.get_kind_display()} {self.date}'

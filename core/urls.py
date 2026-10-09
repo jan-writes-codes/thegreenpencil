@@ -62,6 +62,8 @@ urlpatterns = [
     path('api/availability/', views.api_availability),
     path('api/custom-times/', views.api_custom_times),
     path('api/notes/<str:slug>/', views.api_notes),
+    path('api/school-tests/', views.api_school_tests),
+    path('api/school-tests/<int:pk>/', views.api_school_test_detail),
     path('api/lessons/<str:slug>/', views.api_lessons),
     path('api/topics/', views.api_topics),
     path('api/topics/<str:lesson_id>/', views.api_topic_detail),
