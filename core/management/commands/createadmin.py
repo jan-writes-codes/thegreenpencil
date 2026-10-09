@@ -7,8 +7,17 @@ then log in at ``/login/`` and build tutors and students from the GUI.
 
     python manage.py createadmin                         # interactive prompts
     python manage.py createadmin --email a@b.at --password s3cret --name "Jan H"
+
+``--from-env`` is the non-interactive variant for PaaS build commands (e.g.
+Render's free tier, where there is no shell). It reads ``ADMIN_EMAIL``,
+``ADMIN_PASSWORD`` and optionally ``ADMIN_NAME``, does nothing when the first
+two are unset, and skips silently when that admin already exists, so it is
+safe to run on every deploy:
+
+    python manage.py createadmin --from-env
 """
 import getpass
+import os
 import re
 
 from django.core.management.base import BaseCommand, CommandError
@@ -48,8 +57,26 @@ class Command(BaseCommand):
             "--username",
             help="Auth username (defaults to the slug derived from name/email).",
         )
+        parser.add_argument(
+            "--from-env",
+            action="store_true",
+            help="Read ADMIN_EMAIL/ADMIN_PASSWORD/ADMIN_NAME from the environment; "
+                 "skip if unset or the admin already exists (safe on every deploy).",
+        )
 
     def handle(self, *args, **opts):
+        if opts.get("from_env"):
+            email = (os.environ.get("ADMIN_EMAIL") or "").strip().lower()
+            password = os.environ.get("ADMIN_PASSWORD") or ""
+            if not email or not password:
+                self.stdout.write("createadmin: ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping.")
+                return
+            if User.objects.filter(email__iexact=email).exists():
+                self.stdout.write(f"createadmin: admin {email} already exists — skipping.")
+                return
+            opts.update(email=email, password=password,
+                        name=(os.environ.get("ADMIN_NAME") or "").strip())
+
         email = (opts.get("email") or input("Admin email: ")).strip().lower()
         if not email or "@" not in email:
             raise CommandError("A valid email is required.")

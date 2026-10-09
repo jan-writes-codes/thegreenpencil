@@ -157,6 +157,9 @@ python manage.py seed     # demo students/tutor/admin (all password: "password")
 python manage.py createadmin            # creates ONE admin (prompts for email/pw)
 # ...or non-interactively:
 python manage.py createadmin --email you@thegreenpencil.at --password 'choose-a-strong-one' --name "Your Name"
+# ...or from a build command with no shell (e.g. Render): set ADMIN_EMAIL,
+# ADMIN_PASSWORD and optionally ADMIN_NAME; skips if unset or already created.
+python manage.py createadmin --from-env
 ```
 
 **Do not run `seed` in production.** Skipping it is what keeps prod clean. After

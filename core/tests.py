@@ -3679,3 +3679,37 @@ class SessionPageTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         ActiveLesson.objects.create(student=self.maya, lesson_id="a1-1")
         self.client.force_login(self.maya)
         self.assertEqual(self.client.get(f"/api/lesson-files/download/{fid}/").content, b"%PDF unit1")
+
+
+class CreateAdminFromEnvTests(TestCase):
+    """`createadmin --from-env` (and its `bootstrap_admin` alias) runs in every Render build."""
+
+    def _run(self, cmd="createadmin", **env):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        with mock.patch.dict(os.environ, env, clear=False):
+            for k in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME"):
+                if k not in env:
+                    os.environ.pop(k, None)
+            kwargs = {"from_env": True} if cmd == "createadmin" else {}
+            call_command(cmd, stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_skips_when_env_unset(self):
+        self.assertIn("not set", self._run())
+        self.assertFalse(User.objects.filter(role="admin").exists())
+
+    def test_creates_admin_then_is_idempotent(self):
+        env = {"ADMIN_EMAIL": "Boss@Example.at", "ADMIN_PASSWORD": "pw-123456", "ADMIN_NAME": "Jan Heissenberger"}
+        self._run(**env)
+        u = User.objects.get(email="boss@example.at")
+        self.assertEqual((u.role, u.initials, u.first_name), ("admin", "JH", "Jan"))
+        self.assertTrue(u.check_password("pw-123456"))
+        self.assertIn("already exists", self._run(**env))
+        self.assertEqual(User.objects.filter(email="boss@example.at").count(), 1)
+
+    def test_bootstrap_admin_alias_still_works(self):
+        self._run("bootstrap_admin", ADMIN_EMAIL="a@b.at", ADMIN_PASSWORD="pw-123456")
+        self.assertEqual(User.objects.get(email="a@b.at").role, "admin")
+        self.assertIn("already exists", self._run("bootstrap_admin", ADMIN_EMAIL="a@b.at", ADMIN_PASSWORD="x"))
