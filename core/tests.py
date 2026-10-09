@@ -3602,6 +3602,54 @@ class LessonSummaryTests(FrozenTodayMixin, FluentDataMixin, TestCase):
         self.assertEqual(self.b.summary, "")
 
 
+class LessonPdfTests(FrozenTodayMixin, FluentDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.b = Booking.objects.create(
+            student=self.maya, tutor=self.davit, date=date(2026, 5, 28), time="09:00",
+            title="Past tenses", summary="We compared present perfect → past simple.",
+            homework="Workbook p. 12", tutor_notes="PRIVATE: tired today",
+        )
+        ErrorCard.objects.create(student=self.maya, booking=self.b, tutor=self.davit,
+                                 front="I have seen him yesterday.", back="I saw him yesterday.")
+        ErrorCard.objects.create(student=self.maya, booking=self.b, tutor=self.davit,
+                                 kind="vocab", front="reluctantly", back="widerwillig 🙂")
+        SessionExercise.objects.create(booking=self.b, title="Unit 7, Ex 2",
+                                       link="https://example.com/ex")
+
+    def _get(self, user, pk=None):
+        self.client.force_login(user)
+        return self.client.get(f"/api/bookings/{pk or self.b.pk}/pdf/")
+
+    def test_tutor_and_own_student_get_a_pdf(self):
+        for user in (self.davit, self.maya, self.admin):
+            resp = self._get(user)
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp["Content-Type"], "application/pdf")
+            self.assertTrue(resp.content.startswith(b"%PDF"))
+            self.assertIn("Stunde-2026-05-28-Maya.pdf", resp["Content-Disposition"])
+
+    def test_other_student_cannot_get_it(self):
+        self.assertEqual(self._get(self.ines).status_code, 404)
+
+    def test_requires_auth(self):
+        self.assertEqual(self.client.get(f"/api/bookings/{self.b.pk}/pdf/").status_code, 401)
+
+    def test_private_notes_stay_out(self):
+        from reportlab import rl_config
+        from core.lesson_pdf import render_lesson_pdf
+        with mock.patch.object(rl_config, "pageCompression", 0):  # readable page text
+            raw = render_lesson_pdf(self.b)
+        self.assertIn(b"reluctantly", raw)
+        self.assertIn(b"Workbook p. 12", raw)
+        self.assertNotIn(b"PRIVATE", raw)
+
+    def test_empty_lesson_still_renders(self):
+        empty = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                       date=date(2026, 5, 29), time="09:00")
+        self.assertEqual(self._get(self.davit, empty.pk).status_code, 200)
+
+
 class ErrorCardTests(FrozenTodayMixin, FluentDataMixin, TestCase):
     def setUp(self):
         super().setUp()

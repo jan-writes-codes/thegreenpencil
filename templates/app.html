@@ -411,6 +411,7 @@
   .sx-chip:hover { color: var(--ink); }
   .sx-chip.on { background: var(--c1); border-color: var(--c1); color: #fbf8f1; font-weight: 600; }
   .sx-chip.add { border-style: dashed; color: var(--c1); font-weight: 600; }
+  .sx-chip.pdf { text-decoration: none; color: var(--ink); font-weight: 600; }
   .sx-main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; height: calc(100dvh - 186px); min-height: 520px; }
   .sx-doc { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line);
     border-radius: var(--radius); overflow: hidden; background: color-mix(in oklch, var(--bg-2) 80%, #5c6b5c 8%); }
@@ -3888,6 +3889,7 @@
       <div class="sx-files">
         ${worksheets(b).map(f=>`<button class="sx-chip ${f.id===sx.fileId?"on":""}" data-sheet="${f.id}" title="${esc(f.name)}">${esc(f.name.replace(/\.[^.]+$/, ""))}</button>`).join("")}
         ${tutor ? `<label class="sx-chip add">+ Arbeitsblatt<input type="file" id="sheetUpload" hidden></label><button class="sx-chip add" id="sheetFromMat">+ Aus Lernmaterialien</button>` : ""}
+        <a class="sx-chip pdf" href="/api/bookings/${b._pk}/pdf/" target="_blank" rel="noopener" title="Stundenübersicht als PDF${tutor ? ", zum Verschicken" : ""}">↓ PDF</a>
       </div>`;
     $("#sessBack").onclick=leaveSession;
     if($("#sessTitle")) $("#sessTitle").onchange=()=>{ const v=$("#sessTitle").value.trim(); if(v) saveBooking(b, { title: v }); };

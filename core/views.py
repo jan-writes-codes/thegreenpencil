@@ -31,6 +31,7 @@ from django.db.models import Prefetch
 from . import emails, video
 from .ical import build_tutor_feed
 from .receipts_pdf import render_receipt_pdf
+from .lesson_pdf import lesson_pdf_filename, render_lesson_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -1779,6 +1780,25 @@ def api_session_exercise_detail(request, ex_id):
             e.link = link
     e.save()
     return JsonResponse({"exercise": serialize_exercise(e)})
+
+
+@require_http_methods(["GET"])
+@require_roles("student", "tutor", "admin")
+def api_session_pdf(request, pk):
+    """The lesson's overview as a PDF (summary, vocab, mistakes, exercises,
+    homework, worksheets) for the tutor to send on, or the student to keep.
+    Same access as the lesson page: a student only gets their own lessons."""
+    b = _session_booking(request, pk)
+    if not b:
+        raise Http404
+    try:
+        pdf = render_lesson_pdf(b)
+    except Exception:
+        logger.exception("lesson pdf failed for booking %s", b.pk)
+        return JsonResponse({"error": "pdf_unavailable"}, status=503)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{lesson_pdf_filename(b)}"'
+    return resp
 
 
 @require_http_methods(["POST"])

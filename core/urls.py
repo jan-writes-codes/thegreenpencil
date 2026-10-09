@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/exercises/<int:ex_id>/', views.api_session_exercise_detail),
     path('api/bookings/<int:pk>/files/', views.api_session_files),
     path('api/bookings/<int:pk>/files/import/', views.api_session_file_import),
+    path('api/bookings/<int:pk>/pdf/', views.api_session_pdf),
     path('api/session-files/<int:file_id>/', views.api_session_file_detail),
     path('api/credits/<str:slug>/', views.api_credits),
     path('api/transactions/<int:txn_id>/cancel/', views.api_cancel_transaction),
