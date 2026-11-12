@@ -1,3 +1,6 @@
+import re
+
+from django.conf import settings
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
 
@@ -98,3 +101,44 @@ class AppLanguageMiddleware:
             translation.activate(lang)
             request.LANGUAGE_CODE = lang
         return self.get_response(request)
+
+
+TEST_BANNER_HTML = (
+    '<div id="tgp-test-banner" role="status" style="position:relative;z-index:2147483647;'
+    'margin:0;padding:3px 12px;background:#1d4ed8;color:#fff;'
+    'font:600 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;'
+    'text-align:center;letter-spacing:.02em">'
+    'TESTSYSTEM · E-Mails nur an die Test-Adresse'
+    '</div>'
+)
+
+
+class TestSystemBannerMiddleware:
+    """On the test system only, put a small blue „TESTSYSTEM" bar at the top of
+    every HTML page (public site, app, login, error pages), so nobody mistakes it
+    for production. Off unless settings.IS_TEST_SYSTEM (SENTRY_ENVIRONMENT=test)."""
+
+    _BODY = re.compile(rb"<body\b[^>]*>", re.IGNORECASE)
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if not getattr(settings, "IS_TEST_SYSTEM", False):
+            return response
+        if (
+            getattr(response, "streaming", False)
+            or response.get("Content-Encoding")
+            or "text/html" not in response.get("Content-Type", "")
+        ):
+            return response
+        content = response.content
+        match = self._BODY.search(content)
+        if not match or b'id="tgp-test-banner"' in content:
+            return response
+        banner = TEST_BANNER_HTML.encode()
+        response.content = content[: match.end()] + banner + content[match.end():]
+        if response.has_header("Content-Length"):
+            response["Content-Length"] = str(len(response.content))
+        return response

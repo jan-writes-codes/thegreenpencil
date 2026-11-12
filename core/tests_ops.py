@@ -128,3 +128,33 @@ class CleanupOldDataTests(TestCase):
         self.assertIn("maya", out.getvalue())
         self.assertNotIn("theo", out.getvalue())
         self.assertTrue(User.objects.filter(slug="maya").exists())
+
+
+class TestSystemBannerTests(TestCase):
+    def setUp(self):
+        make_user("davit", "tutor", first_name="Davit")
+
+    @override_settings(IS_TEST_SYSTEM=True)
+    def test_banner_on_every_html_page(self):
+        for path in ["/", "/en/", "/login/", "/faq/", "/impressum/", "/does-not-exist/"]:
+            resp = self.client.get(path)
+            if "text/html" not in resp.get("Content-Type", ""):
+                continue
+            body = resp.content.decode()
+            self.assertEqual(body.count('id="tgp-test-banner"'), 1, path)
+            self.assertLess(body.index("<body"), body.index("tgp-test-banner"), path)
+
+    @override_settings(IS_TEST_SYSTEM=True)
+    def test_banner_in_app_for_logged_in_user(self):
+        self.client.login(username="davit", password="password")
+        resp = self.client.get("/app/")
+        self.assertContains(resp, 'id="tgp-test-banner"', count=1)
+
+    @override_settings(IS_TEST_SYSTEM=True)
+    def test_no_banner_in_non_html(self):
+        self.assertNotIn(b"tgp-test-banner", self.client.get("/robots.txt").content)
+        self.assertNotIn(b"tgp-test-banner", self.client.get("/healthz/").content)
+
+    @override_settings(IS_TEST_SYSTEM=False)
+    def test_no_banner_in_production(self):
+        self.assertNotContains(self.client.get("/"), "tgp-test-banner")

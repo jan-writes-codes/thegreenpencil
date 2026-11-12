@@ -57,6 +57,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.csp.ContentSecurityPolicyMiddleware',
+    # Blue „TESTSYSTEM" bar on every page, only when IS_TEST_SYSTEM.
+    'core.middleware.TestSystemBannerMiddleware',
 ]
 
 ROOT_URLCONF = 'fluent.urls'
