@@ -180,6 +180,16 @@ else:
     # No ESP configured: surface mail in the console rather than failing.
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# On the test system no e-mail may reach a real student, parent or tutor: every
+# message is redirected to EMAIL_TEST_RECIPIENT (see core/mail_backend.py). The
+# redirect is on whenever SENTRY_ENVIRONMENT=test or EMAIL_TEST_RECIPIENT is set.
+# On the test system without EMAIL_TEST_RECIPIENT, mail is dropped, not sent.
+EMAIL_TEST_RECIPIENT = os.environ.get('EMAIL_TEST_RECIPIENT', '').strip()
+IS_TEST_SYSTEM = os.environ.get('SENTRY_ENVIRONMENT', '').lower() == 'test'
+if IS_TEST_SYSTEM or EMAIL_TEST_RECIPIENT:
+    EMAIL_DELIVERY_BACKEND = EMAIL_BACKEND
+    EMAIL_BACKEND = 'core.mail_backend.RedirectToTestRecipientBackend'
+
 # --- Error tracking (Sentry, optional) ---------------------------------------
 # Set SENTRY_DSN to report unhandled exceptions (views, the Stripe webhook,
 # management commands run from cron) to Sentry. Unset, nothing is sent. Create

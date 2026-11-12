@@ -54,6 +54,7 @@ dashboard — `.env` files are gitignored):
 | `SENTRY_DSN` | to report errors | `https://…@o….ingest.de.sentry.io/…` (EU region) |
 | `SENTRY_ENVIRONMENT` | with Sentry | `production` on prod, `test` on the test service |
 | `EMAIL_SUBJECT_PREFIX` | optional | defaults to `[TEST] ` when `SENTRY_ENVIRONMENT=test`, empty otherwise; prepended to every e-mail subject |
+| `EMAIL_TEST_RECIPIENT` | **required on the test service** | the one inbox that gets every test-system e-mail; with `SENTRY_ENVIRONMENT=test` all mail goes only there (original recipients shown in the subject), and without it test mail is dropped. Leave unset on production |
 
 ### Video calls: Zoom / Microsoft Teams (optional)
 
