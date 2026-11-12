@@ -1,4 +1,5 @@
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from datetime import date, timedelta
 from core.models import (
     User, Booking, CreditTransaction, Receipt, AvailabilityOverride,
@@ -9,7 +10,24 @@ from core.models import (
 class Command(BaseCommand):
     help = "Seed the database with initial data"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--allow-anywhere", action="store_true",
+            help="Run even though this is neither a DEBUG nor the test system.",
+        )
+
     def handle(self, *args, **options):
+        # This wipes every user and all their data and creates demo accounts whose
+        # password ("password") is published in this repository. Never on
+        # production: only with DEBUG on (local dev, CI) or on the test system
+        # (SENTRY_ENVIRONMENT=test), unless explicitly overridden.
+        if not (settings.DEBUG or getattr(settings, "IS_TEST_SYSTEM", False)
+                or options.get("allow_anywhere")):
+            raise CommandError(
+                "Refusing to seed: this deletes ALL users and data and creates demo "
+                "logins with a public password. Only allowed with DEBUG on or on the "
+                "test system (SENTRY_ENVIRONMENT=test); pass --allow-anywhere to override."
+            )
         self.stdout.write("Clearing existing data...")
         # Clear in safe order
         ActiveLesson.objects.all().delete()

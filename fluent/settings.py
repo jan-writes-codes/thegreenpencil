@@ -192,6 +192,28 @@ if IS_TEST_SYSTEM or EMAIL_TEST_RECIPIENT:
     EMAIL_DELIVERY_BACKEND = EMAIL_BACKEND
     EMAIL_BACKEND = 'core.mail_backend.RedirectToTestRecipientBackend'
 
+# --- Logging ------------------------------------------------------------------
+# Security events (logins, failed logins, throttling, password and e-mail
+# changes) are written by the "tgp.security" logger to stdout, which Render keeps
+# in the service's Logs tab: filter for "tgp.security". They name the account
+# slug, the e-mail tried and the client IP, never a password or token.
+import sys as _sys
+
+_TESTING = len(_sys.argv) > 1 and _sys.argv[1] == "test"
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(levelname)s %(name)s %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "loggers": {
+        "tgp.security": {
+            "handlers": [] if _TESTING else ["console"],
+            "level": os.environ.get("SECURITY_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
+
 # --- Error tracking (Sentry, optional) ---------------------------------------
 # Set SENTRY_DSN to report unhandled exceptions (views, the Stripe webhook,
 # management commands run from cron) to Sentry. Unset, nothing is sent. Create

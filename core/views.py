@@ -15,6 +15,9 @@ from django.db import IntegrityError, transaction as db_transaction
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.password_validation import (
+    CommonPasswordValidator, UserAttributeSimilarityValidator,
+)
 from django.contrib.auth.tokens import default_token_generator
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -38,6 +41,10 @@ from .receipts_pdf import render_receipt_pdf
 from .lesson_pdf import lesson_pdf_filename, render_lesson_pdf
 
 logger = logging.getLogger(__name__)
+# Security events (failed logins, throttling, password and e-mail changes) go to
+# their own logger so they can be filtered in the Render logs. Never log
+# passwords or tokens here.
+security_log = logging.getLogger("tgp.security")
 
 # Stripe is an optional dependency: the app must import and run without it (the
 # tutor-mediated purchase flow is always available). When the package is missing
@@ -118,6 +125,24 @@ def serialize_user(u):
             "city": u.billing_city,
             "country": u.billing_country,
         },
+    }
+
+
+def serialize_tutor_public(u):
+    """What a student's app needs about a tutor: who they are and how they look.
+    No billing address, birthday, balances or schedule (serialize_user has those)."""
+    return {
+        "id": u.slug,
+        "slug": u.slug,
+        "name": u.get_full_name() or u.username,
+        "email": u.email,
+        "initials": u.initials,
+        "color1": u.color1,
+        "color2": u.color2,
+        "photo": u.photo,
+        "avatarEmoji": u.avatar_emoji,
+        "avatarBg": u.avatar_bg,
+        "role": u.role,
     }
 
 
@@ -766,6 +791,9 @@ def _throttled(key, limit, window):
 
 TOO_MANY = "Zu viele Versuche. Bitte warte ein paar Minuten."
 
+# Loaded once: the validator reads its ~20,000-entry list from disk.
+_COMMON_PASSWORDS = CommonPasswordValidator()
+
 
 def acting_tutor(request, slug=None):
     """The tutor a tutor/admin action is attributed to.
@@ -1268,7 +1296,8 @@ def app_view(request):
         "currentUserPk": user.pk,
         "currentUser": serialize_user(user),
         "students": [serialize_user(s) for s in visible_students],
-        "tutors": [serialize_user(t) for t in tutors],
+        # A student only gets the tutors' public card, not their private details.
+        "tutors": [serialize_tutor_public(t) if is_student else serialize_user(t) for t in tutors],
         "bookings": bookings_payload,
         "transactions": transactions,
         "allTransactions": all_transactions,
@@ -1340,7 +1369,11 @@ def api_login(request):
     if not email:
         return JsonResponse({"error": "Gib deine E-Mail ein"}, status=400)
     # Brute-force guard, keyed on IP + address so nobody can lock out someone else.
-    if _throttled(f"login:{_client_ip(request)}:{email}", 10, 15 * 60):
+    ip = _client_ip(request)
+    # A second, wider cap per IP stops one address from trying a password
+    # against many accounts (password spraying).
+    if _throttled(f"login:{ip}:{email}", 10, 15 * 60) or _throttled(f"login-ip:{ip}", 50, 15 * 60):
+        security_log.warning("login throttled ip=%s email=%s", ip, email)
         return JsonResponse({"error": TOO_MANY}, status=429)
     # Single generic message for both unknown-email and wrong-password so the
     # endpoint can't be used to enumerate which emails have accounts.
@@ -1349,8 +1382,10 @@ def api_login(request):
     if user_obj is not None:
         user_obj = authenticate(request, username=user_obj.username, password=password)
     if user_obj is None:
+        security_log.info("login failed ip=%s email=%s", ip, email)
         return JsonResponse({"error": INVALID}, status=400)
     login(request, user_obj)
+    security_log.info("login ok user=%s role=%s ip=%s", user_obj.slug, user_obj.role, ip)
     # A language picked on the login page becomes the account's language.
     picked = request.COOKIES.get(LANGUAGE_COOKIE)
     if picked in ("de", "en") and picked != user_obj.language:
@@ -1390,15 +1425,24 @@ def api_logout(request):
     return JsonResponse({"ok": True})
 
 
-def validate_new_password(password):
-    """German-language sanity rules for a self-chosen password. Returns an
-    error message, or None when the password is acceptable. Deliberately
-    minimal (mirrors Django's MinimumLength/NumericPassword validators) —
-    the rest of the API validates by hand in German the same way."""
+def validate_new_password(password, user=None):
+    """German-language rules for a self-chosen password. Returns an error
+    message, or None when the password is acceptable: at least 8 characters,
+    not only digits, not on the list of ~20,000 common passwords and not too
+    close to the account's name or e-mail."""
     if not password or len(password) < 8:
         return "Das Passwort muss mindestens 8 Zeichen lang sein."
     if password.isdigit():
         return "Das Passwort darf nicht nur aus Zahlen bestehen."
+    try:
+        _COMMON_PASSWORDS.validate(password)
+    except ValidationError:
+        return "Dieses Passwort ist zu verbreitet und leicht zu erraten. Bitte wähle ein anderes."
+    if user is not None:
+        try:
+            UserAttributeSimilarityValidator().validate(password, user)
+        except ValidationError:
+            return "Das Passwort ist deinem Namen oder deiner E-Mail zu ähnlich."
     return None
 
 
@@ -1431,11 +1475,18 @@ def api_change_password(request):
     """Logged-in user sets their own password — the forced step after first
     login with a handed-over temp password (or after an admin overwrote it)."""
     data = parse_body(request)
+    user = request.user
+    # Outside the forced first-login step, changing the password (and with it
+    # the login e-mail) needs the current one: a hijacked or unattended session
+    # must not be enough to take the account over for good.
+    if not user.must_change_password and not user.check_password(data.get("currentPassword") or ""):
+        security_log.warning("password change refused (wrong current password) user=%s ip=%s",
+                             user.slug, _client_ip(request))
+        return JsonResponse({"error": "Das aktuelle Passwort stimmt nicht."}, status=400)
     password = data.get("password") or ""
-    problem = validate_new_password(password)
+    problem = validate_new_password(password, user)
     if problem:
         return JsonResponse({"error": problem}, status=400)
-    user = request.user
     # Optional: their own e-mail address in the same step (it's also the login).
     if (data.get("email") or "").strip():
         new_email = data["email"].strip().lower()
@@ -1445,8 +1496,11 @@ def api_change_password(request):
             return JsonResponse({"error": "Bitte eine gültige E-Mail-Adresse eingeben."}, status=400)
         if User.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
             return JsonResponse({"error": "Diese E-Mail wird bereits verwendet."}, status=400)
+        if new_email != (user.email or "").lower() and not user.must_change_password:
+            emails.queue_email(emails.send_email_changed, user.pk, user.email)
         user.email = new_email
     _set_own_password(user, password)
+    security_log.info("password changed user=%s ip=%s", user.slug, _client_ip(request))
     # Keep the current session alive across the hash change (every *other*
     # session, e.g. one still holding the temp password, is invalidated).
     update_session_auth_hash(request, user)
@@ -1464,7 +1518,8 @@ def api_password_forgot(request):
     if not email:
         return JsonResponse({"error": "Gib deine E-Mail ein"}, status=400)
     # Caps reset mails per address, so the form can't be used to mail-bomb anyone.
-    if _throttled(f"forgot:{email}", 5, 60 * 60):
+    if _throttled(f"forgot:{email}", 5, 60 * 60) or _throttled(f"forgot-ip:{_client_ip(request)}", 30, 60 * 60):
+        security_log.warning("password reset throttled ip=%s email=%s", _client_ip(request), email)
         return JsonResponse({"error": TOO_MANY}, status=429)
     user = User.objects.filter(email__iexact=email).first()
     if user is not None:
@@ -1481,6 +1536,8 @@ def api_password_reset(request):
     uid+token plus the new password. The token is re-checked here — the GET
     page render is not the security gate."""
     data = parse_body(request)
+    if _throttled(f"reset-ip:{_client_ip(request)}", 30, 60 * 60):
+        return JsonResponse({"error": TOO_MANY}, status=429)
     user = _reset_link_user(data.get("uid"), data.get("token"))
     if user is None:
         return JsonResponse(
@@ -1488,10 +1545,11 @@ def api_password_reset(request):
             status=400,
         )
     password = data.get("password") or ""
-    problem = validate_new_password(password)
+    problem = validate_new_password(password, user)
     if problem:
         return JsonResponse({"error": problem}, status=400)
     _set_own_password(user, password)
+    security_log.info("password reset via e-mail link user=%s ip=%s", user.slug, _client_ip(request))
     emails.queue_email(emails.send_password_changed, user.pk)
     return JsonResponse({"ok": True})
 
@@ -1632,14 +1690,16 @@ def api_bookings(request):
         time_str = data["time"]
         if not _TIME_RE.match(str(time_str)):
             raise ValueError("invalid time")
-        title = data.get("title", "English session")
-    except (KeyError, User.DoesNotExist, ValueError) as e:
+        title = str(data.get("title") or "English session")[:200]
+    except (KeyError, User.DoesNotExist, ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
     # Logging a past ("forgotten") session is a tutor/admin action, bounded to a
     # 30-day look-back so old history can't be silently rewritten. Students never
     # book in the past (their UI only offers future slots).
     today = timezone.localdate()
+    if booking_date < today and request.user.role == "student":
+        return JsonResponse({"error": "past_date"}, status=400)
     if booking_date < today and request.user.role in ("tutor", "admin"):
         if (today - booking_date).days > BACKDATE_LIMIT_DAYS:
             return JsonResponse(
@@ -1764,15 +1824,25 @@ def api_booking_detail(request, pk):
     # PUT
     data = parse_body(request)
     old_slot = (b.date, b.time)
+    moving = (("date" in data and data["date"] != b.date.isoformat())
+              or ("time" in data and data["time"] != b.time))
     # A seat in a group session moves only with the whole group (tutor side).
-    if b.group_session and is_student and (
-            ("date" in data and data["date"] != b.date.isoformat())
-            or ("time" in data and data["time"] != b.time)):
+    if b.group_session and is_student and moving:
         return JsonResponse({"error": "group_session"}, status=400)
+    # Same rule as the app's "Umbuchen" button: a student may move a confirmed
+    # lesson only while it is more than 24h away (else moving it, which turns
+    # it back into a request, and then cancelling would dodge the forfeit).
+    if is_student and moving and not b.is_requested and _booking_within_24h(b):
+        return JsonResponse({"error": "within_24h"}, status=400)
     if "title" in data:
-        b.title = data["title"]
+        b.title = str(data["title"] or "")[:200]
     if "date" in data:
-        b.date = date.fromisoformat(data["date"])
+        try:
+            b.date = date.fromisoformat(str(data["date"]))
+        except ValueError:
+            return JsonResponse({"error": "invalid date"}, status=400)
+        if is_student and moving and b.date < timezone.localdate():
+            return JsonResponse({"error": "past_date"}, status=400)
     if "time" in data:
         if not _TIME_RE.match(str(data["time"])):
             return JsonResponse({"error": "invalid time"}, status=400)
@@ -1792,13 +1862,13 @@ def api_booking_detail(request, pk):
         b.status = Booking.STATUS_REQUESTED
         b.requested_at = timezone.now()
     if "notes" in data:
-        b.notes = data["notes"]
+        b.notes = str(data["notes"] or "")[:5000]
     if "homeworkDone" in data:
         b.homework_done = bool(data["homeworkDone"])
     # tutorNotes and callLink are tutor-owned fields — students can't set them.
     if not is_student:
         if "tutorNotes" in data:
-            b.tutor_notes = data["tutorNotes"]
+            b.tutor_notes = str(data["tutorNotes"] or "")[:5000]
         if "summary" in data:
             b.summary = str(data["summary"] or "")[:5000]
         if "homework" in data:
@@ -2156,6 +2226,11 @@ def api_session_files(request, pk):
     f = request.FILES.get("file")
     if not f:
         return JsonResponse({"error": "Keine Datei hochgeladen."}, status=400)
+    # Files are stored in the (small) database: cap how fast a student account
+    # can fill it.
+    if request.user.role == "student" and _throttled(f"upload:{request.user.pk}", 30, 60 * 60):
+        security_log.warning("upload throttled user=%s", request.user.slug)
+        return JsonResponse({"error": TOO_MANY}, status=429)
     name = (f.name or "datei")[:255]
     if file_ext(name) not in ALLOWED_LESSON_EXTS:
         return JsonResponse(
@@ -2508,18 +2583,21 @@ def api_cancel_transaction(request, txn_id):
 
 def _apply_name(u, name):
     """Set the display name everywhere it's derived: first/last, billing, initials."""
-    name = name or ""
-    u.first_name, _, u.last_name = name.strip().partition(" ")
+    name = str(name or "").strip()[:150]
+    u.first_name, _, u.last_name = name.partition(" ")
     u.billing_name = name
     u.initials = compute_initials(name)
 
 
+_BILLING_LIMITS = {"line1": 200, "postcode": 20, "city": 100}
+
+
 def _apply_billing(u, data):
-    for field in ("line1", "postcode", "city"):
+    for field, limit in _BILLING_LIMITS.items():
         if field in data:
-            setattr(u, f"billing_{field}", data[field])
+            setattr(u, f"billing_{field}", str(data[field] or "")[:limit])
     if "country" in data:
-        u.billing_country = data["country"] or "Österreich"
+        u.billing_country = str(data["country"] or "")[:100] or "Österreich"
 
 
 @require_http_methods(["PUT"])
@@ -2535,11 +2613,19 @@ def api_billing(request):
         # Email is the login identifier — keep it unique.
         if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
             return JsonResponse({"error": "Diese E-Mail wird bereits verwendet."}, status=400)
+        old_email = request.user.email
         request.user.email = new_email
+    else:
+        old_email = request.user.email
     if "name" in data:
         _apply_name(request.user, data["name"])
     _apply_billing(request.user, data)
     request.user.save()
+    if (old_email or "").lower() != (request.user.email or "").lower():
+        # The e-mail is the login: tell the old address, so a takeover through a
+        # hijacked session doesn't go unnoticed.
+        security_log.info("login e-mail changed user=%s ip=%s", request.user.slug, _client_ip(request))
+        emails.queue_email(emails.send_email_changed, request.user.pk, old_email)
     return JsonResponse({"ok": True})
 
 
@@ -2955,6 +3041,8 @@ def api_availability(request):
     try:
         d = date.fromisoformat(data["date"])
         time_str = data["time"]
+        if not _TIME_RE.match(str(time_str)):
+            raise ValueError("invalid time")
         is_open = bool(data.get("isOpen", True))
         tutor = acting_tutor(request, data.get("tutorSlug"))
         if tutor is None:
@@ -2981,6 +3069,8 @@ def api_custom_times(request):
     try:
         d = date.fromisoformat(data["date"])
         time_str = data["time"]
+        if not _TIME_RE.match(str(time_str)):
+            raise ValueError("invalid time")
         tutor = acting_tutor(request, data.get("tutorSlug"))
         if tutor is None:
             return JsonResponse({"error": "unknown tutor"}, status=400)

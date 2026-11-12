@@ -1,0 +1,15 @@
+# Weekly pull requests for outdated or vulnerable Python packages and GitHub
+# Actions, opened against `development` so they go through the test system first.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    target-branch: development
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    target-branch: development
+    schedule:
+      interval: weekly

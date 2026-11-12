@@ -57,9 +57,9 @@ def _expired_cache_rows(now, apply):
     table = connection.ops.quote_name(cache_conf["LOCATION"])
     with connection.cursor() as cursor:
         if apply:
-            cursor.execute(f"DELETE FROM {table} WHERE expires < %s", [now])
+            cursor.execute(f"DELETE FROM {table} WHERE expires < %s", [now])  # nosec B608 - table name from settings, quoted
             return cursor.rowcount
-        cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE expires < %s", [now])
+        cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE expires < %s", [now])  # nosec B608 - table name from settings, quoted
         return cursor.fetchone()[0]
 
 

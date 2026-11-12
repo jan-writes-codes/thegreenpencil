@@ -15,6 +15,7 @@ from datetime import timedelta, timezone as dt_timezone
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.utils.html import escape
 from django.utils import timezone
 from django.utils.translation import get_language
 
@@ -578,7 +579,7 @@ def send_purchase_notifications(receipt_id):
              f"thank you for buying {receipt.credits} credits! Attached is your receipt "
              f"{receipt.number} from {receipt.date_str} as a PDF.",
              "Your credits are ready to use right away."],
-            [f"Hi {receipt.student_name},",
+            [f"Hi {escape(receipt.student_name)},",
              f"thank you for buying <strong>{receipt.credits} credits</strong>! Attached is "
              f"your receipt <strong>{receipt.number}</strong> from {receipt.date_str} as a PDF.",
              "Your credits are ready to use right away."],
@@ -592,7 +593,7 @@ def send_purchase_notifications(receipt_id):
              f"vielen Dank für deinen Kauf von {receipt.credits} Einheiten! Im Anhang "
              f"findest du deinen Beleg {receipt.number} vom {receipt.date_str} als PDF.",
              "Deine Einheiten stehen dir ab sofort zur Verfügung."],
-            [f"Hallo {receipt.student_name},",
+            [f"Hallo {escape(receipt.student_name)},",
              f"vielen Dank für deinen Kauf von <strong>{receipt.credits} Einheiten</strong>! "
              f"Im Anhang findest du deinen Beleg <strong>{receipt.number}</strong> vom "
              f"{receipt.date_str} als PDF.",
@@ -607,7 +608,7 @@ def send_purchase_notifications(receipt_id):
             subject, [business],
             [f"{receipt.student_name} hat {receipt.credits} Einheiten gekauft.",
              f"Der Beleg {receipt.number} vom {receipt.date_str} ist als PDF angehängt."],
-            [f"<strong>{receipt.student_name}</strong> hat "
+            [f"<strong>{escape(receipt.student_name)}</strong> hat "
              f"<strong>{receipt.credits} Einheiten</strong> gekauft.",
              f"Der Beleg <strong>{receipt.number}</strong> vom {receipt.date_str} ist als PDF angehängt."],
             pdf, pdf_name,
@@ -637,7 +638,7 @@ def send_storno_notifications(receipt_id):
              f"your purchase of {n} credits (receipt {original_no}) has been cancelled and the "
              f"amount refunded. Attached is the cancellation receipt {receipt.number} "
              f"from {receipt.date_str} as a PDF."],
-            [f"Hi {receipt.student_name},",
+            [f"Hi {escape(receipt.student_name)},",
              f"your purchase of <strong>{n} credits</strong> (receipt {original_no}) has been "
              f"cancelled and the amount refunded. Attached is the cancellation receipt "
              f"<strong>{receipt.number}</strong> from {receipt.date_str} as a PDF."],
@@ -651,7 +652,7 @@ def send_storno_notifications(receipt_id):
              f"dein Kauf von {n} Einheiten (Beleg {original_no}) wurde storniert und der "
              f"Betrag erstattet. Im Anhang findest du den Storno-Beleg {receipt.number} "
              f"vom {receipt.date_str} als PDF."],
-            [f"Hallo {receipt.student_name},",
+            [f"Hallo {escape(receipt.student_name)},",
              f"dein Kauf von <strong>{n} Einheiten</strong> (Beleg {original_no}) wurde "
              f"storniert und der Betrag erstattet. Im Anhang findest du den Storno-Beleg "
              f"<strong>{receipt.number}</strong> vom {receipt.date_str} als PDF."],
@@ -665,7 +666,7 @@ def send_storno_notifications(receipt_id):
             [f"Der Kauf von {receipt.student_name} über {n} Einheiten (Beleg {original_no}) "
              f"wurde storniert und erstattet.",
              f"Der Storno-Beleg {receipt.number} vom {receipt.date_str} ist als PDF angehängt."],
-            [f"Der Kauf von <strong>{receipt.student_name}</strong> über "
+            [f"Der Kauf von <strong>{escape(receipt.student_name)}</strong> über "
              f"<strong>{n} Einheiten</strong> (Beleg {original_no}) wurde storniert und erstattet.",
              f"Der Storno-Beleg <strong>{receipt.number}</strong> vom {receipt.date_str} ist als PDF angehängt."],
             pdf, pdf_name,
@@ -741,6 +742,29 @@ def send_password_changed(user_id):
         render_to_string(_tpl("password_changed.txt", lang), ctx),
         render_to_string(_tpl("password_changed.html", lang), ctx),
     )
+    msg.send()
+
+
+def send_email_changed(user_id, old_email):
+    """Tell the *previous* address that the login e-mail was changed, with the
+    same 'that wasn't me' path as the password notice: if a session was
+    hijacked, the real owner still hears about it."""
+    user = User.objects.filter(pk=user_id).first()
+    old = (old_email or "").strip()
+    if not user or not old or old.lower() == f"{user.slug}@fluent.at".lower():
+        return
+    lang = _lang(user)
+    new = user.email or ""
+    if lang == "en":
+        subject = "Your login e-mail was changed · The Green Pencil"
+        lines = ["Hi,", f"the login e-mail of your account was changed to {new}.",
+                 f"If that wasn't you, write to {SECURITY_CONTACT} right away."]
+    else:
+        subject = "Deine Login-E-Mail wurde geändert · The Green Pencil"
+        lines = ["Hallo,", f"die Login-E-Mail deines Kontos wurde auf {new} geändert.",
+                 f"Warst das nicht du? Dann schreib bitte sofort an {SECURITY_CONTACT}."]
+    msg = _message(subject, [old], "\n\n".join(lines),
+                   _mail_html([escape(ln) for ln in lines], lang))
     msg.send()
 
 

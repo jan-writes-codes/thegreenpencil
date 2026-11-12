@@ -104,7 +104,7 @@
         if (!consent.checked) return;
         btn.disabled = true;
         msg.textContent = "Einen Moment …";
-        fetch("/settle/{{ token }}/checkout/", { method: "POST" })
+        fetch("/settle/{{ token|escapejs }}/checkout/", { method: "POST" })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (d) {
             if (d && d.url) { window.location.href = d.url; }

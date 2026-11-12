@@ -904,7 +904,9 @@ class AuthorizationTests(FluentDataMixin, TestCase):
 
     def test_student_can_manage_own_booking(self):
         self.client.force_login(self.maya)
-        mine = Booking.objects.create(student=self.maya, tutor=self.davit, date=date(2026, 6, 8), time="09:30")
+        # A week ahead: a student may only move a lesson that is more than 24h away.
+        mine = Booking.objects.create(student=self.maya, tutor=self.davit,
+                                      date=timezone.localdate() + timedelta(days=7), time="09:30")
         self.assertEqual(self._put(f"/api/bookings/{mine.pk}/", {"time": "10:30", "notes": "hi"}).status_code, 200)
         mine.refresh_from_db()
         self.assertEqual(mine.time, "10:30")

@@ -1,0 +1,29 @@
+# Weekly security scan: known CVEs in the Python dependencies (pip-audit) and
+# static analysis of the code (bandit, medium severity and up). Runs on a
+# schedule and by hand only, so a newly published CVE never blocks a deploy;
+# a failing run shows up in the Actions tab and GitHub e-mails the owner.
+name: Security scan
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install scanners
+        run: pip install pip-audit bandit
+      - name: Dependency CVEs (pip-audit)
+        run: pip-audit -r requirements.txt
+      - name: Static analysis (bandit)
+        run: bandit -r core fluent -x core/migrations,core/tests.py,core/tests_groups.py,core/tests_ops.py,core/tests_mail_redirect.py,core/tests_security.py -ll

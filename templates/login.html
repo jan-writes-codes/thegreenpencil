@@ -229,8 +229,8 @@
   // "force" = signed in but still on a handed-over password; "reset" = opened
   // via a valid e-mailed reset link (uid/token below feed the submit).
   const MODE = "{{ mode|default:'login' }}";
-  const RESET_UID = "{{ uid|default:'' }}";
-  const RESET_TOKEN = "{{ token|default:'' }}";
+  const RESET_UID = "{{ uid|default:''|escapejs }}";
+  const RESET_TOKEN = "{{ token|default:''|escapejs }}";
   const $ = (s) => document.querySelector(s);
   const authErr = (m) => { $("#authErr").textContent = m; };
   const setpassErr = (m) => { $("#setpassErr").textContent = m; };

@@ -79,9 +79,13 @@ def _http(method, url, *, headers=None, form=None, json_body=None):
     elif json_body is not None:
         data = json.dumps(json_body).encode()
         headers["Content-Type"] = "application/json"
+    # Only ever the providers' fixed HTTPS endpoints; never file:// or a
+    # plain-HTTP URL, whatever ends up in ``url``.
+    if not url.startswith("https://"):
+        raise VideoError(f"refusing non-HTTPS URL for {method}")
     req = urlrequest.Request(url, data=data, headers=headers, method=method)
     try:
-        with urlrequest.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+        with urlrequest.urlopen(req, timeout=HTTP_TIMEOUT) as resp:  # nosec B310 - https only, checked above
             body = resp.read()
     except urlerror.HTTPError as e:
         detail = ""
