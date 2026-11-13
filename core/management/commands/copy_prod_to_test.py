@@ -20,13 +20,18 @@ Safety:
   history, so a newer test schema is left intact;
 * tutors' Zoom/Teams OAuth tokens (``core_videoconnection``) are not copied;
 * aborts if production has a table or column the target lacks (run
-  ``migrate`` on the target first).
+  ``migrate`` on the target first);
+* columns only the target has (a migration not yet on production) are filled
+  with the model field's default while copying, since Django defaults are not
+  database defaults and COPY would otherwise leave NOT NULL columns empty.
 
 This copies real personal data. Unset both env vars afterwards.
 """
 import os
 
 import psycopg
+from django.apps import apps
+from django.db import connection
 from django.core.management.base import BaseCommand, CommandError
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
@@ -56,6 +61,33 @@ def _columns(conn):
     out = {}
     for table, column in rows:
         out.setdefault(table, []).append(column)
+    return out
+
+
+def _required_columns(conn):
+    """{(table, column)} of NOT NULL columns without a database default."""
+    rows = conn.execute(
+        """
+        select table_name::text, column_name::text
+        from information_schema.columns
+        where table_schema = 'public' and is_nullable = 'NO'
+          and column_default is null
+        """
+    ).fetchall()
+    return set(rows)
+
+
+def _model_defaults():
+    """{(table, column): database value of the Django field default}."""
+    out = {}
+    for model in apps.get_models(include_auto_created=True):
+        for field in model._meta.concrete_fields:
+            # get_default() is the explicit default, or "" for a text field
+            # without one (what Django itself stores); None means there is none.
+            value = field.get_default()
+            if value is not None:
+                value = field.get_db_prep_save(value, connection)
+                out[(model._meta.db_table, field.column)] = value
     return out
 
 
@@ -90,6 +122,28 @@ class Command(BaseCommand):
                 if missing:
                     raise CommandError(f"Target {table} lacks columns {sorted(missing)}.")
 
+            # Columns production doesn't have yet would arrive as NULL. Give the
+            # NOT NULL ones the model default for the copy (DDL is transactional,
+            # so the defaults are dropped again in the same transaction).
+            required, defaults = _required_columns(tgt), _model_defaults()
+            filled = []
+            for table in tables:
+                for col in tgt_cols[table]:
+                    if col in src_cols[table] or (table, col) not in required:
+                        continue
+                    if (table, col) not in defaults:
+                        raise CommandError(
+                            f"Target {table}.{col} is NOT NULL with no default and "
+                            "production doesn't have it; can't fill it."
+                        )
+                    filled.append((table, col))
+                    tgt.execute(
+                        sql.SQL("alter table {} alter column {} set default {}").format(
+                            sql.Identifier(table), sql.Identifier(col),
+                            sql.Literal(defaults[(table, col)]),
+                        )
+                    )
+
             # One transaction on the target: wipe, refill, reset sequences.
             tgt.execute(
                 sql.SQL("truncate {} restart identity cascade").format(
@@ -108,6 +162,18 @@ class Command(BaseCommand):
                         inp.write(chunk)
                 count = tgt.execute(sql.SQL("select count(*) from {}").format(ident)).fetchone()[0]
                 self.stdout.write(f"  {table}: {count} rows")
+
+            # Run the deferred FK checks now: ALTER TABLE refuses while
+            # trigger events are still pending.
+            if filled:
+                tgt.execute("set constraints all immediate")
+            for table, col in filled:
+                tgt.execute(
+                    sql.SQL("alter table {} alter column {} drop default").format(
+                        sql.Identifier(table), sql.Identifier(col)
+                    )
+                )
+                self.stdout.write(f"  {table}.{col}: not in production, filled with the default")
 
             # COPY doesn't advance sequences; bring them past the copied ids.
             for table in tables:
